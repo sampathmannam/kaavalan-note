@@ -142,11 +142,11 @@ private fun ShareReceiverInvisible() {
  *
  * [ShareReceiverActivity] is an exported share target, so the URI that
  * arrives belongs to the sender and not to us. Any installed app can
- * send `image/*` with one it never granted. An ordinary share reaches
- * the same throw by accident whenever the photo is cloud-only, in a
- * format ML Kit cannot decode, or backed by a temp file the sender
- * deletes before the OCR gets to it. Sharing a picture into a notes app
- * should at worst open an empty capture sheet.
+ * send an image share carrying a URI it never granted. An ordinary
+ * share reaches the same throw by accident whenever the photo is
+ * cloud-only, in a format ML Kit cannot decode, or backed by a temp
+ * file the sender deletes before the OCR gets to it. Sharing a picture
+ * into a notes app should at worst open an empty capture sheet.
  *
  * Cancellation is rethrown so the caller's `invokeOnCompletion` still
  * sees a cancelled job and forwards on its own.
