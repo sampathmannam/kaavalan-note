@@ -34,6 +34,14 @@ import org.robolectric.annotation.Config
  * on `NotSignedIn` so the worker stops polluting the log
  * after the first miss. The user re-enables the schedule
  * on the next manual sign-in.
+ *
+ * v2.2.1: the stubs target `backUpWithKeyMaterial`, the entry
+ * point the worker now calls. Note what these tests do NOT
+ * cover: the manager is mocked out entirely, so no assertion
+ * here can see which key material reaches the crypto. That is
+ * why the key-derivation mismatch that made every automatic
+ * backup unreadable survived until
+ * [BackupCryptoTest] exercised the real round trip.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
@@ -82,7 +90,7 @@ class DriveBackupWorkerTest {
         // on every cold start of a device that had never
         // signed in. v2.1.1 returns Result.failure.
         every { securePreferences.getBackupEncryptionKeyHash() } returns "hash"
-        coEvery { driveBackupManager.backUpNow(any()) } throws
+        coEvery { driveBackupManager.backUpWithKeyMaterial(any()) } throws
             DriveBackupManager.DriveBackupException.NotSignedIn()
 
         val worker = TestListenableWorkerBuilder<DriveBackupWorker>(context)
@@ -106,7 +114,7 @@ class DriveBackupWorkerTest {
         every { securePreferences.getBackupEncryptionKeyHash() } returns "hash"
         val file = mockk<DriveRestApi.DriveFile>()
         every { file.sizeBytes } returns 1024L
-        coEvery { driveBackupManager.backUpNow(any()) } returns file
+        coEvery { driveBackupManager.backUpWithKeyMaterial(any()) } returns file
 
         val worker = TestListenableWorkerBuilder<DriveBackupWorker>(context)
             .setWorkerFactory(testWorkerFactory())
@@ -121,7 +129,7 @@ class DriveBackupWorkerTest {
         every { securePreferences.getBackupEncryptionKeyHash() } returns "hash"
         val file = mockk<DriveRestApi.DriveFile>()
         every { file.sizeBytes } returns 0L
-        coEvery { driveBackupManager.backUpNow(any()) } returns file
+        coEvery { driveBackupManager.backUpWithKeyMaterial(any()) } returns file
 
         val worker = TestListenableWorkerBuilder<DriveBackupWorker>(context)
             .setWorkerFactory(testWorkerFactory())
