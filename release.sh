@@ -120,19 +120,15 @@ if [ ! -f "$FINGERPRINT_FILE" ]; then
   printf '%s\n' "$FINGERPRINT" > "$FINGERPRINT_FILE"
   cat <<EOF
 
-  This is the FIRST release. The signing certificate fingerprint has been
+  First release from this key. The signing certificate fingerprint is now
   pinned to:
 
       $FINGERPRINT
 
   Written to $FINGERPRINT_FILE — commit it. Every future release must match
-  it, or this script refuses to publish. This is the fingerprint your users'
-  phones will bind to; if you ever lose the keystore behind it, nobody can
-  update without uninstalling and losing their data.
+  it, or this script refuses to publish.
 
 EOF
-  read -r -p "  Keystore backed up somewhere off this Mac? [yes/no] " CONFIRM
-  [ "$CONFIRM" = "yes" ] || die "back the keystore up first, then re-run. This is the one unrecoverable step."
 else
   PINNED="$(tr -d '[:space:]' < "$FINGERPRINT_FILE")"
   if [ "$(tr -d '[:space:]' <<<"$FINGERPRINT")" != "$PINNED" ]; then
@@ -144,6 +140,27 @@ else
     to move forward. Find the original keystore."
   fi
   ok "signed with the pinned release key"
+fi
+
+# The backup confirmation is deliberately NOT tied to whether the
+# fingerprint file exists. The fingerprint is committed, so it is present
+# on a fresh clone from the very first run on a new machine -- if the
+# prompt hung off that, a new machine would never be asked. It hangs off a
+# gitignored per-machine marker instead, so each machine that can sign is
+# asked exactly once.
+BACKUP_MARKER="release/.keystore-backed-up"
+if [ ! -f "$BACKUP_MARKER" ]; then
+  cat <<EOF
+
+  Losing the keystore behind this fingerprint means nobody can update
+  without uninstalling and losing their data. There is no recovery.
+
+  Keystore: $(grep -m1 '^KAAVALAN_RELEASE_STORE_FILE=' local.properties 2>/dev/null | cut -d= -f2-)
+
+EOF
+  read -r -p "  Is that file backed up somewhere OTHER than this machine? [yes/no] " CONFIRM
+  [ "$CONFIRM" = "yes" ] || die "back the keystore up first, then re-run. This is the one unrecoverable step."
+  touch "$BACKUP_MARKER"
 fi
 
 # --- publish --------------------------------------------------------------

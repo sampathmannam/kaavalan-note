@@ -174,3 +174,6 @@ tmp/
 *.bak
 test_summary.txt
 .sdd/
+
+# per-machine marker: the release keystore has been backed up off this machine
+release/.keystore-backed-up
