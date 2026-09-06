@@ -92,6 +92,11 @@ class HomeViewModelTest {
         tagDao = tagDao,
         tagRepository = tagRepository,
         vaultModeHolder = vaultModeHolder,
+        // v2.x: only feeds `deviceOwnerName` (the "from" on a
+        // dispatched instruction); none of these tests exercise it.
+        userDao = io.mockk.mockk(relaxed = true) {
+            every { observeDeviceOwner() } returns MutableStateFlow(null).asStateFlow()
+        },
     )
 
     @Test

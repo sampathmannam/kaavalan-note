@@ -12,6 +12,7 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import androidx.core.content.IntentCompat
 import android.os.ResultReceiver
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -82,10 +83,28 @@ class VoiceCaptureService : Service() {
     }
 
     private fun handleStart(intent: Intent) {
-        // v1.6.7: getParcelableExtra(String) is deprecated in T+;
-        // replaced with the class-overload getParcelableExtra(name, clazz)
-        // which gives a typed return.
-        val receiver: ResultReceiver? = intent.getParcelableExtra(
+        // v2.1.2 (crash fix): use the AndroidX compat shim.
+        //
+        // v1.6.7 replaced the deprecated `getParcelableExtra(String)`
+        // with the typed two-argument overload
+        // `getParcelableExtra(String, Class)` to silence the
+        // deprecation warning. That overload was added in **API 33**,
+        // and this module's `minSdk` is 26 — so on every device below
+        // Android 13 this line threw `NoSuchMethodError` and took the
+        // foreground service down as soon as the user started a voice
+        // capture. Voice is one of the three primary capture modes,
+        // and pre-Android-13 devices are a large share of the target
+        // user base, so this was a crash for most users on a core
+        // flow. Android Lint reported it as the sole `NewApi` error,
+        // but the CI lint job ran with `continue-on-error: true`, so
+        // nothing surfaced it.
+        //
+        // `IntentCompat.getParcelableExtra` (androidx.core 1.10+;
+        // this project is on 1.13.1) calls the typed overload on
+        // API 33+ and the checked-cast legacy path below it, keeping
+        // the type safety v1.6.7 wanted without the API floor.
+        val receiver: ResultReceiver? = IntentCompat.getParcelableExtra(
+            intent,
             EXTRA_RESULT_RECEIVER,
             ResultReceiver::class.java,
         )

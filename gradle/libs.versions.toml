@@ -19,6 +19,11 @@ navigationCompose = "2.8.4"
 core = "1.13.1"
 junit = "4.13.2"
 androidxJunit = "1.2.1"
+# v2.1.2: androidx.test:rules (GrantPermissionRule), pinned to match the
+# androidx.test:runner/core version already resolved via androidx-junit
+# + espresso-core's transitive graph, so this doesn't introduce a second
+# androidx.test version to reconcile.
+androidxTestRules = "1.6.1"
 espresso = "3.6.1"
 robolectric = "4.13"
 hilt-android-testing = "2.52"
@@ -97,6 +102,7 @@ turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 junit = { module = "junit:junit", version.ref = "junit" }
 androidx-junit = { module = "androidx.test.ext:junit", version.ref = "androidxJunit" }
+androidx-test-rules = { module = "androidx.test:rules", version.ref = "androidxTestRules" }
 espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 hilt-android-testing = { module = "com.google.dagger:hilt-android-testing", version.ref = "hilt-android-testing" }

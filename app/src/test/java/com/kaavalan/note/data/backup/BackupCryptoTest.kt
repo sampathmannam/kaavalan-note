@@ -69,14 +69,40 @@ class BackupCryptoTest {
         val passphrase = "a fixed passphrase".toCharArray()
         val a = crypto.encrypt(plaintext, passphrase)
         val b = crypto.encrypt(plaintext, passphrase)
-        // v2.1.1 (BTV2): magic(4) + salt(32) + nonce(12)
-        // are the variable header bytes that must differ
-        // across encryptions.
-        val headerLen = 4 // BTV2 magic
-        val variableLen = 32 + 12 // salt + nonce
-        for (i in headerLen until (headerLen + variableLen)) {
-            assertNotEquals("byte $i (salt or nonce) should differ across encryptions", a[i], b[i])
-        }
+        // v2.1.1 (BTV2): magic(4) + salt(32) + nonce(12).
+        //
+        // v2.1.2 (flaky-test fix): this used to assert that EVERY
+        // ONE of the 44 random header bytes differed between the two
+        // encryptions:
+        //
+        //     for (i in 4 until 48) assertNotEquals(a[i], b[i])
+        //
+        // Two independent random bytes are equal with probability
+        // 1/256, so the chance that at least one of the 44 positions
+        // collides is 1 - (255/256)^44 = 15.8%. The test therefore
+        // failed roughly one run in six, on correct crypto, in the
+        // suite that guards the backup format. A flaky test in a
+        // security-critical suite is worse than no test: the habit it
+        // trains is re-running until green.
+        //
+        // The property that actually matters is that the salt and the
+        // nonce are not reused — i.e. each REGION differs, not each
+        // byte. Two 32-byte salts collide with probability 256^-32,
+        // which will not happen.
+        val salt = 4 until 36
+        val nonce = 36 until 48
+        assertNotEquals(
+            "the 32-byte salt must be freshly generated per encryption; a repeated " +
+                "salt means the same KEK is derived twice from one passphrase",
+            a.slice(salt),
+            b.slice(salt),
+        )
+        assertNotEquals(
+            "the 12-byte GCM nonce must be freshly generated per encryption; nonce " +
+                "reuse under the same key is a catastrophic AES-GCM failure",
+            a.slice(nonce),
+            b.slice(nonce),
+        )
         // The blobs as a whole must differ.
         assertNotEquals(
             "two encryptions of the same plaintext with the same passphrase must produce different blobs",

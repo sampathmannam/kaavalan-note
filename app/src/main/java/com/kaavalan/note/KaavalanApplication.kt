@@ -6,14 +6,8 @@ import androidx.work.Configuration
 import com.kaavalan.note.data.local.AppInitializer
 import com.kaavalan.note.data.work.WorkManagerInitializer
 import dagger.hilt.android.HiltAndroidApp
-import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -66,7 +60,15 @@ class KaavalanApplication : Application(), Configuration.Provider {
     // when the user has set a passphrase.
     @Inject lateinit var securePreferences: com.kaavalan.note.data.auth.SecurePreferences
 
-    @OptIn(DelicateCoroutinesApi::class)
+    /**
+     * v2.1.2 (startup): the application-scoped coroutine scope
+     * (`SupervisorJob + Dispatchers.Default`, see
+     * [com.kaavalan.note.di.CoroutineModule]). Replaces the
+     * `GlobalScope` the v2.1.1 cold-start path used.
+     */
+    @Inject @com.kaavalan.note.di.ApplicationScope
+    lateinit var applicationScope: kotlinx.coroutines.CoroutineScope
+
     override fun onCreate() {
         super.onCreate()
         // v1.9.0 (PROD-READINESS-P3-P1-#1): install
@@ -85,51 +87,45 @@ class KaavalanApplication : Application(), Configuration.Provider {
             previous?.uncaughtException(thread, throwable)
         }
         appInitializer.runOnAppStart()
-        // v1.8.0 (PROD-READINESS-P2-#3): ensure the
-        // device-owner row exists BEFORE the preflight
-        // runs. The v2.1.1 launch had a race where the
-        // preflight's step-2 `userDao.deviceOwner()` check
-        // sometimes ran before this GlobalScope launched
-        // bootstrap landed, surfacing a spurious
-        // "device-owner row missing" error on the
-        // Settings sheet's "DB error" banner. Run the
-        // bootstrap synchronously on a brief dispatcher
-        // hop so the row is in place before the preflight
-        // checks. The bootstrap is idempotent and fast
-        // in steady state, but SQLCipher passphrase
-        // generation on first launch can take noticeably
-        // longer (Argon2id + AES key derivation), so a
-        // 2 s ceiling caps the worst-case block. If the
-        // bootstrap times out, log a warning and let the
-        // preflight retry it via the normal async path —
-        // the preflight's step-2 device-owner check is
-        // the real safety net, not this synchronous hop.
-        runBlocking {
-            try {
-                withTimeout(2_000) {
-                    withContext(Dispatchers.IO) {
-                        runCatching { userBootstrap.ensureDeviceOwner() }
-                            .onFailure {
-                                android.util.Log.w("KaavalanApplication", "ensureDeviceOwner bootstrap failed", it)
-                            }
-                    }
+        // v2.1.2 (startup): the device-owner bootstrap and the
+        // database preflight, in that order, entirely off the main
+        // thread.
+        //
+        // v2.1.1 ran the bootstrap in a `runBlocking { withTimeout(2s)
+        // { withContext(IO) { ... } } }` on the main thread. The
+        // ordering it bought was real — `DatabasePreflight`'s step-2
+        // check needs the device-owner row to already exist, and it
+        // was launched separately — but the price was up to two
+        // seconds of blocked main thread on every cold start, before
+        // the launcher activity could draw. First launch is the worst
+        // case, because that is when SQLCipher passphrase generation
+        // (Argon2id + AES) actually runs, and it stacks with the rest
+        // of `onCreate`. That is ANR territory and it shows up in Play
+        // vitals as slow cold start.
+        //
+        // Sequencing the two inside one coroutine gives the same
+        // ordering guarantee — `runPreflight()` cannot start until
+        // `ensureDeviceOwner()` has returned — with no main-thread
+        // block and no arbitrary timeout. The 2 s ceiling existed only
+        // to bound the blocking, so it goes with it: the bootstrap now
+        // takes as long as it takes, off the critical path.
+        //
+        // The injected @ApplicationScope replaces GlobalScope: same
+        // application lifetime, but a real SupervisorJob, so a failure
+        // in one child cannot cancel the other and the scope is
+        // substitutable in tests.
+        applicationScope.launch(Dispatchers.IO) {
+            runCatching { userBootstrap.ensureDeviceOwner() }
+                .onFailure {
+                    android.util.Log.w("KaavalanApplication", "ensureDeviceOwner bootstrap failed", it)
                 }
-            } catch (_: TimeoutCancellationException) {
-                android.util.Log.w("KaavalanApplication", "ensureDeviceOwner bootstrap exceeded 2s; continuing")
-            }
-        }
-        // v2.0.2 (PM rating): the database preflight.
-        // Runs after the device-owner bootstrap above
-        // (so the preflight's step-2 device-owner check
-        // always finds the row) and after [appInitializer]
-        // (which has loaded the lib + pre-warmed the
-        // passphrase). The preflight is async so a slow
-        // DB open doesn't block the launcher activity;
-        // the Settings sheet reads the flag on its first
-        // render. Failures are logged (not swallowed) so
-        // a real DB error surfaces in logcat instead of
-        // silently flipping the corrupt flag to false.
-        GlobalScope.launch(Dispatchers.IO) {
+            // v2.0.2 (PM rating): the database preflight. Runs a
+            // `SELECT 1` and sets the "database corrupt" flag in
+            // SecurePreferences if the open throws; the Settings sheet
+            // reads the flag and surfaces the "Database error — tap to
+            // erase and start fresh" banner. Failures are logged, not
+            // swallowed, so a real DB error reaches logcat instead of
+            // silently flipping the flag to false.
             runCatching { databasePreflight.runPreflight() }
                 .onFailure {
                     android.util.Log.e("KaavalanApplication", "database preflight failed", it)
@@ -168,9 +164,23 @@ class KaavalanApplication : Application(), Configuration.Provider {
         // and dumped a failure result to the
         // WorkManager log. The user re-enables the
         // schedule the next time they sign in.
-        if (googleOAuthClient.isSignedIn() &&
-            securePreferences.getBackupEncryptionKeyHash() != null) {
-            com.kaavalan.note.data.work.WorkManagerInitializer.scheduleDriveBackup(this)
+        // v2.1.2 (startup): both predicates read
+        // EncryptedSharedPreferences, which means an AndroidKeyStore
+        // unwrap plus disk I/O — on the main thread in v2.1.1, inside
+        // Application.onCreate. Moved to the IO dispatcher. Scheduling
+        // is idempotent (KEEP policy) and nothing on the launch path
+        // depends on it having happened, so deferring it by a few
+        // milliseconds is safe.
+        applicationScope.launch(Dispatchers.IO) {
+            runCatching {
+                if (googleOAuthClient.isSignedIn() &&
+                    securePreferences.getBackupEncryptionKeyHash() != null
+                ) {
+                    com.kaavalan.note.data.work.WorkManagerInitializer.scheduleDriveBackup(this@KaavalanApplication)
+                }
+            }.onFailure {
+                android.util.Log.w("KaavalanApplication", "Drive backup scheduling check failed", it)
+            }
         }
     }
 

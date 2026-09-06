@@ -28,14 +28,25 @@ import org.robolectric.annotation.Config
 @Config(sdk = [33])
 class UpdateCheckerTest {
 
+    // Both version comparisons below are derived from
+    // BuildConfig.VERSION_NAME rather than hardcoded. The previous
+    // version pinned literals ("v2.1.1" / "v2.1.2") that were only
+    // correct while the app happened to be on 2.1.x: the 2.2.0 bump
+    // made the "newer" release older than the running build and the
+    // test failed for a reason that had nothing to do with
+    // UpdateChecker. A release-blocking test must not need editing
+    // on every version bump.
+    private val runningVersion: String = com.kaavalan.note.BuildConfig.VERSION_NAME
+
+    /** A version guaranteed to sort newer than whatever is running. */
+    private fun aNewerVersionThanRunning(): String {
+        val major = runningVersion.substringBefore('.').toIntOrNull() ?: 0
+        return "${major + 1}.0.0"
+    }
+
     @Test
     fun `check returns UpToDate when the latest tag matches the running version`() = runTest {
-        // The mock returns a single release at
-        // v2.1.0, which matches
-        // BuildConfig.VERSION_NAME (set in
-        // app/build.gradle.kts to "2.1.0" for
-        // the test environment).
-        val client = mockClient(releasesJson = singleReleaseJson(tag = "v2.1.1"))
+        val client = mockClient(releasesJson = singleReleaseJson(tag = "v$runningVersion"))
         val checker = UpdateChecker(httpClient = client)
         val result = checker.check()
         assertTrue("expected UpToDate, got $result", result is UpdateChecker.UpdateInfo.UpToDate)
@@ -43,11 +54,8 @@ class UpdateCheckerTest {
 
     @Test
     fun `check returns UpdateAvailable when the latest tag is newer`() = runTest {
-        // v2.1.0 is the running build. A future
-        // v2.1.2 is "newer" (compareVersions
-        // splits on '.', so "2.1.1" > "2.1.0"
-        // because the 3rd segment is 1 > 0).
-        val client = mockClient(releasesJson = singleReleaseJson(tag = "v2.1.2"))
+        val newer = aNewerVersionThanRunning()
+        val client = mockClient(releasesJson = singleReleaseJson(tag = "v$newer"))
         val checker = UpdateChecker(httpClient = client)
         val result = checker.check()
         assertTrue(
@@ -55,7 +63,7 @@ class UpdateCheckerTest {
             result is UpdateChecker.UpdateInfo.UpdateAvailable,
         )
         result as UpdateChecker.UpdateInfo.UpdateAvailable
-        assertEquals("2.1.2", result.latestVersion)
+        assertEquals(newer, result.latestVersion)
     }
 
     @Test

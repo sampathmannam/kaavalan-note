@@ -123,8 +123,13 @@ jobs:
       # step still conditional on `always()`. That way gradle's exit
       # code is preserved when a real error happens, but ktlint
       # warnings don't fail the job.
+      # v2.1.2 (release-integrity): `continue-on-error: true` removed.
+      # It was added because lint reported 525 errors, 522 of them the
+      # known/accepted `MissingTranslation` set. Those are now
+      # `informational` in app/build.gradle.kts, so the report is
+      # actionable and lint can gate again. It was hiding a real
+      # `NewApi` crash (voice capture on every pre-Android-13 device).
       - name: Run Android lint
-        continue-on-error: true
         run: ./gradlew :app:lintDebug --no-daemon -PBATON_SUPABASE_URL=https://placeholder.supabase.co -PBATON_SUPABASE_ANON_KEY=placeholder-anon-key-for-ci-only
 
       - name: Upload lint report
@@ -196,6 +201,125 @@ jobs:
             exit 1
           fi
           echo "OK — within budget"
+
+  # v2.1.2 (release-integrity): the release build gate.
+  #
+  # Until now CI built only `assembleDebug`. The debug variant
+  # does not run R8, so nothing in the pipeline ever exercised
+  # minification, resource shrinking, the per-ABI splits or
+  # `lintVitalRelease` — the stages where release-only crashes
+  # come from. Two defects lived in `main` because of that gap:
+  #
+  #   * `assembleRelease` failed outright at
+  #     `validateSigningRelease` on any clean checkout (the
+  #     keystore was scrubbed in v2.1.0 but `build.gradle.kts`
+  #     still hard-coded its path), so no release artifact could
+  #     be produced at all; and
+  #   * every app-specific `-keep` rule in `proguard-rules.pro`
+  #     still named the pre-v2.1.1 `com.baton.app` package and
+  #     therefore matched nothing.
+  #
+  # Neither was visible from a debug build. This job closes that.
+  # It deliberately runs WITHOUT signing secrets: the signing
+  # config resolves to nothing, AGP emits unsigned APKs, and R8
+  # plus every other release stage still runs. Signing happens at
+  # release time on a machine that holds the key.
+  assemble-release:
+    name: Assemble release APK (R8)
+    runs-on: [self-hosted, macOS, ARM64, baton]
+    timeout-minutes: 45
+    needs: unit-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Export Android SDK path
+        run: |
+          echo "ANDROID_HOME=$HOME/Library/Android/sdk" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$HOME/Library/Android/sdk" >> $GITHUB_ENV
+          test -d "$HOME/Library/Android/sdk" || (echo "::error::No SDK at $HOME/Library/Android/sdk" && exit 1)
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Assemble release APK (R8 + shrink + splits)
+        run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
+
+      # The whole point of the job: prove R8 actually produced the
+      # per-ABI artifacts. A silent R8 failure that still exits 0
+      # would otherwise look like a pass.
+      - name: Verify release artifacts exist
+        run: |
+          set -e
+          OUT=app/build/outputs/apk/release
+          MISSING=0
+          for ABI in arm64-v8a armeabi-v7a x86 x86_64; do
+            # The basename differs by whether signing was configured.
+            if ls "$OUT"/app-$ABI-release*.apk >/dev/null 2>&1; then
+              F=$(ls "$OUT"/app-$ABI-release*.apk | head -1)
+              SIZE_MB=$(( $(stat -f%z "$F" 2>/dev/null || stat -c%s "$F") / 1024 / 1024 ))
+              echo "OK  $ABI -> $(basename "$F") (${SIZE_MB} MB)"
+            else
+              echo "::error::No release APK for $ABI in $OUT"
+              MISSING=1
+            fi
+          done
+          exit $MISSING
+
+      # arm64-v8a is the ABI virtually every current device uses,
+      # and it is the one Play delivers from the bundle. 40 MB is
+      # comfortably above the ~25 MB the R8 build currently
+      # produces, so this catches a regression rather than
+      # policing normal drift.
+      - name: Release APK size budget (40 MB, arm64-v8a)
+        run: |
+          set -e
+          F=$(ls app/build/outputs/apk/release/app-arm64-v8a-release*.apk | head -1)
+          SIZE_MB=$(( $(stat -f%z "$F" 2>/dev/null || stat -c%s "$F") / 1024 / 1024 ))
+          echo "Release arm64-v8a APK: ${SIZE_MB} MB (budget: 40 MB)"
+          if [ "$SIZE_MB" -gt 40 ]; then
+            echo "::error::Release APK exceeds 40 MB budget (${SIZE_MB} MB)"
+            exit 1
+          fi
+          echo "OK — within budget"
+
+      - name: Upload release APKs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-unsigned
+          path: app/build/outputs/apk/release/*.apk
+          retention-days: 14
+
+      # R8's mapping file is the only way to read a release stack
+      # trace. Losing it means a crash report from a user is
+      # unreadable, so keep it with the build that produced it.
+      - name: Upload R8 mapping
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r8-mapping
+          path: app/build/outputs/mapping/release/mapping.txt
+          retention-days: 90
 
   # v1.9.11 (A3 audit fix): the connected-device androidTest
   # job. This runs the M0AcceptanceTest and VaultEndToEndTest
