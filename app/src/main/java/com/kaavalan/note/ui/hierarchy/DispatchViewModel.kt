@@ -57,7 +57,33 @@ class DispatchViewModel @Inject constructor(
     internal val infoChannel: Channel<String> = Channel(capacity = Channel.BUFFERED)
     val infoMessages: Flow<String> = infoChannel.receiveAsFlow()
 
-    init { viewModelScope.launch { refreshRoster() } }
+    // v2.2.0: observe the roster continuously instead of snapshotting it
+    // once. This mattered little while the dispatch flow was unreachable,
+    // but it now has a live entry point (an audience @mention in the note
+    // bar), so a roster frozen at ViewModel-init is a real staleness bug:
+    // import a contact or add a person, open the composer in the same
+    // session, and the new person simply is not in the picker. Collecting
+    // also keeps `recipientCount` honest -- it is recomputed against the
+    // current roster on every emission, so the Send button's
+    // `recipientCount > 0` gate cannot go stale against a person who was
+    // deleted mid-compose. (The "0 of 0 renders as success" branch in
+    // DispatchSheet is hardened separately, since that gate is no longer
+    // the only thing standing between a user and a send that reaches
+    // nobody.)
+    init {
+        viewModelScope.launch {
+            personRepository.observeAll().collect { people ->
+                val roster = RosterBuilder.build(people)
+                _state.update {
+                    it.copy(
+                        roster = roster,
+                        recipientCount = computeRecipients(it.audience, roster),
+                        rosterReady = true,
+                    )
+                }
+            }
+        }
+    }
 
     fun setAudience(a: AudienceRef?) {
         // The roster may still be loading. We accept the audience
@@ -102,14 +128,6 @@ class DispatchViewModel @Inject constructor(
             return
         }
         _state.update { it.copy(channels = next) }
-    }
-
-    fun refreshRoster() {
-        viewModelScope.launch {
-            val people: List<Person> = personRepository.observeAll().first()
-            val roster = RosterBuilder.build(people)
-            _state.update { it.copy(roster = roster, recipientCount = computeRecipients(it.audience, roster), rosterReady = true) }
-        }
     }
 
     fun submit(title: String, rawText: String, senderName: String, senderDesignation: String?, senderDivision: String?, onDone: (String) -> Unit) {

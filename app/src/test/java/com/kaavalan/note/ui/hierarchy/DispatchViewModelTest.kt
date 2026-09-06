@@ -322,4 +322,71 @@ class DispatchViewModelTest {
         assertEquals("onDone must still fire with the created instruction's id", "ins-1", onDoneCalledWith)
         coVerify(exactly = 0) { instructionRepository.markDone(any(), any()) }
     }
+
+    /**
+     * v2.2.0: the roster is observed continuously, not snapshotted once at
+     * ViewModel init.
+     *
+     * While the dispatch flow had no live entry point this was harmless.
+     * It now opens from an audience @mention in the note bar, so a frozen
+     * roster is a real bug: import a contact, open the composer in the
+     * same session, and the new person is missing from the picker. It also
+     * keeps `recipientCount` honest against a person removed mid-compose,
+     * which is what the Send button gates on.
+     */
+    @Test
+    fun `roster updates when the people list changes after init`() = runTest(testDispatcher) {
+        val instructionRepository = mockk<InstructionRepository>(relaxed = true)
+        val personRepository = mockk<PersonRepository>(relaxed = true)
+        val people = MutableStateFlow(emptyList<Person>())
+        every { personRepository.observeAll() } returns people.asStateFlow()
+        val vm = DispatchViewModel(instructionRepository, personRepository, mockk(relaxed = true))
+        advanceUntilIdle()
+
+        assertEquals("no people yet", 0, vm.state.value.roster.totalPeople)
+
+        // Someone is added while the composer is open (e.g. contact import).
+        people.value = listOf(
+            Person(
+                id = "p1", name = "B. Ramesh Naidu", designation = "SI",
+                station = "Subedari", phone = "+919000000001",
+            ),
+        )
+        advanceUntilIdle()
+
+        assertEquals(
+            "a person added after init must appear in the roster -- a frozen " +
+                "snapshot would still report 0 and the picker would be empty",
+            1,
+            vm.state.value.roster.totalPeople,
+        )
+    }
+
+    @Test
+    fun `recipientCount follows the roster when the picked person disappears`() = runTest(testDispatcher) {
+        val personRepository = mockk<PersonRepository>(relaxed = true)
+        val ramesh = Person(
+            id = "p1", name = "B. Ramesh Naidu", designation = "SI",
+            station = "Subedari", phone = "+919000000001",
+        )
+        val people = MutableStateFlow(listOf(ramesh))
+        every { personRepository.observeAll() } returns people.asStateFlow()
+        val vm = DispatchViewModel(mockk(relaxed = true), personRepository, mockk(relaxed = true))
+        advanceUntilIdle()
+
+        vm.setAudience(AudienceRef.ByPerson(personId = "p1", label = "B. Ramesh Naidu"))
+        advanceUntilIdle()
+        assertEquals("picked person is reachable", 1, vm.state.value.recipientCount)
+
+        // They are deleted elsewhere while this sheet is still open.
+        people.value = emptyList()
+        advanceUntilIdle()
+
+        assertEquals(
+            "recipientCount must drop to 0 so the Send gate cannot fire a " +
+                "dispatch that would reach nobody",
+            0,
+            vm.state.value.recipientCount,
+        )
+    }
 }

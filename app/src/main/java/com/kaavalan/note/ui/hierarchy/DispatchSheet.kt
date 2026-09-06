@@ -64,6 +64,20 @@ fun DispatchSheet(title: String, rawText: String, senderName: String, senderDesi
                 // actually delivered (e.g. every recipient had no phone
                 // number on file).
                 val color = when {
+                    // Zero recipients is NOT success. `Result(0, 0, 0)`
+                    // satisfies `failed == 0` and used to fall into the
+                    // success branch below, rendering "0 of 0 delivered"
+                    // in the primary colour for a dispatch that reached
+                    // nobody. This was previously unreachable only
+                    // because the roster was a frozen snapshot taken at
+                    // ViewModel init, so recipientCount could not
+                    // disagree with what resolve() returned. The roster
+                    // is now observed reactively (a person added or
+                    // removed mid-compose updates the picker), which
+                    // reopens exactly that window -- so the case is
+                    // handled explicitly rather than left to the
+                    // gating assumption that no longer holds.
+                    r.recipients == 0 -> com.kaavalan.note.ui.theme.KaavalanColors.Quiet
                     r.failed == 0 -> MaterialTheme.colorScheme.primary
                     r.sent == 0 -> MaterialTheme.colorScheme.error
                     // Partial-failure: use the project's `Quiet` (amber)
@@ -74,6 +88,7 @@ fun DispatchSheet(title: String, rawText: String, senderName: String, senderDesi
                     else -> com.kaavalan.note.ui.theme.KaavalanColors.Quiet
                 }
                 val text = when {
+                    r.recipients == 0 -> stringResource(R.string.hierarchy_dispatch_receipts_nobody)
                     r.failed == 0 -> stringResource(R.string.hierarchy_dispatch_receipts_other, r.sent, r.recipients)
                     r.sent == 0 -> stringResource(R.string.hierarchy_dispatch_receipts_none, r.recipients, r.failed)
                     else -> stringResource(R.string.hierarchy_dispatch_receipts_other, r.sent, r.recipients) + " (${r.failed} failed)"

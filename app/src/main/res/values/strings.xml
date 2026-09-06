@@ -826,6 +826,7 @@
     <string name="hierarchy_dispatch_receipts_one">1 of 1 delivered</string>
     <string name="hierarchy_dispatch_receipts_other">%1$d of %2$d delivered</string>
     <string name="hierarchy_dispatch_receipts_none">0 of %1$d delivered (%2$d failed)</string>
+    <string name="hierarchy_dispatch_receipts_nobody">Nobody to send to — this reached no one.</string>
     <string name="hierarchy_due_chip_set">Due %1$s</string>
     <string name="hierarchy_due_chip_tap_to_set">Set due</string>
     <string name="hierarchy_due_chip_clear">Clear due</string>
