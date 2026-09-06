@@ -61,6 +61,36 @@ interface SyncQueueDao {
     suspend fun deleteById(id: Long)
 
     /**
+     * v2.2.1: blank the stored payloads on `captures` rows.
+     * Returns the number of rows changed.
+     *
+     * Until v2.2.1 [com.kaavalan.note.data.captures.RoomCaptureRepository]
+     * wrote each capture's `rawText` into `payloadJson`, for a
+     * drain to read and POST. v2.0.0 removed Supabase and every
+     * drain with it, so nothing ever read those payloads and
+     * nothing ever deleted the rows. The effect was a second copy
+     * of every note's text in a table `RetentionWorker` does not
+     * touch: its `DELETE FROM captures` cleared the capture and
+     * left the copy, so text the app had reported as deleted
+     * stayed in the database indefinitely.
+     *
+     * New rows carry `"{}"`. This clears the ones already written
+     * on devices that have been running an earlier build, which is
+     * the only way that historical text goes away.
+     *
+     * Same shape as the audit chain's redact-in-place
+     * ([AuditChainEventDao.redactOlderThan]): the row stays, the
+     * content goes. Deleting the rows outright would work too, but
+     * the outbox is forward-compat scaffolding for a future cloud
+     * sync and the row identity is the part worth keeping.
+     */
+    @Query(
+        "UPDATE sync_queue SET payloadJson = '{}' " +
+            "WHERE `table` = 'captures' AND payloadJson != '{}'",
+    )
+    suspend fun clearCapturePayloads(): Int
+
+    /**
      * v1.8.0 (PROD-READINESS-P2-P1-#4): trim the
      * outbox to [maxSize] rows. Oldest-wins eviction:
      * rows with the highest `id` are deleted (since
