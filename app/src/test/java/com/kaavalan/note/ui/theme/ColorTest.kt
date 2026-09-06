@@ -89,12 +89,23 @@ class ColorTest {
     fun `theme tokens do not consult the system dark setting`() {
         val source = File("src/main/java/com/kaavalan/note/ui/theme/Color.kt")
         assertTrue("Color.kt should be readable from the module dir", source.exists())
+        val text = source.readText()
+        // Pinned on the import and the fully-qualified call rather than
+        // the bare name. Calling a top-level composable needs one or the
+        // other, so those two are the whole surface -- and the bare name
+        // also appears in the KDoc on `isDarkSurface`, which explains why
+        // the call was removed. Matching that made the prose documenting
+        // the fix fail the test for it.
         assertFalse(
-            "Color.kt must not read isSystemInDarkTheme(): the tokens have to follow " +
+            "Color.kt must not import isSystemInDarkTheme: the tokens have to follow " +
                 "the applied colour scheme, which already accounts for the user's " +
                 "ThemeMode override. Consulting the OS setting instead re-breaks " +
                 "'app Light on a dark-mode phone'.",
-            source.readText().contains("isSystemInDarkTheme"),
+            text.contains("import androidx.compose.foundation.isSystemInDarkTheme"),
+        )
+        assertFalse(
+            "nor reach it fully-qualified, which would skip the import above",
+            text.contains("androidx.compose.foundation.isSystemInDarkTheme("),
         )
     }
 
