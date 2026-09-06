@@ -58,19 +58,23 @@ jobs:
           test -d "$HOME/Library/Android/sdk" || (echo "::error::No SDK at $HOME/Library/Android/sdk" && exit 1)
           echo "Android SDK at $HOME/Library/Android/sdk OK"
 
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          # v1.9.7: do NOT cache `app/build` — the test-results and
-          # html reports inside grow to 100+ MB and the cache upload
-          # step exceeds the 30-minute job timeout. The `~/.gradle/caches`
-          # and `~/.gradle/wrapper` paths alone give ~95% of the speedup.
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+      # v2.2.1: the `actions/cache` step for ~/.gradle is what has
+      # been failing this pipeline, and with it the connected-device
+      # job. Evidence from run 34048464635: restore took 2s (a miss
+      # — the key embeds hashFiles('**/*.gradle*') and the previous
+      # commit touched app/build.gradle.kts), the tests then passed
+      # in 58s, and `Post Cache Gradle` spent the remaining ~25
+      # minutes uploading a multi-GB ~/.gradle/caches from the
+      # runner's home uplink until the job hit `timeout-minutes: 30`
+      # and was killed. A red unit-test job skips `assemble`, which
+      # skips `android-test` — so a cache upload, not a test, is why
+      # nothing has run on a device.
+      #
+      # The step was also pointless here. `actions/cache` exists to
+      # repopulate a throwaway hosted runner; this is a persistent
+      # self-hosted Mac whose $HOME survives between jobs, so
+      # ~/.gradle/caches is already warm before the step runs. It
+      # bought nothing and cost the pipeline.
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -251,15 +255,8 @@ jobs:
           echo "ANDROID_SDK_ROOT=$HOME/Library/Android/sdk" >> $GITHUB_ENV
           test -d "$HOME/Library/Android/sdk" || (echo "::error::No SDK at $HOME/Library/Android/sdk" && exit 1)
 
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+      # v2.2.1: no `actions/cache` for ~/.gradle here either —
+      # see the unit-test job for why it was removed.
 
       - name: Assemble release APK (R8 + shrink + splits)
         run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
