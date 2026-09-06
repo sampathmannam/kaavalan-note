@@ -5,10 +5,14 @@ package com.kaavalan.note.data.search
  * a free-form user query.
  *
  * The rules:
- *  - tokenize on whitespace
- *  - drop tokens that look like FTS4 reserved chars
- *    (`"`, `*`, `-`, `+`, `(`, `)`, `:`) — these would crash
- *    the MATCH parser
+ *  - tokenize on whitespace AND on hyphens — the FTS4
+ *    "porter" tokenizer that indexes this data splits on
+ *    hyphens exactly like whitespace, so the query must
+ *    split there too or a hyphenated phrase like "R4-5948"
+ *    never lines up with the indexed tokens "r4" and "5948"
+ *  - drop remaining reserved chars that FTS4 would otherwise
+ *    choke on inside a token (`"`, `*`, `+`, `(`, `)`, `:`,
+ *    `^`) — these would crash the MATCH parser
  *  - append `*` to each surviving token so a prefix search
  *    works ("ramesh*" matches "Ramesh", "Rameshwaram" etc.)
  *  - return an empty string if the input is empty / blank /
@@ -25,7 +29,15 @@ object SearchQuery {
     fun build(input: String): String {
         if (input.isBlank()) return ""
         val tokens = input
-            .split(Regex("\\s+"))
+            // The FTS4 "porter" tokenizer (built on the "simple"
+            // base tokenizer) treats a hyphen as a token
+            // separator, exactly like whitespace, when it indexes
+            // text — so a query token must be split on hyphens
+            // too, not just whitespace. Stripping the hyphen
+            // instead (leaving whitespace as the only separator)
+            // merges two indexed words into one search token that
+            // never matches the index.
+            .split(Regex("[\\s-]+"))
             .map { it.trim() }
             .filter { it.isNotEmpty() }
             .map { stripFtsReserved(it) }

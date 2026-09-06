@@ -19,6 +19,20 @@ import com.kaavalan.note.data.instructions.DeliveryService
 fun DispatchSheet(title: String, rawText: String, senderName: String, senderDesignation: String?, senderDivision: String?, onDismiss: () -> Unit, onSent: (String) -> Unit, viewModel: DispatchViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsState()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // v2.x (adversarial-QA fix): one-shot info Snackbar host, same
+    // pattern as CaptureSheet's `infoMessages` collection -- surfaces
+    // e.g. "At least one channel must stay selected." when
+    // toggleChannel refuses to let the set go empty. The Channel is
+    // buffered so a config change between the tap and the collect
+    // doesn't drop the message.
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(viewModel) {
+        viewModel.infoMessages.collect { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
+
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
             Text(stringResource(R.string.hierarchy_dispatch_title), style = MaterialTheme.typography.titleLarge)
@@ -68,6 +82,21 @@ fun DispatchSheet(title: String, rawText: String, senderName: String, senderDesi
             }
             Spacer(Modifier.height(24.dp))
         }
+    }
+
+    // v2.x: the Snackbar host sits INSIDE the bottom sheet, as a
+    // sibling of the Column content, mirroring CaptureSheet -- so
+    // the message is co-located with the chip that produced it
+    // rather than clipped to some other container's bounds.
+    SnackbarHost(
+        hostState = snackbarHostState,
+        modifier = Modifier.imePadding().navigationBarsPadding(),
+    ) { data ->
+        Snackbar(
+            snackbarData = data,
+            containerColor = MaterialTheme.colorScheme.inverseSurface,
+            contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+        )
     }
 }
 

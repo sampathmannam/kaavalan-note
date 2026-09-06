@@ -2,7 +2,7 @@
 
 KaavalanNote (formerly Baton) is a private Android project. This file is the entry point for any AI coding agent (Mavis, Codex, Cursor, Aider, etc.) working in this repo.
 
-> **Before doing anything, read [`docs/PLAN.md`](docs/PLAN.md) for current priorities and [`docs/superpowers/specs/2026-08-10-kaavalan-design.md`](docs/superpowers/specs/2026-08-10-kaavalan-design.md) for the design source of truth.**
+> **Before doing anything, read [`docs/PRODUCTION_READINESS_PLAN.md`](docs/PRODUCTION_READINESS_PLAN.md) (see its 2026-09-04 status entry first) for current priorities and the latest [`docs/vX.Y.Z_release_notes.md`](docs) for what actually shipped most recently. `docs/PLAN.md` and `docs/superpowers/specs/2026-08-10-kaavalan-design.md` were referenced here previously but do not exist in this repo — do not try to read them.**
 >
 > **v2.1.1 brand rename** (2026-08-26): the package, theme, widget classes, and color tokens all moved from `com.baton.app` / `Baton*` to `com.kaavalan.note` / `Kaavalan*`. The launcher label, widget label, and tile label are CamelCase `KaavalanNote` (one token). In-prose mentions keep the spaced form `Kaavalan note` for natural English. The app icon (the KAAVALAN shield on cream) is unchanged.
 

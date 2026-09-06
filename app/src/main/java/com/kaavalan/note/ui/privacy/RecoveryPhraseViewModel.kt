@@ -20,6 +20,10 @@ import javax.inject.Inject
  *
  * **State machine:**
  *  - `Idle` (initial) -> the user has not generated a phrase yet.
+ *  - `ConfirmRegenerate` -> a phrase already exists; warn before
+ *    silently replacing it (the old one is unrecoverable once
+ *    replaced -- only its hash was ever kept). Confirm proceeds to
+ *    `Display`; cancel returns to `Idle`.
  *  - `Display(phrase)` -> the 12 words are shown on screen
  *    with FLAG_SECURE; the user is told to write them down.
  *  - `Verify(phrase, shuffled, picked)` -> the 12 words are
@@ -61,12 +65,44 @@ class RecoveryPhraseViewModel @Inject constructor(
     val state: StateFlow<RecoveryPhraseState> = _state.asStateFlow()
 
     /**
-     * Start the flow. If a phrase already exists, regenerate
-     * it (the user explicitly tapped "Regenerate recovery
-     * phrase" in Settings). The old hash is overwritten only
-     * after the user completes the verify step.
+     * Start the flow. If a phrase already exists, the phrase
+     * itself is unrecoverable (only its SHA-256 hash is ever
+     * persisted, by design -- see [SecurePreferences.setRecoveryPhraseHash]'s
+     * doc), so there is no "view existing phrase" this can offer.
+     * What it CAN do is warn before silently replacing it:
+     * regenerating invalidates whatever the user wrote down
+     * before, with no way back. Route through [RecoveryPhraseState.ConfirmRegenerate]
+     * so the screen can show that warning and require an explicit
+     * confirm, rather than generating (and displaying) a brand-new
+     * phrase the instant the screen opens.
      */
     fun start() {
+        if (securePreferences.recoveryPhraseHash() != null) {
+            _state.value = RecoveryPhraseState.ConfirmRegenerate
+        } else {
+            generatePhrase()
+        }
+    }
+
+    /**
+     * User confirmed, at the [RecoveryPhraseState.ConfirmRegenerate]
+     * warning, that they want to replace the existing phrase.
+     */
+    fun confirmRegenerate() {
+        generatePhrase()
+    }
+
+    /**
+     * User backed out of the [RecoveryPhraseState.ConfirmRegenerate]
+     * warning without generating a new phrase. The existing phrase's
+     * hash (and whatever the user has written down for it) is left
+     * untouched.
+     */
+    fun cancelRegenerate() {
+        _state.value = RecoveryPhraseState.Idle
+    }
+
+    private fun generatePhrase() {
         val phrase = mnemonicGenerator.generate12()
         val shuffled = phrase.shuffled()
         _state.value = RecoveryPhraseState.Display(
@@ -156,6 +192,15 @@ class RecoveryPhraseViewModel @Inject constructor(
  */
 sealed interface RecoveryPhraseState {
     data object Idle : RecoveryPhraseState
+
+    /**
+     * v2.x (adversarial-QA follow-up, product decision): shown
+     * instead of jumping straight to [Display] when a phrase
+     * already exists. The phrase itself can't be shown again (only
+     * its hash is ever persisted), so this is a warning-before-
+     * replace step, not a "view existing phrase" step.
+     */
+    data object ConfirmRegenerate : RecoveryPhraseState
 
     data class Display(
         val phrase: List<String>,

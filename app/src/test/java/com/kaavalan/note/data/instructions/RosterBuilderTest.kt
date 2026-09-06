@@ -19,4 +19,32 @@ class RosterBuilderTest {
         assertEquals(1, picker.peopleByDesignation("SI").size)
         assertEquals(1, picker.peopleByDesignation("Si").size)
     }
+
+    @Test fun `allDesignations collapses case-variant duplicates that resolve to the same people`() {
+        // Adversarial QA audit (Dispatch > AudiencePickerSheet): two
+        // stations record the same designation with different casing
+        // ("SI" at RedHills, "si" at Tambaram -- real-world data-entry
+        // drift, not a contrived input). RosterBuilder.build used a
+        // case-sensitive distinct() to build allDesignations, so the
+        // Designation list showed two separate rows -- "SI" and "si" --
+        // while peopleFor()'s case-insensitive lookup resolved *both*
+        // rows to the identical union of RedHills+Tambaram people. That
+        // is a duplicate-audience trap: two rows a dispatcher reads as
+        // different groups silently broadcast to the same overlapping
+        // set. allDesignations must collapse case-variant duplicates to
+        // one row, consistent with the case-insensitive resolution
+        // peopleByDesignation already performs.
+        val picker = RosterBuilder.build(
+            listOf(
+                p("p1", "Senthil", "SI", "RedHills"),
+                p("p2", "Ramesh", "si", "Tambaram"),
+            ),
+        )
+        assertEquals(1, picker.allDesignations.size)
+        assertEquals(setOf("p1", "p2"), picker.peopleByDesignation("SI").map { it.id }.toSet())
+        assertEquals(
+            picker.peopleByDesignation("SI").map { it.id }.toSet(),
+            picker.peopleByDesignation("si").map { it.id }.toSet(),
+        )
+    }
 }

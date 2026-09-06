@@ -55,6 +55,7 @@ import com.kaavalan.note.data.person.toEntity
 import com.kaavalan.note.features.capture.CameraLauncher
 import com.kaavalan.note.features.capture.CaptureSheet
 import com.kaavalan.note.features.capture.CaptureViewModel
+import com.kaavalan.note.ui.hierarchy.DispatchComposerSheet
 import com.kaavalan.note.features.capture.NoteBar
 import com.kaavalan.note.features.capture.PhotoCapture
 import com.kaavalan.note.features.capture.VoiceCaptureService
@@ -95,6 +96,10 @@ fun HomeScreen(
     val quickCapture by rootViewModel.quickCapture.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showAddPerson by remember { mutableStateOf(false) }
+    // v2.x: non-null while the hierarchy dispatch composer is open;
+    // holds the capture text carried over from the note bar.
+    var dispatchInitialText by remember { mutableStateOf<String?>(null) }
+    val deviceOwnerName by viewModel.deviceOwnerName.collectAsStateWithLifecycle()
     // v2.0 (Hierarchy): contact-import sheet. The IconButton next
     // to the FAB opens the contact picker. The picker handles the
     // `READ_CONTACTS` permission itself and on success calls
@@ -375,6 +380,26 @@ fun HomeScreen(
                 captureViewModel.dismissSheet()
                 showAddPerson = true
             },
+            // v2.x: the note mentions an audience (@si,
+            // @station:Subedari, @all) and the user accepted the
+            // suggestion. Carry the text into the dispatch composer.
+            // The capture sheet has already dismissed itself.
+            onOpenDispatch = { text -> dispatchInitialText = text },
+        )
+    }
+    // v2.x: the hierarchy dispatch composer. Before this, nothing in
+    // the app constructed it -- the whole flow (and
+    // MentionAndTagParser behind it) shipped in v2.1.1 unreachable.
+    dispatchInitialText?.let { initialText ->
+        DispatchComposerSheet(
+            initialText = initialText,
+            senderName = deviceOwnerName,
+            // UserEntity carries no designation/station today; the
+            // composer treats both as optional.
+            senderDesignation = null,
+            senderDivision = null,
+            onDismiss = { dispatchInitialText = null },
+            onSaved = { dispatchInitialText = null },
         )
     }
     // v1.7.0: tapping an instruction in search results now

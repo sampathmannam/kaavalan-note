@@ -333,8 +333,22 @@ android {
         // No DB schema changes; 16 new unit tests.
         //
         // versionCode 44 -> 45.
-        versionCode = 46
-        versionName = "2.1.1"
+        //
+        // v2.2.0: first release cut for the Obtainium channel, and the
+        // first release under the `com.kaavalan.note` applicationId
+        // (everything up to v1.9.8 on GitHub Releases was
+        // `com.baton.app` — a different app to Android, so those
+        // installs do not update into this line; see docs/RELEASING.md).
+        // Contents: 21 defects found by the adversarial on-device audit
+        // and fixed with regression tests, plus three product decisions
+        // — dispatch reachable via an @mention offer in the note bar
+        // (the whole hierarchy feature previously had no live entry
+        // point), dispatch no longer auto-marks an instruction done on
+        // send, and the recovery-phrase screen now warns before
+        // replacing an existing phrase.
+        // versionCode 46 -> 47.
+        versionCode = 47
+        versionName = "2.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 

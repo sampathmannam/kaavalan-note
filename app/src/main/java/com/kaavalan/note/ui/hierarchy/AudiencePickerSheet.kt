@@ -1,10 +1,12 @@
 package com.kaavalan.note.ui.hierarchy
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.LocationOn
@@ -13,6 +15,7 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -40,10 +43,33 @@ fun AudiencePickerSheet(roster: RosterPicker, onPicked: (AudienceRef) -> Unit, o
     // to keep the call sites readable; only the parent controls the
     // dismiss animation.
     var mode by remember { mutableStateOf<Mode>(Mode.Root) }
+    // Drilling into Person/Designation/Station previously had no way
+    // back except dismissing the whole sheet (scrim tap or the back
+    // gesture), which also threw away the remembered `mode` — so
+    // switching from e.g. Designation to Station meant fully closing
+    // and reopening the picker. Intercept back the same way
+    // AddPersonSheet does (state-conditional BackHandler): while
+    // drilled in, back returns to the root chips instead of
+    // dismissing; only from Root does back fall through to `onDismiss`.
+    BackHandler(enabled = mode != Mode.Root) { mode = Mode.Root }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Text(stringResource(R.string.hierarchy_audience_picker_title), style = MaterialTheme.typography.titleLarge)
-            Text(stringResource(R.string.hierarchy_audience_picker_subtitle), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // Same discoverability rationale as SettingsSheet's close
+            // button (v1.7.1, P1 St1): an in-sheet affordance next to
+            // the title, not just an implicit gesture. Here it's a
+            // back arrow, visible only once drilled past Root, that
+            // returns to the chips without tearing down the sheet.
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                if (mode != Mode.Root) {
+                    IconButton(onClick = { mode = Mode.Root }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.hierarchy_audience_picker_back))
+                    }
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.hierarchy_audience_picker_title), style = MaterialTheme.typography.titleLarge)
+                    if (mode == Mode.Root) Text(stringResource(R.string.hierarchy_audience_picker_subtitle), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             Spacer(Modifier.height(12.dp))
             when (mode) {
                 Mode.Root -> RootChips(roster = roster, onPerson = { mode = Mode.PeopleByDesignation(null, roster.allPeople) }, onDesignation = { mode = Mode.Designations }, onStation = { mode = Mode.Stations }, onAll = { onPicked(AudienceRef.ByAll("all", "Everyone on the roster")) })
@@ -84,10 +110,14 @@ private sealed interface Mode { data object Root : Mode; data object Designation
     // header on tall ones. `Modifier.weight(1f, fill = false)` lets
     // the LazyColumn size itself from the available height without
     // forcing a fixed bound.
+    // v2.1 (a11y regression): onClickLabel matches the InstructionRow /
+    // PersonRowSimple convention (HomeHierarchySections.kt) so TalkBack
+    // announces the action instead of the generic "double-tap to activate".
+    val selectDesignationLabel = stringResource(R.string.a11y_audience_designation_select)
     LazyColumn(modifier = Modifier.fillMaxWidth()) {
         items(roster.allDesignations, key = { it }) { designation ->
             val people = roster.peopleByDesignation(designation)
-            Row(modifier = Modifier.fillMaxWidth().clickable { onPick(designation) }.padding(vertical = 12.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = Modifier.fillMaxWidth().clickable(onClickLabel = selectDesignationLabel) { onPick(designation) }.padding(vertical = 12.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Group, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.size(12.dp)); Text(designation, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f)); Text("${people.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -96,9 +126,10 @@ private sealed interface Mode { data object Root : Mode; data object Designation
 }
 
 @Composable private fun StationList(roster: RosterPicker, onPick: (String) -> Unit) {
+    val selectStationLabel = stringResource(R.string.a11y_audience_station_select)
     LazyColumn(modifier = Modifier.fillMaxWidth()) {
         items(roster.stations, key = { it.station }) { node: RosterNode ->
-            Row(modifier = Modifier.fillMaxWidth().clickable { onPick(node.station) }.padding(vertical = 12.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = Modifier.fillMaxWidth().clickable(onClickLabel = selectStationLabel) { onPick(node.station) }.padding(vertical = 12.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.size(12.dp)); Text(node.station, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f)); Text("${node.totalPeople}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -107,11 +138,12 @@ private sealed interface Mode { data object Root : Mode; data object Designation
 }
 
 @Composable private fun PersonList(people: List<com.kaavalan.note.data.person.Person>, label: String, onPick: (com.kaavalan.note.data.person.Person) -> Unit) {
+    val selectPersonLabel = stringResource(R.string.a11y_audience_person_select)
     Column {
         Text(label, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
         LazyColumn(modifier = Modifier.fillMaxWidth()) {
             items(people, key = { it.id }) { person ->
-                Row(modifier = Modifier.fillMaxWidth().clickable { onPick(person) }.padding(vertical = 12.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(modifier = Modifier.fillMaxWidth().clickable(onClickLabel = selectPersonLabel) { onPick(person) }.padding(vertical = 12.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(modifier = Modifier.size(32.dp), contentAlignment = Alignment.Center) { Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                     Spacer(Modifier.size(12.dp))
                     Column(modifier = Modifier.weight(1f)) {

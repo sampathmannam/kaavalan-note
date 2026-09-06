@@ -36,10 +36,41 @@ data class CaptureUiState(
     val errorType: ErrorType = ErrorType.NONE,
     val availableTags: List<Tag> = emptyList(),
     val selectedTagIds: Set<String> = emptySet(),
+    // v2.x: set when the typed text contains an audience-shaped
+    // @mention (a designation, a station, or @all). See
+    // [DispatchSuggestion] -- this only OFFERS the dispatch flow, it
+    // never switches surfaces on its own.
+    val dispatchSuggestion: DispatchSuggestion? = null,
 ) {
     val canSaveRaw: Boolean
         get() = isVisible && text.isNotBlank() && !isSaving
 }
+
+/**
+ * v2.x (product decision, adversarial-QA follow-up): the hierarchy
+ * dispatch flow (`ui/hierarchy/DispatchComposerSheet`) shipped in
+ * v2.1.1 with zero live entry points -- nothing in the app ever
+ * opened it, and [com.kaavalan.note.data.instructions.MentionAndTagParser]
+ * was dead code for the same reason. The decided entry point is the
+ * note bar itself: typing an audience-shaped `@mention` (e.g. `@si`,
+ * `@station:Subedari`, `@all`) offers to turn the note into a
+ * dispatch, which keeps the app's "one primary input" rule intact
+ * rather than adding a second compose button.
+ *
+ * Deliberately an OFFER, not a hijack. "spoke to @si about the
+ * seizure case" is an ordinary note, and silently swapping the
+ * capture sheet for the dispatch composer mid-sentence would be the
+ * same class of surprise as the v2.1.2 NoteBar bug (a tap doing
+ * something the user did not ask for). The user taps the suggestion
+ * to switch; ignoring it saves a normal note.
+ *
+ * [label] is the human-readable audience ("SI", "Subedari",
+ * "everyone") for the suggestion row's copy.
+ */
+data class DispatchSuggestion(
+    val label: String,
+    val rawMention: String,
+)
 
 /**
  * v1.4 (PHONE-FINDING-7): the discriminator for the capture sheet

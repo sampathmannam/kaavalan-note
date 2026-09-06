@@ -275,28 +275,38 @@ private fun DecayRow(
         val thresholdPx = with(density) { SWIPE_THRESHOLD_DP.dp.toPx() }
         var offsetX by remember { mutableStateOf(0f) }
 
+        // v2.1.3 (adversarial-QA): the `pointerInput { detectHorizontalDragGestures }`
+        // used to live on this wrapping Box, as the *ancestor* of the
+        // Card that carries `combinedClickable` below. Two independent,
+        // uncoordinated low-level gesture recognizers competing for the
+        // same touch stream across a parent/child boundary is a known
+        // Compose pitfall: on the `Main` pointer-event pass, the
+        // deeper node (the Card's combinedClickable) is dispatched to
+        // *first*, and its own press/long-press tracking consumes the
+        // pointer's position-change deltas before they ever bubble up
+        // to this Box's `awaitHorizontalTouchSlopOrCancellation` — so
+        // the ancestor's drag detector could never observe an
+        // unconsumed horizontal move and the 96dp swipe threshold was
+        // never reached. That silently killed swipe-to-mark-recent on
+        // every device (verified: on-device tap/long-press still
+        // reached the child's combinedClickable and worked, while an
+        // over-threshold swipe on the same row produced no removal, no
+        // Undo snackbar, and no background reveal).
+        //
+        // The fix keeps `combinedClickable` and this drag detector as
+        // separate modifiers (so Card keeps its Material ripple +
+        // TalkBack semantics from combinedClickable untouched) but
+        // moves both onto the *same* Card node below, with
+        // `pointerInput` chained *after* `combinedClickable`. Modifier
+        // order on a single node nests the same way parent/child does:
+        // the later element is "inner" and is dispatched to first on
+        // the Main pass. That gives the drag detector first refusal on
+        // any horizontal movement — so a real swipe is consumed and
+        // reported before combinedClickable's own tracking can steal
+        // it — while a stationary tap/long-press (no movement to
+        // consume) still reaches combinedClickable exactly as before.
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .pointerInput(row.id) {
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            if (offsetX > thresholdPx && !markedRecent) {
-                                markedRecent = true
-                                onMarkRecent()
-                            }
-                            // Snap back to 0 (offset is no longer
-                            // tracked; the card itself disappears
-                            // from the Quiet-a-while list once the
-                            // DAO touch completes, so there is no
-                            // visible "card slid right" state).
-                            offsetX = 0f
-                        },
-                        onHorizontalDrag = { _, dragAmount ->
-                            offsetX += dragAmount
-                        },
-                    )
-                },
+            modifier = Modifier.fillMaxWidth(),
         ) {
             // Background layer (visible while swiping right): a
             // quiet tertiary-container "Mark recent" label.
@@ -314,12 +324,13 @@ private fun DecayRow(
                     color = MaterialTheme.colorScheme.onTertiaryContainer,
                 )
             }
-            // Foreground Card. The combinedClickable wires the
-            // tap (open PersonDetail) and long-press (open
-            // action sheet) on the same card surface. The
-            // swipe gesture lives on the parent Box so the
-            // background "Mark recent" label is visible
-            // underneath while the card is being dragged.
+            // Foreground Card. combinedClickable wires the tap
+            // (open PersonDetail) and long-press (open action
+            // sheet); the swipe-right pointerInput is chained
+            // right after it on this same node (see the v2.1.3
+            // comment above) so the background "Mark recent"
+            // label — a sibling Box underneath — stays visible
+            // while this Card is dragged over it.
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -373,7 +384,33 @@ private fun DecayRow(
                         onClick = onClick,
                         onLongClickLabel = markRecentLabel,
                         onLongClick = { showActionSheet = true },
-                    ),
+                    )
+                    // v2.1.3 (adversarial-QA): chained *after*
+                    // combinedClickable (not on the ancestor Box — see
+                    // the comment above) so this drag detector is the
+                    // "inner" node and gets first refusal on
+                    // horizontal movement during the Main pointer-event
+                    // pass, instead of losing the touch stream to
+                    // combinedClickable's own press tracking.
+                    .pointerInput(row.id) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                if (offsetX > thresholdPx && !markedRecent) {
+                                    markedRecent = true
+                                    onMarkRecent()
+                                }
+                                // Snap back to 0 (offset is no longer
+                                // tracked; the card itself disappears
+                                // from the Quiet-a-while list once the
+                                // DAO touch completes, so there is no
+                                // visible "card slid right" state).
+                                offsetX = 0f
+                            },
+                            onHorizontalDrag = { _, dragAmount ->
+                                offsetX += dragAmount
+                            },
+                        )
+                    },
             ) {
                 Row(
                     modifier = Modifier
