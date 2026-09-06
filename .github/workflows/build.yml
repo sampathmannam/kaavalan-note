@@ -182,14 +182,27 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
 
-      # v1.9.11 (A7 audit fix): debug APK size budget. The release
-      # build's online dependency resolution fails in the CI's
-      # offline mode; the debug variant is what we can measure
-      # without network. The release APK is the same code through
-      # R8 minify + resource shrink, so the debug 47 MB is the
-      # upper bound. The release size is ~32 MB (a 32% shrink)
-      # — this budget is a guard against future regressions.
-      - name: Debug APK size budget (40 MB)
+      # v1.9.11 (A7 audit fix) added this as a *proxy* for the release
+      # size, and said so: "the release build's online dependency
+      # resolution fails in the CI's offline mode; the debug variant is
+      # what we can measure without network."
+      #
+      # v2.2.1: that premise is gone. The assemble-release job below
+      # builds the real artifact with R8 + resource shrink and gates it
+      # directly in "Release APK size budget (40 MB, arm64-v8a)", which
+      # passes. Measuring an unminified APK that never ships, to
+      # estimate one that is now measured exactly, guards nothing.
+      #
+      # It was also failing. 45 MB against a 40 MB budget, on `main`
+      # since at least 26 August (run 32973141440) and on every branch
+      # cut from it. android-test declares `needs: [assemble]`, so this
+      # step is why the connected-device suite has never run: not a
+      # device problem, a stale proxy failing a build that succeeded.
+      #
+      # The measurement stays and is printed, because debug-size drift
+      # is worth seeing. It no longer fails the build. The gate on the
+      # artifact users actually install is untouched.
+      - name: Debug APK size (informational)
         run: |
           set -e
           DEBUG_APK=app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
@@ -199,12 +212,8 @@ jobs:
           fi
           SIZE_BYTES=$(stat -f%z "$DEBUG_APK" 2>/dev/null || stat -c%s "$DEBUG_APK")
           SIZE_MB=$((SIZE_BYTES / 1024 / 1024))
-          echo "Debug APK size: ${SIZE_MB} MB (budget: 40 MB)"
-          if [ "$SIZE_MB" -gt 40 ]; then
-            echo "::error::Debug APK exceeds 40 MB budget (${SIZE_MB} MB)"
-            exit 1
-          fi
-          echo "OK — within budget"
+          echo "Debug APK (arm64-v8a, unminified): ${SIZE_MB} MB"
+          echo "Release size is gated in the assemble-release job."
 
   # v2.1.2 (release-integrity): the release build gate.
   #
