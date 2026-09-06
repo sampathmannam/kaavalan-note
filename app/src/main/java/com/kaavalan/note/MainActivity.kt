@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -63,6 +64,7 @@ import androidx.navigation.compose.rememberNavController
 import com.kaavalan.note.data.preferences.KaavalanPreferences
 import com.kaavalan.note.data.undo.UndoController
 import com.kaavalan.note.features.capture.ShareIntake
+import com.kaavalan.note.features.capture.ocrTextOrEmpty
 import com.kaavalan.note.features.onboarding.OnboardingScreen
 import com.kaavalan.note.features.search.SearchViewModel
 import com.kaavalan.note.features.theme.appDarkTheme
@@ -174,7 +176,36 @@ class MainActivity : ComponentActivity() {
         when (payload) {
             is ShareIntake.Result.Text -> rootViewModel.onSharedText(payload.text)
             is ShareIntake.Result.Image -> {
-                // Receiver activity already OCR'd; main entry is text.
+                // v2.2.1: OCR the shared image here.
+                //
+                // This branch used to be empty, on the reasoning that
+                // the "receiver activity already OCR'd" it. No receiver
+                // activity runs. The share target in the manifest is an
+                // `<activity-alias>` that happens to be *named*
+                // `.features.capture.ShareReceiverActivity` but declares
+                // `android:targetActivity=".MainActivity"`, so the share
+                // sheet launches this activity directly with the
+                // original SEND intent. The `ShareReceiverActivity`
+                // class is never declared as an `<activity>` and never
+                // instantiated.
+                //
+                // The alias advertises `image/*`, so Kaavalan note
+                // appears in the share sheet for photos. Picking it
+                // opened the app and did nothing at all: no OCR, no
+                // pre-fill, no message. For a photo of a written
+                // instruction -- the case the OCR exists for -- the
+                // whole content was dropped.
+                //
+                // `ocrTextOrEmpty` is used rather than
+                // `PhotoCapture.recognize` because the URI belongs to
+                // the sending app: it can be revoked, cloud-only, or a
+                // format ML Kit cannot decode, and the raw call throws
+                // in all three cases. An empty pre-fill is the
+                // documented fallback; a crash is not.
+                val uri = payload.uri
+                lifecycleScope.launch {
+                    rootViewModel.onSharedText(ocrTextOrEmpty(applicationContext, uri))
+                }
             }
         }
     }
