@@ -82,7 +82,7 @@
     <string name="settings_dev_body">Loads the synthetic test fixture (55 people, 200 instructions, 50 captures, 16 tags in v1.6.4). Erases existing data first. Debug builds only.</string>
     <string name="settings_dev_load_fixture">Load test data</string>
     <string name="settings_dev_clear_reload">Clear &amp; reload</string>
-    <string name="settings_dev_loading">Loading\u2026</string>
+    <string name="settings_dev_loading">Loading…</string>
     <!-- v1.6.6 P1: the 4-count dev-load report is now built from
          per-segment plurals. settings_dev_loaded_prefix holds the
          static "Loaded " lead; the count list is appended
@@ -516,7 +516,7 @@
     <string name="threat_model_section_unlocked">If the device is seized while unlocked</string>
     <string name="threat_model_section_unlocked_body">Treat the data as compromised. The running app can read the encrypted database. This is the same boundary every secure messaging app draws; there is no defence against an unlocked-device adversary.</string>
     <string name="threat_model_section_backup">Backup exports are AES-256-GCM encrypted</string>
-    <string name="threat_model_section_backup_body">Encrypted backup files are protected with a passphrase only you know. The passphrase is not stored on the device. Lose the passphrase, lose the backup.</string>
+    <string name="threat_model_section_backup_body">Backup files are encrypted with a key derived from your recovery phrase. So the daily backup can run without asking you every time, a copy of that key is kept in encrypted app storage on this device — the backups are not protected by your memory alone. Restoring on a new device still needs the phrase; lose it and you lose the backups.</string>
     <string name="threat_model_section_vault">The Hidden vault is a UI filter</string>
     <string name="threat_model_section_vault_body">Hidden mode hides selected items from the home list. A forensic adversary with access to the database file can still see that a hidden mode exists. This is behavioural concealment, not cryptographic deniability. For true deniability, the database itself would need to be encrypted twice with two different keys.</string>
     <string name="threat_model_closing">This is the threat model. If it does not match yours, do not put the data in this app.</string>
@@ -859,7 +859,7 @@
          clipboard preview; the PDF title is the H1 on
          the printable sheet). -->
     <string name="recovery_clipboard_label">Kaavalan note recovery phrase</string>
-    <string name="recovery_pdf_title">Kaavalan note \u2014 Recovery Sheet</string>
+    <string name="recovery_pdf_title">Kaavalan note — Recovery Sheet</string>
 </resources>
 
 
