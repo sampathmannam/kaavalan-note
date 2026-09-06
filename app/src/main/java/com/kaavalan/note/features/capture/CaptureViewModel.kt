@@ -283,11 +283,21 @@ class CaptureViewModel @Inject constructor(
                 m.prefix == MentionAndTagParser.Mention.Prefix.STATION ||
                 m.prefix == MentionAndTagParser.Mention.Prefix.ALL
         } ?: return null
+        // Label off `raw`, not `payload`: the parser lowercases payload for
+        // matching, which is right for lookups and wrong for display -- a
+        // note reading "@si" produced "This note mentions si", when ranks
+        // in this domain are acronyms the user typed deliberately (SI, SHO,
+        // DSP). `raw` keeps the original casing, so whatever they typed is
+        // what they are shown. No guessing at canonical capitalisation:
+        // CaptureViewModel has no roster to resolve against, and inventing
+        // one (upper-casing anything short) would mangle "Inspector".
         val label = when (mention.prefix) {
             MentionAndTagParser.Mention.Prefix.ALL -> "everyone"
-            // `payload` for a STATION mention is the part after
-            // "station:", already lowercased by the parser.
-            else -> mention.payload
+            // "@station:Subedari" -> "Subedari"
+            MentionAndTagParser.Mention.Prefix.STATION ->
+                mention.raw.removePrefix("@").substringAfter(':')
+            // "@SI" -> "SI"
+            else -> mention.raw.removePrefix("@")
         }
         return DispatchSuggestion(label = label, rawMention = mention.raw)
     }

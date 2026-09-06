@@ -131,6 +131,38 @@ tables.
 
 ---
 
+## Running the emulator for on-device checks
+
+Boot the test AVD **headless with software rendering**:
+
+```bash
+$ANDROID_HOME/emulator/emulator -avd kaavalan-test \
+  -no-snapshot -no-window -gpu swiftshader_indirect -no-audio \
+  -netdelay none -netspeed full &
+```
+
+Booting it with the default (hardware) GPU on this machine fails during
+display-surface creation and the emulator exits a few seconds later:
+
+```
+ERROR | Failed to make display surface context current: 12299
+ERROR | Failed to bind to post worker context.
+```
+
+This looks like flakiness — it repeatedly presented as "the emulator died
+again" and was initially misread as CPU load, since it happened while the
+machine was busy. It is not load: the same AVD boots reliably at any load
+with `-no-window -gpu swiftshader_indirect`, and other AVDs on the same
+machine boot fine with hardware GPU. Nothing here needs a display anyway;
+the QA driver works entirely over `adb`.
+
+If a boot still fails, clear stale lock files first:
+
+```bash
+rm -f ~/.android/avd/kaavalan-test.avd/multiinstance.lock \
+      ~/.android/avd/kaavalan-test.avd/*.tmp-*
+```
+
 ## If you lose the keystore
 
 There is no recovery. The honest options are both bad:
