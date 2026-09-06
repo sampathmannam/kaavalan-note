@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
@@ -62,12 +61,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.kaavalan.note.data.preferences.KaavalanPreferences
-import com.kaavalan.note.data.preferences.ThemeMode
 import com.kaavalan.note.data.undo.UndoController
 import com.kaavalan.note.features.capture.ShareIntake
 import com.kaavalan.note.features.onboarding.OnboardingScreen
 import com.kaavalan.note.features.search.SearchViewModel
-import com.kaavalan.note.features.theme.ThemeViewModel
+import com.kaavalan.note.features.theme.appDarkTheme
 import com.kaavalan.note.features.vault.VaultExportSheet
 import com.kaavalan.note.features.vault.VaultImportSheet
 import com.kaavalan.note.ui.home.HomeScreen
@@ -101,7 +99,7 @@ import javax.inject.Inject
  * Scaffold.
  *
  * v2.0 (Tier 1.2 + Tier 1.4 + Tier 1.6): first-run onboarding
- * gates the [MainScaffold]; theme is read from the [ThemeViewModel]
+ * gates the [MainScaffold]; theme is resolved by [appDarkTheme]
  * (DataStore-backed) and passed to [KaavalanNoteTheme]; the
  * [UndoController] exposes the last [com.kaavalan.note.data.undo.UndoableAction]
  * which the [SnackbarHostState] listens to and shows a 5 s
@@ -132,15 +130,7 @@ class MainActivity : ComponentActivity() {
         }
         briefNotifier.schedule()
         setContent {
-            val themeViewModel: ThemeViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-            val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
-            val systemDark = isSystemInDarkTheme()
-            val useDark = when (themeMode) {
-                ThemeMode.System -> systemDark
-                ThemeMode.Light -> false
-                ThemeMode.Dark -> true
-            }
-            KaavalanNoteTheme(darkTheme = useDark) {
+            KaavalanNoteTheme(darkTheme = appDarkTheme()) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val seen by preferences.hasSeenOnboarding.collectAsStateWithLifecycle(initialValue = false)
                     if (!seen) {
