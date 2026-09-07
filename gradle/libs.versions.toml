@@ -24,6 +24,11 @@ androidxJunit = "1.2.1"
 # + espresso-core's transitive graph, so this doesn't introduce a second
 # androidx.test version to reconcile.
 androidxTestRules = "1.6.1"
+# v2.2.2 (test-infra): Android Test Orchestrator. Required for
+# `clearPackageData`, which is the only supported way to give each
+# instrumented test its own app state. 1.5.1 is the release that
+# pairs with the androidx.test 1.6.x runner/core above.
+androidxTestOrchestrator = "1.5.1"
 espresso = "3.6.1"
 robolectric = "4.13"
 hilt-android-testing = "2.52"
@@ -103,6 +108,7 @@ mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 junit = { module = "junit:junit", version.ref = "junit" }
 androidx-junit = { module = "androidx.test.ext:junit", version.ref = "androidxJunit" }
 androidx-test-rules = { module = "androidx.test:rules", version.ref = "androidxTestRules" }
+androidx-test-orchestrator = { module = "androidx.test:orchestrator", version.ref = "androidxTestOrchestrator" }
 espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 hilt-android-testing = { module = "com.google.dagger:hilt-android-testing", version.ref = "hilt-android-testing" }
