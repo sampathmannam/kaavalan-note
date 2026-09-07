@@ -2,7 +2,10 @@ package com.kaavalan.note
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.rule.GrantPermissionRule
@@ -78,11 +81,37 @@ class OnboardingFlowTest {
         }
         composeRule.waitForIdle()
 
+        // v2.2.3 (test-infra): the post-onboarding race the other five
+        // device tests already guard against, and the one test in the
+        // suite that was left without the guard. Dismissing onboarding
+        // routes to Home through a DataStore write whose emission
+        // waitForIdle() does not cover, so the assert below could run
+        // while the pager was still up. The FAB's
+        // contentDescription="Add person" is unconditional on Home (see
+        // HomeScreen's FloatingActionButton), so it is the signal that
+        // MainScaffold has actually swapped in Home.
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithContentDescription("Add person")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+
         // Step 2: the Home TopAppBar title is the
         // R.string.home_title value "People" — the only
         // screen-level invariant that holds for both the
         // fresh-install path and the post-onboarding path.
-        composeRule.onNodeWithText("People").assertIsDisplayed()
+        // Run 34076793456 failed here with "The component is not
+        // displayed!", which means exactly one "People" node was
+        // found and its bounds were empty or off screen — a miss
+        // reports "could not find any node" instead. "People" is
+        // R.string.home_title, used in exactly one place
+        // (HomeScreen.kt:215, the TopAppBar title), so a node that
+        // exists but is not displayed is not something this test can
+        // guess at. Attach the real geometry to the failure.
+        try {
+            composeRule.onNodeWithText("People").assertIsDisplayed()
+        } catch (failure: AssertionError) {
+            throw AssertionError("${failure.message} | ${geometry()}", failure)
+        }
 
         // Settle: the FAB, NoteBar, and SearchBar all draw
         // in the next frame after the recomposition. A fatal
@@ -97,4 +126,19 @@ class OnboardingFlowTest {
         @Suppress("UNUSED_VARIABLE")
         val freshInstall = skipResult.isSuccess
     }
+
+    /**
+     * Bounds for every node matching "People", plus the root's own
+     * size, as a single line appended to the assertion failure.
+     * `onAllNodes...fetchSemanticsNodes()` returns a list and does not
+     * throw on zero matches, so this cannot replace the failure it is
+     * describing (which is what an unguarded `fetchSemanticsNode()`
+     * did in run 34075300005).
+     */
+    private fun geometry(): String = runCatching {
+        val nodes = composeRule.onAllNodesWithText("People").fetchSemanticsNodes()
+        val root = composeRule.onRoot().fetchSemanticsNode()
+        val each = nodes.joinToString(" ; ") { "boundsInRoot=${it.boundsInRoot} size=${it.size}" }
+        "matches=${nodes.size} [$each] | root size=${root.size} boundsInRoot=${root.boundsInRoot}"
+    }.getOrElse { "could not measure (${it.message})" }
 }
