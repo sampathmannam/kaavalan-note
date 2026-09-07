@@ -8,6 +8,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -55,6 +56,7 @@ class AppInitializer @Inject constructor(
     @ApplicationContext private val context: Context,
     private val securePreferences: com.kaavalan.note.data.auth.SecurePreferences,
     private val fixtureLoader: com.kaavalan.note.data.dev.FixtureLoader,
+    private val preferences: com.kaavalan.note.data.preferences.KaavalanPreferences,
     @com.kaavalan.note.di.ApplicationScope private val appScope: kotlinx.coroutines.CoroutineScope,
 ) {
 
@@ -179,21 +181,131 @@ class AppInitializer @Inject constructor(
         // `Run on every build (not DEBUG-gated)` rationale from
         // v1.7.3 was wrong for production: see the
         // [isDebugBuild] docstring for the failure mode.
+        //
+        // fix#12 (QA audit, data-loss): the reseed-gate check
+        // ([shouldAutoReseedFixture]) used to run *inside* the same
+        // `appScope.launch(Dispatchers.IO) { ... }` block as the
+        // reseed itself. `launch` is fire-and-forget — this method
+        // returns as soon as the coroutine is scheduled, it does
+        // NOT wait for the coroutine's body to actually run. The
+        // [shouldAutoReseedFixture] docstring assumed the read
+        // happens "before the Compose UI (and therefore onboarding)
+        // ever shows", but nothing in the code enforced that:
+        // whether the coroutine got a Dispatchers.IO thread before
+        // or after onboarding's own `finish()` flipped
+        // `hasSeenOnboarding` to `true` in the same process was
+        // entirely up to scheduling. Under real cold-start
+        // contention (the Argon2id passphrase derivation above; the
+        // `ensureDeviceOwner` + `databasePreflight` coroutines
+        // KaavalanApplication.onCreate() launches on the same
+        // Dispatchers.IO right after this method returns) the read
+        // could — and reproducibly did — lose that race, so the
+        // fixture reseeded over whatever onboarding had just
+        // produced on the very same launch.
+        //
+        // The fix: read the gate synchronously, right here, on the
+        // calling thread (Application.onCreate(), always the main
+        // thread — see the single call site in
+        // [com.kaavalan.note.KaavalanApplication.onCreate]) before
+        // this method returns. Android guarantees Application
+        // .onCreate() fully completes before the first Activity (and
+        // therefore Compose, and therefore onboarding) is created,
+        // so a value captured here is genuinely "at true process
+        // start" with no race window. This is safe to block on
+        // because [shouldAutoReseedFixture] is a single small
+        // DataStore boolean read, NOT the 200-instruction reseed
+        // itself — unlike the `runBlocking { withTimeout(2s) ... }`
+        // bootstrap removed in v2.1.2 (see the comment in
+        // KaavalanApplication.onCreate()), this blocks the main
+        // thread for microseconds, not seconds. Only the actual
+        // reseed work (which can ANR for 2-3s per the v1.6.4 note
+        // above) still runs off-thread, and only once the gate has
+        // already been decided.
         if (isDebugBuild) {
-            appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                runCatching { fixtureLoader.reseedIfStale() }
-                    .onSuccess { report ->
-                        if (report != null) {
-                            Log.i(TAG, "auto-reseeded fixture: $report")
+            val onboardingAlreadySeenAtStart = kotlinx.coroutines.runBlocking { shouldAutoReseedFixture() }
+            if (!onboardingAlreadySeenAtStart) {
+                Log.i(
+                    TAG,
+                    "skipping debug auto-reseed: onboarding has not completed yet " +
+                        "(fresh install, or after a data wipe) -- onboarding owns the " +
+                        "first-run state (Skip vs sample-data toggle), not the fixture",
+                )
+            } else {
+                appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    runCatching { fixtureLoader.reseedIfStale() }
+                        .onSuccess { report ->
+                            if (report != null) {
+                                Log.i(TAG, "auto-reseeded fixture: $report")
+                            }
                         }
-                    }
-                    .onFailure { e ->
-                        Log.e(TAG, "auto-reseed failed: ${e.message}")
-                    }
+                        .onFailure { e ->
+                            Log.e(TAG, "auto-reseed failed: ${e.message}")
+                        }
+                }
             }
         }
         appStartRan = true
     }
+
+    /**
+     * QA audit fix (fresh-install methodology bug): the debug
+     * auto-reseed above is gated on [BuildConfig.DEBUG] via
+     * [isDebugBuild], but that alone isn't enough to keep it from
+     * clobbering a genuine first run. `storedFixtureVersion`
+     * (SharedPreferences) is app-private storage: a real
+     * `pm clear` wipes it back to 0, and 0 is always less than the
+     * fixture asset's `version` (2) — so on the very next launch
+     * [FixtureLoader.reseedIfStale] fires unconditionally and
+     * replaces whatever the onboarding flow just produced (an
+     * empty DB after "Skip", or the onboarding's own 6-person
+     * sample set with the toggle on) with the full 55-person/
+     * 200-instruction fixture. The true "empty first run" state
+     * was unobservable on the `.debug` artifact no matter which
+     * onboarding path QA took.
+     *
+     * The fix: only auto-reseed once onboarding has already run
+     * at least once. [KaavalanPreferences.hasSeenOnboarding] is
+     * DataStore-backed (same app-private storage lifecycle as the
+     * fixture-version prefs), defaults to `false`, and is flipped
+     * to `true` by [com.kaavalan.note.features.onboarding.OnboardingViewModel.finish].
+     * The call site matters: [runOnAppStart] must read this
+     * *synchronously* (`runBlocking`), on the calling thread, before
+     * it returns — not lazily from inside the fire-and-forget
+     * `appScope.launch(Dispatchers.IO) { ... }` that does the actual
+     * reseed. fix#12 (QA audit, data-loss) found that the original
+     * v1.7.3 code read it from inside that launched coroutine, whose
+     * timing relative to onboarding's own `finish()` (which flips
+     * this flag to `true`) was unscheduled and, under real cold-
+     * start IO contention, reliably lost the race: the reseed fired
+     * on the SAME launch onboarding had just completed, clobbering
+     * whatever onboarding produced. Reading synchronously from
+     * [runOnAppStart] — called once per process, from
+     * `Application.onCreate()`, which Android guarantees completes
+     * before the first Activity (and therefore Compose, and
+     * therefore onboarding) is created — is what actually makes this
+     * "has this install been through onboarding in a *previous*
+     * launch?" rather than "has it, depending on scheduling luck?":
+     *   - Fresh install / just after `pm clear`: `false` ->
+     *     skip the reseed; onboarding fully owns the first-run
+     *     data (Skip = empty, toggle off = empty, toggle on = its
+     *     own 6-person sample), exactly like the release build.
+     *   - Any later debug launch (onboarding already completed
+     *     once): `true` -> the existing v1.7.3 (P0-A) convenience/
+     *     migration behaviour is unchanged — a stale fixture
+     *     version still auto-updates without a manual "Clear &
+     *     reload" tap.
+     *
+     * [VisibleForTesting] for the same reason as [isDebugBuild]:
+     * `runOnAppStart`'s only path to this check is behind
+     * `System.loadLibrary("sqlcipher")`, which throws
+     * `UnsatisfiedLinkError` under Robolectric (no native lib on
+     * the JVM unit-test classpath) before this code is ever
+     * reached — see [AppInitializerTest]. A unit test calls this
+     * function directly instead of going through `runOnAppStart`.
+     */
+    @VisibleForTesting
+    internal suspend fun shouldAutoReseedFixture(): Boolean =
+        preferences.hasSeenOnboarding.first()
 
     /**
      * M3-T4 (sign-out path). Called by the sign-out flow BEFORE

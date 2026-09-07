@@ -54,6 +54,7 @@ import com.kaavalan.note.data.person.toEntity
 import com.kaavalan.note.features.capture.CameraLauncher
 import com.kaavalan.note.features.capture.CaptureSheet
 import com.kaavalan.note.features.capture.CaptureViewModel
+import com.kaavalan.note.ui.hierarchy.DispatchComposerSheet
 import com.kaavalan.note.features.capture.NoteBar
 import com.kaavalan.note.features.capture.PhotoCapture
 import com.kaavalan.note.features.capture.VoiceCaptureService
@@ -93,6 +94,10 @@ fun HomeScreen(
     val quickCapture by rootViewModel.quickCapture.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showAddPerson by remember { mutableStateOf(false) }
+    // v2.x: non-null while the hierarchy dispatch composer is open;
+    // holds the capture text carried over from the note bar.
+    var dispatchInitialText by remember { mutableStateOf<String?>(null) }
+    val deviceOwnerName by viewModel.deviceOwnerName.collectAsStateWithLifecycle()
     // v2.0 (Hierarchy): contact-import sheet. The IconButton next
     // to the FAB opens the contact picker. The picker handles the
     // `READ_CONTACTS` permission itself and on success calls
@@ -212,9 +217,7 @@ fun HomeScreen(
                         )
                     },
                     actions = {
-                        IconButton(
-                            onClick = { showAddPerson = true },
-                        ) {
+                        IconButton(onClick = { showAddPerson = true }) {
                             Icon(
                                 imageVector = Icons.Default.Add,
                                 contentDescription = stringResource(R.string.home_add_person),
@@ -366,6 +369,26 @@ fun HomeScreen(
         CaptureSheet(
             viewModel = captureViewModel,
             onDismiss = { /* sheet closed via VM */ },
+            // v2.x: the note mentions an audience (@si,
+            // @station:Subedari, @all) and the user accepted the
+            // suggestion. Carry the text into the dispatch composer.
+            // The capture sheet has already dismissed itself.
+            onOpenDispatch = { text -> dispatchInitialText = text },
+        )
+    }
+    // v2.x: the hierarchy dispatch composer. Before this, nothing in
+    // the app constructed it -- the whole flow (and
+    // MentionAndTagParser behind it) shipped in v2.1.1 unreachable.
+    dispatchInitialText?.let { initialText ->
+        DispatchComposerSheet(
+            initialText = initialText,
+            senderName = deviceOwnerName,
+            // UserEntity carries no designation/station today; the
+            // composer treats both as optional.
+            senderDesignation = null,
+            senderDivision = null,
+            onDismiss = { dispatchInitialText = null },
+            onSaved = { dispatchInitialText = null },
         )
     }
     // v1.7.0: tapping an instruction in search results now
@@ -404,7 +427,6 @@ private fun EmptyState(
     onAddPersonClick: () -> Unit,
     onImportFromContacts: () -> Unit,
 ) {
-    val addPersonDesc = stringResource(R.string.home_add_person)
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -429,9 +451,17 @@ private fun EmptyState(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            // The empty-state button gives a first-time user one
-            // clear way to build their people list. The note bar
-            // stays primary and works even before this list exists.
+            // v1.4 (PHONE-FINDING-1): the FAB in the Scaffold above
+            // uses primaryContainer which is too low-contrast against
+            // the dark surface — new users miss the entry point. The
+            // empty-state copy now carries its own prominent primary-
+            // coloured "Add person" button so the first thing a
+            // brand-new user sees gives them an obvious action. The
+            // FAB is still present (so power users have a constant
+            // anchor), but the empty-state button is the
+            // first-impression entry point. The button uses
+            // colorScheme.primary (not primaryContainer) so it stands
+            // out against both the dark and the light surface.
             Spacer(Modifier.height(20.dp))
             Button(
                 onClick = onAddPersonClick,
@@ -439,8 +469,6 @@ private fun EmptyState(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 ),
-                modifier = Modifier
-                    .semantics { contentDescription = addPersonDesc },
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
@@ -607,7 +635,7 @@ fun HomeScreenSearchResults(
                         style = MaterialTheme.typography.bodyLarge,
                     )
                     val sub = listOfNotNull(person.designation, person.station)
-                        .joinToString(" \u00b7 ")
+                        .joinToString(" · ")
                     if (sub.isNotBlank()) {
                         // v1.7.4 (P1-A): maxLines=2 + Ellipsis. Same
                         // reason as PersonRow's subtitle — the

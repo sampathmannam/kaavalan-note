@@ -2,9 +2,13 @@ package com.kaavalan.note
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.rule.GrantPermissionRule
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,7 +31,42 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class OnboardingFlowTest {
 
-    @get:Rule
+    // v2.1.2 (test-infra): grant POST_NOTIFICATIONS before MainActivity
+    // launches.
+    //
+    // MainScaffold's LaunchedEffect(Unit) unconditionally fires the
+    // POST_NOTIFICATIONS runtime-permission request on every cold launch
+    // on API 33+ (see MainActivity.requestPostNotifications /
+    // onRequestNotificationsPermission). Without a pre-grant, the system
+    // permission dialog pops up mid-test and steals window focus from
+    // MainActivity -- confirmed via logcat: the Activity goes
+    // RESUMED -> PAUSED -> STOPPED -> DESTROYED while androidx.test's
+    // InstrumentationActivityInvoker$EmptyActivity becomes the foreground
+    // window trying (and failing, on this harness) to recover focus. The
+    // visible symptom was every one of the six Compose UI smoke tests
+    // failing with "Assert failed: The component is not displayed!" or
+    // "No compose hierarchies found" -- confirmed reproducible on
+    // unmodified `main` too, so this was a pre-existing gap in the test
+    // suite, not a regression. GrantPermissionRule runs before the
+    // Activity under test launches, so the permission is already held
+    // and the dialog never appears. It is a documented no-op on API <33
+    // (androidx.test.rule.GrantPermissionRule javadoc), so this rule is
+    // safe on every minSdk this project supports.
+    // v2.1.2 correction: explicit @Rule(order=) is required here.
+    // JUnit4 does NOT guarantee rule application order from
+    // declaration order alone -- without `order`, logcat showed
+    // GrantPermissionRule's UiAutomationPermGranter attempting the
+    // grant *after* ActivityTaskManager had already displayed
+    // MainActivity, i.e. after the app's own LaunchedEffect had
+    // already raced it to request the same permission and shown
+    // the system dialog anyway. `order = 0` makes permissionRule
+    // the outer rule, so its grant runs and completes before
+    // composeRule (order = 1) launches the Activity.
+    @get:Rule(order = 0)
+    val permissionRule: GrantPermissionRule =
+        GrantPermissionRule.grant(android.Manifest.permission.POST_NOTIFICATIONS)
+
+    @get:Rule(order = 1)
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @Test
@@ -42,11 +81,37 @@ class OnboardingFlowTest {
         }
         composeRule.waitForIdle()
 
+        // v2.2.3 (test-infra): the post-onboarding race the other five
+        // device tests already guard against, and the one test in the
+        // suite that was left without the guard. Dismissing onboarding
+        // routes to Home through a DataStore write whose emission
+        // waitForIdle() does not cover, so the assert below could run
+        // while the pager was still up. The FAB's
+        // contentDescription="Add person" is unconditional on Home (see
+        // HomeScreen's FloatingActionButton), so it is the signal that
+        // MainScaffold has actually swapped in Home.
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithContentDescription("Add person")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+
         // Step 2: the Home TopAppBar title is the
         // R.string.home_title value "People" — the only
         // screen-level invariant that holds for both the
         // fresh-install path and the post-onboarding path.
-        composeRule.onNodeWithText("People").assertIsDisplayed()
+        // Run 34076793456 failed here with "The component is not
+        // displayed!", which means exactly one "People" node was
+        // found and its bounds were empty or off screen — a miss
+        // reports "could not find any node" instead. "People" is
+        // R.string.home_title, used in exactly one place
+        // (HomeScreen.kt:215, the TopAppBar title), so a node that
+        // exists but is not displayed is not something this test can
+        // guess at. Attach the real geometry to the failure.
+        try {
+            composeRule.onNodeWithText("People").assertIsDisplayed()
+        } catch (failure: AssertionError) {
+            throw AssertionError("${failure.message} | ${geometry()}", failure)
+        }
 
         // Settle: the FAB, NoteBar, and SearchBar all draw
         // in the next frame after the recomposition. A fatal
@@ -61,4 +126,19 @@ class OnboardingFlowTest {
         @Suppress("UNUSED_VARIABLE")
         val freshInstall = skipResult.isSuccess
     }
+
+    /**
+     * Bounds for every node matching "People", plus the root's own
+     * size, as a single line appended to the assertion failure.
+     * `onAllNodes...fetchSemanticsNodes()` returns a list and does not
+     * throw on zero matches, so this cannot replace the failure it is
+     * describing (which is what an unguarded `fetchSemanticsNode()`
+     * did in run 34075300005).
+     */
+    private fun geometry(): String = runCatching {
+        val nodes = composeRule.onAllNodesWithText("People").fetchSemanticsNodes()
+        val root = composeRule.onRoot().fetchSemanticsNode()
+        val each = nodes.joinToString(" ; ") { "boundsInRoot=${it.boundsInRoot} size=${it.size}" }
+        "matches=${nodes.size} [$each] | root size=${root.size} boundsInRoot=${root.boundsInRoot}"
+    }.getOrElse { "could not measure (${it.message})" }
 }

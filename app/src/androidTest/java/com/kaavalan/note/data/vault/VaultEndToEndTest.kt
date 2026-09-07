@@ -1,5 +1,6 @@
 package com.kaavalan.note.data.vault
 
+import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kaavalan.note.data.local.AppDatabase
@@ -9,6 +10,7 @@ import com.kaavalan.note.data.local.entities.PersonEntity
 import com.kaavalan.note.data.local.entities.SyncStatus
 import com.kaavalan.note.data.local.entities.TagEntity
 import com.kaavalan.note.data.tags.TagKind
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
@@ -136,7 +138,7 @@ class VaultEndToEndTest {
         val exporter = VaultExporter(
             ApplicationProvider.getApplicationContext(), crypto, db,
         )
-        val exportResult = exporter.export(androidx.core.net.toUri(tempFile.absolutePath), passphrase.copyOf())
+        val exportResult = exporter.export(Uri.fromFile(tempFile), passphrase.copyOf())
         assertTrue("export must succeed: $exportResult", exportResult.isSuccess)
         assertTrue("export file must be > 56 bytes (header)", tempFile.length() > 56)
         val fileBytesBefore = tempFile.readBytes()
@@ -161,7 +163,7 @@ class VaultEndToEndTest {
             ApplicationProvider.getApplicationContext(), crypto, db,
         )
         val importResult = importer.import(
-            androidx.core.net.toUri(tempFile.absolutePath), passphrase.copyOf(),
+            Uri.fromFile(tempFile), passphrase.copyOf(),
         )
         assertTrue("import must succeed: $importResult", importResult.isSuccess)
 
@@ -176,7 +178,7 @@ class VaultEndToEndTest {
         val restoredPeople = db.personDao().snapshot()
         val restoredInstructions = db.instructionDao().snapshot()
         val restoredTags = db.tagDao().observeAll()
-        val firstTag = kotlinx.coroutines.flow.first(restoredTags)
+        val firstTag = restoredTags.first()
         assertEquals(3, restoredPeople.size)
         assertEquals(2, restoredInstructions.size)
         assertEquals(1, firstTag.size)
@@ -200,7 +202,7 @@ class VaultEndToEndTest {
             ApplicationProvider.getApplicationContext(), crypto, db,
         )
         val exportResult = exporter.export(
-            androidx.core.net.toUri(tempFile.absolutePath), passphrase.copyOf(),
+            Uri.fromFile(tempFile), passphrase.copyOf(),
         )
         assertTrue(exportResult.isSuccess)
 
@@ -215,7 +217,7 @@ class VaultEndToEndTest {
             ApplicationProvider.getApplicationContext(), crypto, db,
         )
         val result = importer.import(
-            androidx.core.net.toUri(tempFile.absolutePath), wrongPassphrase.copyOf(),
+            Uri.fromFile(tempFile), wrongPassphrase.copyOf(),
         )
         assertTrue("import must fail with wrong passphrase", result.isFailure)
         val err = result.exceptionOrNull()

@@ -137,8 +137,8 @@ class ShareReceiverActivityTest {
      * decode, with the fallback explicitly left to its caller.
      *
      * The activity is an exported share target, so the URI belongs to
-     * the sender. Any installed app can send `image/*` with one it never
-     * granted; an ordinary share reaches the same throw by accident
+     * the sender. Any installed app can send an image share carrying a URI
+     * it never granted; an ordinary share reaches the same throw by accident
      * whenever the photo is cloud-only, in a format ML Kit cannot read,
      * or backed by a temp file the sender has already deleted.
      */

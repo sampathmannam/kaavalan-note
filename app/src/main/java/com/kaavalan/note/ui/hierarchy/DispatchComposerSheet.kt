@@ -21,7 +21,7 @@ fun DispatchComposerSheet(initialText: String, senderName: String, senderDesigna
     var dispatchOpen by remember { mutableStateOf(false) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Text(stringResource(R.string.hierarchy_audience_picker_title), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.hierarchy_composer_title), style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(value = rawText, onValueChange = { rawText = it }, label = { Text(stringResource(R.string.hierarchy_instruction_label)) }, modifier = Modifier.fillMaxWidth(), minLines = 3, maxLines = 8)
             Spacer(Modifier.height(12.dp))

@@ -58,19 +58,23 @@ jobs:
           test -d "$HOME/Library/Android/sdk" || (echo "::error::No SDK at $HOME/Library/Android/sdk" && exit 1)
           echo "Android SDK at $HOME/Library/Android/sdk OK"
 
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          # v1.9.7: do NOT cache `app/build` — the test-results and
-          # html reports inside grow to 100+ MB and the cache upload
-          # step exceeds the 30-minute job timeout. The `~/.gradle/caches`
-          # and `~/.gradle/wrapper` paths alone give ~95% of the speedup.
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+      # v2.2.1: the `actions/cache` step for ~/.gradle is what has
+      # been failing this pipeline, and with it the connected-device
+      # job. Evidence from run 34048464635: restore took 2s (a miss
+      # — the key embeds hashFiles('**/*.gradle*') and the previous
+      # commit touched app/build.gradle.kts), the tests then passed
+      # in 58s, and `Post Cache Gradle` spent the remaining ~25
+      # minutes uploading a multi-GB ~/.gradle/caches from the
+      # runner's home uplink until the job hit `timeout-minutes: 30`
+      # and was killed. A red unit-test job skips `assemble`, which
+      # skips `android-test` — so a cache upload, not a test, is why
+      # nothing has run on a device.
+      #
+      # The step was also pointless here. `actions/cache` exists to
+      # repopulate a throwaway hosted runner; this is a persistent
+      # self-hosted Mac whose $HOME survives between jobs, so
+      # ~/.gradle/caches is already warm before the step runs. It
+      # bought nothing and cost the pipeline.
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -123,8 +127,13 @@ jobs:
       # step still conditional on `always()`. That way gradle's exit
       # code is preserved when a real error happens, but ktlint
       # warnings don't fail the job.
+      # v2.1.2 (release-integrity): `continue-on-error: true` removed.
+      # It was added because lint reported 525 errors, 522 of them the
+      # known/accepted `MissingTranslation` set. Those are now
+      # `informational` in app/build.gradle.kts, so the report is
+      # actionable and lint can gate again. It was hiding a real
+      # `NewApi` crash (voice capture on every pre-Android-13 device).
       - name: Run Android lint
-        continue-on-error: true
         run: ./gradlew :app:lintDebug --no-daemon -PBATON_SUPABASE_URL=https://placeholder.supabase.co -PBATON_SUPABASE_ANON_KEY=placeholder-anon-key-for-ci-only
 
       - name: Upload lint report
@@ -173,14 +182,27 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
 
-      # v1.9.11 (A7 audit fix): debug APK size budget. The release
-      # build's online dependency resolution fails in the CI's
-      # offline mode; the debug variant is what we can measure
-      # without network. The release APK is the same code through
-      # R8 minify + resource shrink, so the debug 47 MB is the
-      # upper bound. The release size is ~32 MB (a 32% shrink)
-      # — this budget is a guard against future regressions.
-      - name: Debug APK size budget (40 MB)
+      # v1.9.11 (A7 audit fix) added this as a *proxy* for the release
+      # size, and said so: "the release build's online dependency
+      # resolution fails in the CI's offline mode; the debug variant is
+      # what we can measure without network."
+      #
+      # v2.2.1: that premise is gone. The assemble-release job below
+      # builds the real artifact with R8 + resource shrink and gates it
+      # directly in "Release APK size budget (40 MB, arm64-v8a)", which
+      # passes. Measuring an unminified APK that never ships, to
+      # estimate one that is now measured exactly, guards nothing.
+      #
+      # It was also failing. 45 MB against a 40 MB budget, on `main`
+      # since at least 26 August (run 32973141440) and on every branch
+      # cut from it. android-test declares `needs: [assemble]`, so this
+      # step is why the connected-device suite has never run: not a
+      # device problem, a stale proxy failing a build that succeeded.
+      #
+      # The measurement stays and is printed, because debug-size drift
+      # is worth seeing. It no longer fails the build. The gate on the
+      # artifact users actually install is untouched.
+      - name: Debug APK size (informational)
         run: |
           set -e
           DEBUG_APK=app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
@@ -190,12 +212,120 @@ jobs:
           fi
           SIZE_BYTES=$(stat -f%z "$DEBUG_APK" 2>/dev/null || stat -c%s "$DEBUG_APK")
           SIZE_MB=$((SIZE_BYTES / 1024 / 1024))
-          echo "Debug APK size: ${SIZE_MB} MB (budget: 40 MB)"
+          echo "Debug APK (arm64-v8a, unminified): ${SIZE_MB} MB"
+          echo "Release size is gated in the assemble-release job."
+
+  # v2.1.2 (release-integrity): the release build gate.
+  #
+  # Until now CI built only `assembleDebug`. The debug variant
+  # does not run R8, so nothing in the pipeline ever exercised
+  # minification, resource shrinking, the per-ABI splits or
+  # `lintVitalRelease` — the stages where release-only crashes
+  # come from. Two defects lived in `main` because of that gap:
+  #
+  #   * `assembleRelease` failed outright at
+  #     `validateSigningRelease` on any clean checkout (the
+  #     keystore was scrubbed in v2.1.0 but `build.gradle.kts`
+  #     still hard-coded its path), so no release artifact could
+  #     be produced at all; and
+  #   * every app-specific `-keep` rule in `proguard-rules.pro`
+  #     still named the pre-v2.1.1 `com.baton.app` package and
+  #     therefore matched nothing.
+  #
+  # Neither was visible from a debug build. This job closes that.
+  # It deliberately runs WITHOUT signing secrets: the signing
+  # config resolves to nothing, AGP emits unsigned APKs, and R8
+  # plus every other release stage still runs. Signing happens at
+  # release time on a machine that holds the key.
+  assemble-release:
+    name: Assemble release APK (R8)
+    runs-on: [self-hosted, macOS, ARM64, baton]
+    timeout-minutes: 45
+    needs: unit-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Export Android SDK path
+        run: |
+          echo "ANDROID_HOME=$HOME/Library/Android/sdk" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$HOME/Library/Android/sdk" >> $GITHUB_ENV
+          test -d "$HOME/Library/Android/sdk" || (echo "::error::No SDK at $HOME/Library/Android/sdk" && exit 1)
+
+      # v2.2.1: no `actions/cache` for ~/.gradle here either —
+      # see the unit-test job for why it was removed.
+
+      - name: Assemble release APK (R8 + shrink + splits)
+        run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
+
+      # The whole point of the job: prove R8 actually produced the
+      # per-ABI artifacts. A silent R8 failure that still exits 0
+      # would otherwise look like a pass.
+      - name: Verify release artifacts exist
+        run: |
+          set -e
+          OUT=app/build/outputs/apk/release
+          MISSING=0
+          for ABI in arm64-v8a armeabi-v7a x86 x86_64; do
+            # The basename differs by whether signing was configured.
+            if ls "$OUT"/app-$ABI-release*.apk >/dev/null 2>&1; then
+              F=$(ls "$OUT"/app-$ABI-release*.apk | head -1)
+              SIZE_MB=$(( $(stat -f%z "$F" 2>/dev/null || stat -c%s "$F") / 1024 / 1024 ))
+              echo "OK  $ABI -> $(basename "$F") (${SIZE_MB} MB)"
+            else
+              echo "::error::No release APK for $ABI in $OUT"
+              MISSING=1
+            fi
+          done
+          exit $MISSING
+
+      # arm64-v8a is the ABI virtually every current device uses,
+      # and it is the one Play delivers from the bundle. 40 MB is
+      # comfortably above the ~25 MB the R8 build currently
+      # produces, so this catches a regression rather than
+      # policing normal drift.
+      - name: Release APK size budget (40 MB, arm64-v8a)
+        run: |
+          set -e
+          F=$(ls app/build/outputs/apk/release/app-arm64-v8a-release*.apk | head -1)
+          SIZE_MB=$(( $(stat -f%z "$F" 2>/dev/null || stat -c%s "$F") / 1024 / 1024 ))
+          echo "Release arm64-v8a APK: ${SIZE_MB} MB (budget: 40 MB)"
           if [ "$SIZE_MB" -gt 40 ]; then
-            echo "::error::Debug APK exceeds 40 MB budget (${SIZE_MB} MB)"
+            echo "::error::Release APK exceeds 40 MB budget (${SIZE_MB} MB)"
             exit 1
           fi
           echo "OK — within budget"
+
+      - name: Upload release APKs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-unsigned
+          path: app/build/outputs/apk/release/*.apk
+          retention-days: 14
+
+      # R8's mapping file is the only way to read a release stack
+      # trace. Losing it means a crash report from a user is
+      # unreadable, so keep it with the build that produced it.
+      - name: Upload R8 mapping
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r8-mapping
+          path: app/build/outputs/mapping/release/mapping.txt
+          retention-days: 90
 
   # v1.9.11 (A3 audit fix): the connected-device androidTest
   # job. This runs the M0AcceptanceTest and VaultEndToEndTest
@@ -263,9 +393,150 @@ jobs:
             echo "attached=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # v2.2.1: the first device run (34066765127) failed all six tests
+      # on the physical device with "No compose hierarchies found in the
+      # app", while the emulator composed fine and got 3 of 6 through.
+      # Six identical failures is one condition, not six bugs: nothing
+      # ever composed there. Two candidates -- a locked or asleep screen
+      # (instrumentation needs the device awake; an activity that never
+      # resumes never composes), or MainActivity actually failing to
+      # launch on that OS version, which is a release blocker rather
+      # than a harness problem. Nothing in the job output separated
+      # them, so this records what would.
+      #
+      # Read-only with respect to the device: it reads power state,
+      # keyguard state and build version. It does not wake, unlock or
+      # reconfigure anything. Deciding to keep a personal phone awake
+      # for CI is the owner's call, not this file's.
+      #
+      # v2.2.3: the emulator is the test device, by the repo owner's
+      # decision. The getprop probes for codename / preview_sdk /
+      # abilist that used to sit below existed only to test two guesses
+      # about why AGP enumerated the emulator and not the attached
+      # phone (a preview SDK, or an ABI the per-ABI splits do not
+      # cover). That question is closed rather than answered, so the
+      # probes are gone. The power and keyguard reads stay: an activity
+      # on a sleeping or locked device never resumes, so Compose never
+      # composes, and that is worth seeing whatever the device is.
+      - name: Record device state before tests
+        if: steps.device_check.outputs.attached == 'true'
+        continue-on-error: true
+        run: |
+          set +e
+          for S in $(adb devices | awk '$2=="device"{print $1}'); do
+            echo "=== $S ==="
+            adb -s "$S" shell getprop ro.product.model
+            echo "-- android release / sdk"
+            adb -s "$S" shell getprop ro.build.version.release
+            adb -s "$S" shell getprop ro.build.version.sdk
+            echo "-- awake?"
+            adb -s "$S" shell dumpsys power | grep -E "mWakefulness=|mHoldingDisplaySuspendBlocker="
+            echo "-- locked?"
+            adb -s "$S" shell dumpsys window | grep -iE "mDreamingLockscreen|mShowingLockscreen|keyguardShowing"
+            echo
+          done
+
+      # Runs 34066765127 and 34069968241 both found this phone
+      # `mWakefulness=Dozing` with `isKeyguardShowing=true`, while the
+      # emulator was Awake and unlocked and composed fine. An activity
+      # on a dozing, locked device never resumes, so Compose never
+      # composes -- which is exactly the "No compose hierarchies found
+      # in the app" that failed all six tests there. The app was not
+      # crashing; the screen was off.
+      #
+      # Both commands are transient. No persistent setting is changed
+      # and nothing is left enabled afterwards. `svc power stayon usb`
+      # would be the usual test-rig answer and is deliberately not used
+      # here: keeping someone's screen on whenever it is plugged in is a
+      # lasting change to their phone, not CI's to make.
+      #
+      # `wm dismiss-keyguard` only clears an insecure lock screen. On a
+      # device with a PIN, pattern or password the keyguard stays up and
+      # the tests fail the same way -- the state printed after each
+      # attempt below is what says which case this is.
+      - name: Wake the devices for the run
+        if: steps.device_check.outputs.attached == 'true'
+        continue-on-error: true
+        run: |
+          set +e
+          for S in $(adb devices | awk '$2=="device"{print $1}'); do
+            echo "=== $S ==="
+            adb -s "$S" shell input keyevent KEYCODE_WAKEUP
+            adb -s "$S" shell wm dismiss-keyguard
+            sleep 2
+            adb -s "$S" shell dumpsys power | grep -E "mWakefulness="
+            adb -s "$S" shell dumpsys window | grep -iE "isKeyguardShowing"
+            echo
+          done
+
       - name: Run connectedAndroidTest
         if: steps.device_check.outputs.attached == 'true'
         run: ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace -PBATON_SUPABASE_URL=https://placeholder.supabase.co -PBATON_SUPABASE_ANON_KEY=placeholder-anon-key-for-ci-only
+
+      # Gradle's console prints only the assertion message and one
+      # library frame for a failed instrumented test -- not the frame
+      # in the test itself, so "which assertion failed" is unanswerable
+      # from the job log. That frame is in the JUnit XML, which today
+      # only reaches the uploaded artifact. Run 34071184779 needed it
+      # and did not have it: two tests failed with an identical
+      # "The component is not displayed!" and only one of them could
+      # be pinned to a line. This prints the failure elements so the
+      # log answers it directly. No backslashes, non-gating.
+      #
+      # Piped into `while read -r` rather than `for F in $(find ...)`:
+      # the report is named "TEST-kaavalan-test(AVD) - 14-_app-.xml"
+      # and the spaces made the word-split version look for a file
+      # called "14-_app-.xml" (run 34072117034).
+      #
+      # The `||` branch is not cosmetic. grep exits 1 when it matches
+      # nothing, that is the loop's and so the step's exit status, and
+      # a green run therefore printed a red
+      # "##[error]Process completed with exit code 1" annotation --
+      # run 34080635244, where all six tests passed. The step is
+      # continue-on-error so the job stayed green, but an error
+      # annotation on a passing run is exactly the noise that stops
+      # people reading CI output.
+      - name: Print androidTest failure details
+        if: always() && steps.device_check.outputs.attached == 'true'
+        continue-on-error: true
+        run: |
+          set +e
+          find app/build/outputs/androidTest-results -name '*.xml' | while read -r F; do
+            echo "===== $F ====="
+            grep -B 2 -A 250 "<failure" "$F" || echo "(no <failure> elements in this report)"
+          done
+
+      # If MainActivity crashed on launch rather than the screen being
+      # locked, the stack trace exists here and nowhere else in this
+      # job's output. `always()` because the failing run is the only
+      # interesting one. The buffer is dumped, not cleared, so this
+      # stays read-only.
+      - name: Capture logcat
+        if: always() && steps.device_check.outputs.attached == 'true'
+        continue-on-error: true
+        run: |
+          set +e
+          mkdir -p build/device-logs
+          for S in $(adb devices | awk '$2=="device"{print $1}'); do
+            SAFE=$(echo "$S" | tr -c 'A-Za-z0-9_.-' '_')
+            adb -s "$S" logcat -d -v time > "build/device-logs/logcat-$SAFE.txt" 2>&1
+            echo "=== $S -> $(wc -l < "build/device-logs/logcat-$SAFE.txt") lines ==="
+            grep -E "FATAL EXCEPTION|AndroidRuntime|kaavalan" "build/device-logs/logcat-$SAFE.txt" | tail -80
+            echo
+            # v2.2.3: whether the tests were actually isolated. The
+            # grep above is tail-limited and the per-test teardown
+            # happens long before the end of the buffer, so counts are
+            # the only way to see it from the job log. Under Android
+            # Test Orchestrator with clearPackageData the orchestrator
+            # runs `pm clear` around every test, which logs
+            # "user=0: clear data" once per package per test; without
+            # it the count is zero and all six tests share one Room
+            # database and one DataStore.
+            echo "-- isolation evidence --"
+            echo "orchestrator lines: $(grep -c androidx.test.orchestrator "build/device-logs/logcat-$SAFE.txt")"
+            echo "clear data lines:   $(grep -c "user=0: clear data" "build/device-logs/logcat-$SAFE.txt")"
+            echo
+          done
 
       - name: Upload androidTest results
         if: always() && steps.device_check.outputs.attached == 'true'
@@ -275,6 +546,7 @@ jobs:
           path: |
             app/build/outputs/androidTest-results
             app/build/reports/androidTests
+            build/device-logs
           retention-days: 14
 
       - name: Skip notice

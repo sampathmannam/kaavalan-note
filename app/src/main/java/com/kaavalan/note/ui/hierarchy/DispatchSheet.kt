@@ -19,6 +19,20 @@ import com.kaavalan.note.data.instructions.DeliveryService
 fun DispatchSheet(title: String, rawText: String, senderName: String, senderDesignation: String?, senderDivision: String?, onDismiss: () -> Unit, onSent: (String) -> Unit, viewModel: DispatchViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsState()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // v2.x (adversarial-QA fix): one-shot info Snackbar host, same
+    // pattern as CaptureSheet's `infoMessages` collection -- surfaces
+    // e.g. "At least one channel must stay selected." when
+    // toggleChannel refuses to let the set go empty. The Channel is
+    // buffered so a config change between the tap and the collect
+    // doesn't drop the message.
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(viewModel) {
+        viewModel.infoMessages.collect { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
+
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
             Text(stringResource(R.string.hierarchy_dispatch_title), style = MaterialTheme.typography.titleLarge)
@@ -50,6 +64,20 @@ fun DispatchSheet(title: String, rawText: String, senderName: String, senderDesi
                 // actually delivered (e.g. every recipient had no phone
                 // number on file).
                 val color = when {
+                    // Zero recipients is NOT success. `Result(0, 0, 0)`
+                    // satisfies `failed == 0` and used to fall into the
+                    // success branch below, rendering "0 of 0 delivered"
+                    // in the primary colour for a dispatch that reached
+                    // nobody. This was previously unreachable only
+                    // because the roster was a frozen snapshot taken at
+                    // ViewModel init, so recipientCount could not
+                    // disagree with what resolve() returned. The roster
+                    // is now observed reactively (a person added or
+                    // removed mid-compose updates the picker), which
+                    // reopens exactly that window -- so the case is
+                    // handled explicitly rather than left to the
+                    // gating assumption that no longer holds.
+                    r.recipients == 0 -> com.kaavalan.note.ui.theme.KaavalanColors.Quiet
                     r.failed == 0 -> MaterialTheme.colorScheme.primary
                     r.sent == 0 -> MaterialTheme.colorScheme.error
                     // Partial-failure: use the project's `Quiet` (amber)
@@ -60,6 +88,7 @@ fun DispatchSheet(title: String, rawText: String, senderName: String, senderDesi
                     else -> com.kaavalan.note.ui.theme.KaavalanColors.Quiet
                 }
                 val text = when {
+                    r.recipients == 0 -> stringResource(R.string.hierarchy_dispatch_receipts_nobody)
                     r.failed == 0 -> stringResource(R.string.hierarchy_dispatch_receipts_other, r.sent, r.recipients)
                     r.sent == 0 -> stringResource(R.string.hierarchy_dispatch_receipts_none, r.recipients, r.failed)
                     else -> stringResource(R.string.hierarchy_dispatch_receipts_other, r.sent, r.recipients) + " (${r.failed} failed)"
@@ -68,6 +97,21 @@ fun DispatchSheet(title: String, rawText: String, senderName: String, senderDesi
             }
             Spacer(Modifier.height(24.dp))
         }
+    }
+
+    // v2.x: the Snackbar host sits INSIDE the bottom sheet, as a
+    // sibling of the Column content, mirroring CaptureSheet -- so
+    // the message is co-located with the chip that produced it
+    // rather than clipped to some other container's bounds.
+    SnackbarHost(
+        hostState = snackbarHostState,
+        modifier = Modifier.imePadding().navigationBarsPadding(),
+    ) { data ->
+        Snackbar(
+            snackbarData = data,
+            containerColor = MaterialTheme.colorScheme.inverseSurface,
+            contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+        )
     }
 }
 

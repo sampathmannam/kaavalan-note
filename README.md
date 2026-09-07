@@ -26,18 +26,18 @@ A working IPS officer gets instructions from a dozen people, gives instructions 
 - **People-centric.** The home screen is a list of people (SP, DSP, SHOs, IOs) with a quiet badge showing open items per person. Tap a person → their full timeline.
 - **Lightweight organisation.** Add people and tags when they help; the app never tries to infer sensitive work context remotely.
 - **Layered follow-up.** A focus-first daily brief, quiet-contact cues, and review tools support follow-through without red badges or shame language.
-- **Local-first by design (v2.1.1).** The working database is SQLCipher-encrypted Room on the device. There is no shared workspace, telemetry, or service-backed product account. Optional encrypted Google Drive backup and release checks are the only application-controlled network features. See [`docs/threat-model.md`](docs/threat-model.md) for the current privacy surface.
+- **Local-first by design (v2.3.0).** The working database is SQLCipher-encrypted Room on the device. There is no shared workspace, telemetry, or service-backed product account. Optional encrypted Google Drive backup and release checks are the only application-controlled network features. See [`docs/threat-model.md`](docs/threat-model.md) for the current privacy surface.
 - **Device capture services.** Photo OCR uses ML Kit's on-device recogniser. Voice capture uses Android's system `SpeechRecognizer`, whose on-device versus network routing depends on the device and account settings.
 - **Vault mode.** Optional hidden storage for the sensitive subset of your data. The whole app is local-only, but vault-mode rows are also gated behind a 4-6 digit PIN and the hidden list lives in a separate Room table.
 - **Backup.** Local export/restore is available, and an opt-in Google Drive backup encrypts a snapshot client-side with the user's recovery phrase before upload.
 
-## What this is NOT (v2.0)
+## What this is NOT (v2.x)
 
-Baton v2.0.0 is deliberately narrow. It is **not**:
+KaavalanNote v2.x is deliberately narrow. It is **not**:
 
 - **A multi-device app.** There is no live cloud sync or shared state between devices. A Drive backup can be restored manually on another device.
 - **A cloud-backed workspace.** There is no Supabase backend, team account, remote task store, or remote auth for the core app. Google OAuth exists only for the optional Drive backup.
-- **A team app.** No shared instructions, no delegation, no @-mentions. Single-officer use only.
+- **A shared team workspace.** A single officer can compose a local group dispatch for SMS or WhatsApp, but there is no shared account, collaborative task state, or server-side delegation.
 - **An analytics product.** No usage telemetry, no funnel events, no A/B test scaffolding. Crash logs stay in `cacheDir/crashes/` and never leave the device unless the user explicitly taps "Report a problem" in Settings.
 - **An enterprise-IT app.** No MDM hooks, no remote admin, no policy enforcement, no audit-log shipping. The audit chain is a local append-only table that the officer can review in-app.
 - **A free-of-every-third-party app.** ML Kit uses Google Play Services, `SpeechRecognizer` may use a device-configured speech service, and the optional Drive backup uses Google OAuth/Drive. The privacy model calls these surfaces out explicitly.
@@ -60,12 +60,12 @@ See [`docs/architecture/focus-first-redesign.md`](docs/architecture/focus-first-
 
 ## Status
 
-**v2.2 — Focus-first redesign** (in progress).
-Built on v2.1.1's local-first foundation: single-officer workflow, no live sync, and calm action-first surfaces. Validation is performed in CI before merge.
+**v2.3.0 — Focus-first redesign** (release candidate).
+Built on v2.2.0's reliability foundation: single-officer workflow, no live sync, and calm action-first surfaces. The full release gate runs in CI before merge.
 
 ## Releases
 
-Every release ships a signed `app-arm64-v8a-release.apk` with a SHA-256 fingerprint and the production keystore (unchanged since v1.9.0). See [GitHub Releases](../../releases) for the full list, starting from v1.4.3.
+Every v2.x Obtainium release ships one signed universal `kaavalan-note-<version>.apk` whose certificate must match the pinned SHA-256 fingerprint. See [GitHub Releases](../../releases) and [`docs/RELEASING.md`](docs/RELEASING.md).
 
 ## Stack
 
@@ -128,7 +128,7 @@ kaavalan-note/
 - [`docs/threat-model.md`](docs/threat-model.md) — local-only threat model
 - [`docs/development/sdd-history/`](docs/development/sdd-history/) — pre-1.0 QA reports + dev diary
 
-## Privacy posture (v2.1.1)
+## Privacy posture (v2.3.0)
 
 - The primary store is the SQLCipher-encrypted Room DB at `filesDir/databases/kaavalan-note.db`.
 - Network features are limited to release checks and the optional Google Drive backup. Drive snapshots are encrypted on-device before upload and require Google OAuth plus a recovery phrase.

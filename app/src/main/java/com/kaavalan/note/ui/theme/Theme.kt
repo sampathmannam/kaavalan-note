@@ -17,7 +17,7 @@ import androidx.core.view.WindowCompat
  * palette (the same tokens the dark scheme uses) now backs
  * the light scheme too. No red anywhere.
  */
-private val KaavalanNoteLightScheme = lightColorScheme(
+internal val KaavalanNoteLightScheme = lightColorScheme(
     primary = KaavalanColors.Primary,
     onPrimary = KaavalanColors.OnPrimary,
     background = KaavalanColors.Background,
@@ -30,7 +30,7 @@ private val KaavalanNoteLightScheme = lightColorScheme(
     outlineVariant = KaavalanColors.OutlineMuted,
 )
 
-private val KaavalanNoteDarkScheme = darkColorScheme(
+internal val KaavalanNoteDarkScheme = darkColorScheme(
     primary = KaavalanColors.Primary,
     onPrimary = KaavalanColors.OnPrimary,
     background = Color(0xFF1A1714),

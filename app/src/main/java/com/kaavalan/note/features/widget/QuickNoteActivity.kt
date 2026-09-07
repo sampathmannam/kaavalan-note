@@ -45,6 +45,7 @@ import androidx.lifecycle.viewModelScope
 import com.kaavalan.note.R
 import com.kaavalan.note.data.captures.CaptureMode
 import com.kaavalan.note.data.captures.CaptureRepository
+import com.kaavalan.note.features.theme.appDarkTheme
 import com.kaavalan.note.ui.theme.KaavalanNoteTheme
 import com.kaavalan.note.ui.util.SafeError
 import dagger.hilt.android.AndroidEntryPoint
@@ -78,8 +79,9 @@ import javax.inject.Inject
  * the capture lives in the local SQLCipher DB until the next sync
  * window.
  *
- * **Privacy.** The activity uses the standard M3 dark theme. The
- * text field is the only data shown on screen; nothing is logged to
+ * **Privacy.** The activity follows the app's Theme setting, like
+ * every other screen (v2.2.1 — it used to follow the OS instead).
+ * The text field is the only data shown on screen; nothing is logged to
  * logcat. The previous note's content is not shown — the field
  * starts empty every time, so a quick second note doesn't leak the
  * first one to whoever glances at the screen between two saves.
@@ -101,7 +103,11 @@ class QuickNoteActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            KaavalanNoteTheme {
+            // v2.2.1: `darkTheme` was left off here, so this screen
+            // took the parameter's `isSystemInDarkTheme()` default and
+            // followed the OS while the rest of the app followed the
+            // user's Theme setting. See [appDarkTheme].
+            KaavalanNoteTheme(darkTheme = appDarkTheme()) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,

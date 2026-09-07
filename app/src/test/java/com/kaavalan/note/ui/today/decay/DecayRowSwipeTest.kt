@@ -270,4 +270,138 @@ class DecayRowSwipeTest {
             tail.contains("TextOverflow.Ellipsis"),
         )
     }
+
+    /**
+     * From the character index of an opening bracket (`(` or
+     * `{`), walks forward tracking nesting depth across BOTH
+     * bracket kinds and returns the index of the bracket that
+     * brings the depth back to zero — i.e. the bracket that
+     * actually matches the one at [openIndex]. Kotlin's grammar
+     * guarantees `(`/`{` pairs are properly nested relative to
+     * each other, so a single combined depth counter correctly
+     * finds the matching close even though a call's argument
+     * list (`(...)`) routinely contains lambda arguments
+     * (`{...}`), as every modifier chain here does.
+     */
+    private fun matchingClose(text: String, openIndex: Int): Int {
+        var depth = 0
+        var i = openIndex
+        while (i < text.length) {
+            when (text[i]) {
+                '(', '{' -> depth++
+                ')', '}' -> {
+                    depth--
+                    if (depth == 0) return i
+                }
+            }
+            i++
+        }
+        return -1
+    }
+
+    /**
+     * Returns the full `Card(...)` call — from the opening `(`
+     * of the call through its matching `)` — i.e. exactly the
+     * modifier chain and other named arguments passed to
+     * `Card`, WITHOUT the trailing content lambda. Used to
+     * inspect the Card's own modifier chain in isolation from
+     * everything the card renders inside it.
+     */
+    private fun cardCallArgs(body: String): String {
+        val sig = "Card("
+        val start = body.indexOf(sig)
+        assertTrue("Could not locate a Card(...) call in DecayRow.", start >= 0)
+        val openParen = start + sig.length - 1
+        val closeParen = matchingClose(body, openParen)
+        assertTrue("Card(...) call in DecayRow has unbalanced brackets.", closeParen >= 0)
+        return body.substring(openParen, closeParen + 1)
+    }
+
+    /**
+     * v2.1.3 (adversarial-QA fix): regression test for a
+     * confirmed-on-device bug where swipe-right-to-mark-recent
+     * never fired. The `pointerInput { detectHorizontalDragGestures }`
+     * modifier used to live on the Box that WRAPPED the Card
+     * (an ancestor of the `combinedClickable` Card, not the
+     * same node). Two independent low-level gesture recognizers
+     * split across a parent/child boundary competed for the
+     * same touch stream: on the `Main` pointer-event pass the
+     * deeper node — the Card's `combinedClickable` — is
+     * dispatched to first and its own press tracking consumed
+     * the horizontal position-change deltas before the
+     * ancestor's touch-slop detector ever saw them, so the 96dp
+     * swipe threshold was never reached. On-device verification
+     * confirmed tap and long-press (both owned entirely by
+     * `combinedClickable`) kept working while an over-threshold
+     * swipe produced no removal and no Undo snackbar.
+     *
+     * The fix moves the drag `pointerInput` onto the SAME Card
+     * node as `combinedClickable`, chained immediately after it.
+     * This test locks down both halves of that structural fix
+     * so neither can silently regress:
+     *  1. The drag `pointerInput` + `detectHorizontalDragGestures`
+     *     must be part of the Card's own modifier chain (not a
+     *     separate ancestor `Box`).
+     *  2. Within that chain, `.combinedClickable(` must appear
+     *     BEFORE `.pointerInput(` — that ordering is what makes
+     *     the drag detector the "inner" node so it gets first
+     *     refusal on horizontal movement during the Main pass.
+     *  3. No `Box(...)` in DecayRow carries `.pointerInput(` in
+     *     its own modifier chain — i.e. the drag detector never
+     *     moves back onto a wrapping Box.
+     */
+    @Test
+    fun `v2_1_3 swipe pointerInput lives on the Card after combinedClickable, not on an ancestor Box`() {
+        val text = source()
+        val body = decayRowBody(text)!!
+        val cardArgs = cardCallArgs(body)
+
+        assertTrue(
+            "The Card's own modifier chain must include combinedClickable.",
+            cardArgs.contains(".combinedClickable("),
+        )
+        assertTrue(
+            "The Card's own modifier chain must include the swipe pointerInput " +
+                "(detectHorizontalDragGestures), not a separate ancestor Box.",
+            cardArgs.contains(".pointerInput(") && cardArgs.contains("detectHorizontalDragGestures("),
+        )
+
+        val combinedClickableIdx = cardArgs.indexOf(".combinedClickable(")
+        val pointerInputIdx = cardArgs.indexOf(".pointerInput(")
+        assertTrue(
+            "combinedClickable must be chained BEFORE the drag pointerInput on the " +
+                "Card, so the drag detector is the 'inner' node and gets first refusal " +
+                "on horizontal movement during the Main pointer-event pass. Found " +
+                "combinedClickable at $combinedClickableIdx, pointerInput at $pointerInputIdx.",
+            combinedClickableIdx in 0 until pointerInputIdx,
+        )
+
+        // Walk every Box(...) call in DecayRow and assert none of
+        // them carry the drag pointerInput in their OWN modifier
+        // chain — that would reintroduce the ancestor/descendant
+        // split that caused the original bug.
+        var searchFrom = 0
+        var boxCallsChecked = 0
+        while (true) {
+            val boxStart = body.indexOf("Box(", searchFrom)
+            if (boxStart < 0) break
+            val openParen = boxStart + "Box(".length - 1
+            val closeParen = matchingClose(body, openParen)
+            assertTrue("A Box(...) call in DecayRow has unbalanced brackets.", closeParen >= 0)
+            val boxArgs = body.substring(openParen, closeParen + 1)
+            assertFalse(
+                "Found a Box(...) whose own modifier chain carries the swipe " +
+                    "pointerInput — the drag detector must live on the Card " +
+                    "(chained after combinedClickable), not on a wrapping Box: " +
+                    boxArgs.take(120),
+                boxArgs.contains(".pointerInput("),
+            )
+            boxCallsChecked++
+            searchFrom = closeParen + 1
+        }
+        assertTrue(
+            "Expected to find at least the two wrapping Box(...) calls in DecayRow.",
+            boxCallsChecked >= 2,
+        )
+    }
 }

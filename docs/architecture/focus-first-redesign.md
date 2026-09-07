@@ -1,7 +1,7 @@
 # KaavalanNote — Focus-first UX redesign
 
-**Status:** implemented on the v2.2 work branch; CI validation pending
-**Scope:** v2.2 UX and reliability pass
+**Status:** implemented and integrated for v2.3.0; release CI validation in progress
+**Scope:** v2.3.0 UX and reliability pass
 **Non-negotiables:** local-first working data, three primary destinations, one capture entry point, no shame-oriented urgency language, and no new telemetry or third-party inference.
 
 ## Why this change

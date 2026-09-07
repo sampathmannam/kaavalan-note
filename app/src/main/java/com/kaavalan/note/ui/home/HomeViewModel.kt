@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -30,10 +31,25 @@ class HomeViewModel @Inject constructor(
     private val tagRepository: RoomTagRepository,
     private val vaultModeHolder: VaultModeHolder,
     private val contactSyncService: com.kaavalan.note.data.person.ContactSyncService,
+    private val userDao: com.kaavalan.note.data.user.UserDao,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
+
+    /**
+     * v2.x: who "from" is on a dispatched instruction. The device
+     * owner row is created at first launch by
+     * [com.kaavalan.note.data.user.UserBootstrap]; until the user
+     * renames themselves it is the literal default "Device owner".
+     * Only [com.kaavalan.note.data.user.UserEntity.displayName] exists
+     * today -- there is no designation/station on that table -- so the
+     * dispatch composer's designation/division stay null rather than
+     * inventing a profile-editing feature nobody asked for.
+     */
+    val deviceOwnerName: StateFlow<String> = userDao.observeDeviceOwner()
+        .map { it?.displayName.orEmpty() }
+        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000), "")
 
     init {
         viewModelScope.launch {
