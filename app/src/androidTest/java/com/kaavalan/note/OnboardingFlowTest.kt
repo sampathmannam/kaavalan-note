@@ -3,9 +3,8 @@ package com.kaavalan.note
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
-import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.rule.GrantPermissionRule
@@ -95,23 +94,10 @@ class OnboardingFlowTest {
                 .fetchSemanticsNodes().isNotEmpty()
         }
 
-        // Step 2: the Home TopAppBar title is the
-        // R.string.home_title value "People" — the only
-        // screen-level invariant that holds for both the
-        // fresh-install path and the post-onboarding path.
-        // Run 34076793456 failed here with "The component is not
-        // displayed!", which means exactly one "People" node was
-        // found and its bounds were empty or off screen — a miss
-        // reports "could not find any node" instead. "People" is
-        // R.string.home_title, used in exactly one place
-        // (HomeScreen.kt:215, the TopAppBar title), so a node that
-        // exists but is not displayed is not something this test can
-        // guess at. Attach the real geometry to the failure.
-        try {
-            composeRule.onNodeWithText("People").assertIsDisplayed()
-        } catch (failure: AssertionError) {
-            throw AssertionError("${failure.message} | ${geometry()}", failure)
-        }
+        // Step 2: the People screen is visible. The navigation item
+        // now carries the same visible label, so use the title's stable
+        // semantic tag instead of an ambiguous text selector.
+        composeRule.onNodeWithTag("people_screen_title").assertIsDisplayed()
 
         // Settle: the FAB, NoteBar, and SearchBar all draw
         // in the next frame after the recomposition. A fatal
@@ -127,18 +113,4 @@ class OnboardingFlowTest {
         val freshInstall = skipResult.isSuccess
     }
 
-    /**
-     * Bounds for every node matching "People", plus the root's own
-     * size, as a single line appended to the assertion failure.
-     * `onAllNodes...fetchSemanticsNodes()` returns a list and does not
-     * throw on zero matches, so this cannot replace the failure it is
-     * describing (which is what an unguarded `fetchSemanticsNode()`
-     * did in run 34075300005).
-     */
-    private fun geometry(): String = runCatching {
-        val nodes = composeRule.onAllNodesWithText("People").fetchSemanticsNodes()
-        val root = composeRule.onRoot().fetchSemanticsNode()
-        val each = nodes.joinToString(" ; ") { "boundsInRoot=${it.boundsInRoot} size=${it.size}" }
-        "matches=${nodes.size} [$each] | root size=${root.size} boundsInRoot=${root.boundsInRoot}"
-    }.getOrElse { "could not measure (${it.message})" }
 }

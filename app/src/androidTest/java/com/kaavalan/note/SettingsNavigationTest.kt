@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -149,8 +150,8 @@ class SettingsNavigationTest {
             .performClick()
         composeRule.waitForIdle()
 
-        // Step 4: Home is back; the TopAppBar title
-        // R.string.home_title = "People" is visible.
-        composeRule.onNodeWithText("People").assertIsDisplayed()
+        // Step 4: People is back. Its title and bottom-nav item share
+        // visible text, so assert the title's stable semantic tag.
+        composeRule.onNodeWithTag("people_screen_title").assertIsDisplayed()
     }
 }
