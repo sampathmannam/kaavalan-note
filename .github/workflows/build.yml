@@ -12,7 +12,7 @@ permissions:
 # Keep only the newest run for a branch so rapid updates do not queue
 # obsolete builds on the single self-hosted runner.
 concurrency:
-  group: kaavalan-ci-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: kaavalan-ci-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 on:
