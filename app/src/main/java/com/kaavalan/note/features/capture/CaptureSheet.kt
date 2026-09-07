@@ -474,7 +474,6 @@ private fun PrimaryAction(
  */
 @Composable
 private fun NoPeopleCard(onOpenAddPerson: () -> Unit) {
-    val addPersonDesc = stringResource(R.string.home_add_person)
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -495,9 +494,7 @@ private fun NoPeopleCard(onOpenAddPerson: () -> Unit) {
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = addPersonDesc },
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(stringResource(R.string.home_add_person))
             }
