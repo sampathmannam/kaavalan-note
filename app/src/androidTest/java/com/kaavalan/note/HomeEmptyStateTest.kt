@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.rule.GrantPermissionRule
 import org.junit.Rule
@@ -108,6 +109,15 @@ class HomeEmptyStateTest {
         // (R.string.capture_sheet_text_label). The label is
         // the strongest match because it is the TextField's
         // label slot (not a placeholder, not a heading).
-        composeRule.onNodeWithText("Note").assertIsDisplayed()
+        // The sheet body is a Column with `verticalScroll`
+        // (CaptureSheet.kt:237) and the Note field sits below the
+        // header and below NoPeopleCard, which renders whenever the
+        // user has no people -- exactly the state this test starts
+        // in. Add the IME opening on top (the outer Column takes
+        // `imePadding()`) and the field can sit under the fold, so
+        // asserting it is displayed without scrolling to it asserts
+        // something the sheet does not guarantee. Same defect, same
+        // fix as the Settings sheet's section headers.
+        composeRule.onNodeWithText("Note").performScrollTo().assertIsDisplayed()
     }
 }

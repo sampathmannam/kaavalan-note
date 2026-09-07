@@ -419,6 +419,20 @@ jobs:
             echo "-- android release / sdk"
             adb -s "$S" shell getprop ro.build.version.release
             adb -s "$S" shell getprop ro.build.version.sdk
+            # Why gradle enumerates only the emulator while this phone
+            # sits there attached and Awake (runs 34070444647,
+            # 34073255023) is still unexplained. Two candidates these
+            # three properties separate:
+            #   codename != REL, or preview_sdk != 0 -> a preview build.
+            #     AGP skips devices running a preview SDK unless the
+            #     project compiles against that same preview.
+            #   abilist -> the project ships per-ABI splits, so AGP has
+            #     to pick a split per device; a device whose ABIs the
+            #     splits do not cover gets no installable artifact.
+            echo "-- codename / preview / abis"
+            adb -s "$S" shell getprop ro.build.version.codename
+            adb -s "$S" shell getprop ro.build.version.preview_sdk
+            adb -s "$S" shell getprop ro.product.cpu.abilist
             echo "-- awake?"
             adb -s "$S" shell dumpsys power | grep -E "mWakefulness=|mHoldingDisplaySuspendBlocker="
             echo "-- locked?"
