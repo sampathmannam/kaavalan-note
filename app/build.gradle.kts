@@ -350,6 +350,15 @@ android {
         versionCode = 47
         versionName = "2.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // v2.2.2 (test-infra): wipe app state between instrumented
+        // tests. Without this the six device tests share one Room
+        // database and one DataStore, so each test's premise depends
+        // on which earlier tests happened to pass. Observed directly:
+        // the moment AddPersonFlowTest started passing it persisted
+        // "QA Person", and HomeEmptyStateTest -- which runs later and
+        // asserts on the EMPTY state -- stopped finding an empty Home
+        // at all. Only honoured with the orchestrator below.
+        testInstrumentationRunnerArguments["clearPackageData"] = "true"
         vectorDrawables { useSupportLibrary = true }
 
         // v2.0.0 (drop Supabase): removed SUPABASE_URL +
@@ -529,6 +538,14 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    // v2.2.2 (test-infra): run each instrumented test in its own
+    // process via Android Test Orchestrator. This is what makes
+    // `clearPackageData` above take effect; it also stops one
+    // crashed test from taking the rest of the run down with it.
+    testOptions {
+        execution = "ANDROIDX_TEST_ORCHESTRATOR"
     }
 
     kotlinOptions { jvmTarget = "17" }
@@ -829,6 +846,11 @@ dependencies {
     // unblocks both the existing tests and the new
     // CaptureHappyPathTest.
     androidTestImplementation(libs.compose.ui.test.junit4)
+    // v2.2.2 (test-infra): the orchestrator APK itself. It is
+    // installed alongside the test APK rather than compiled
+    // against, hence androidTestUtil and not
+    // androidTestImplementation.
+    androidTestUtil(libs.androidx.test.orchestrator)
     androidTestImplementation(libs.hilt.android.testing)
     kspAndroidTest(libs.hilt.compiler)
 
