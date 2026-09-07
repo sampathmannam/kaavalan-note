@@ -9,6 +9,7 @@ import com.kaavalan.note.data.local.AuditChainEventDao
 import com.kaavalan.note.data.local.CaptureDao
 import com.kaavalan.note.data.local.ImportantDateDao
 import com.kaavalan.note.data.local.InstructionDao
+import com.kaavalan.note.data.local.SyncQueueDao
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
@@ -53,6 +54,7 @@ class RetentionWorker @AssistedInject constructor(
     private val importantDateDao: ImportantDateDao,
     private val auditDao: AuditChainEventDao,
     private val auditChainWriter: AuditChainWriter,
+    private val syncQueueDao: SyncQueueDao,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
@@ -61,6 +63,7 @@ class RetentionWorker @AssistedInject constructor(
         var deletedCaptures = 0
         var deletedDates = 0
         var redactedAudit = 0
+        var clearedOutboxPayloads = 0
 
         // Captures: hard delete. Photos + voice audio
         // are the largest tables; deleting them is
@@ -90,6 +93,21 @@ class RetentionWorker @AssistedInject constructor(
             redactedAudit = auditDao.redactOlderThan(cutoff, "{\"redacted\":true}")
         }
 
+        // v2.2.1: the capture delete above is
+        // `DELETE FROM captures`, which does not reach
+        // sync_queue. Until v2.2.1 each capture also wrote
+        // its `rawText` into `sync_queue.payloadJson` for a
+        // drain that v2.0.0 deleted along with Supabase, so
+        // nothing read those payloads and nothing removed
+        // the rows. A capture deleted just above would keep
+        // its text in that table indefinitely -- the
+        // retention window would pass and the words would
+        // still be there. New rows carry "{}"; this clears
+        // the ones written by earlier builds.
+        runCatching {
+            clearedOutboxPayloads = syncQueueDao.clearCapturePayloads()
+        }
+
         // The instruction rows are NOT auto-deleted;
         // a v2.x Compliance tab can present them for
         // user-confirmed deletion.
@@ -105,7 +123,8 @@ class RetentionWorker @AssistedInject constructor(
                 kind = "RETENTION_RUN",
                 payload = "{\"deletedCaptures\":$deletedCaptures," +
                     "\"deletedDates\":$deletedDates," +
-                    "\"redactedAudit\":$redactedAudit}",
+                    "\"redactedAudit\":$redactedAudit," +
+                    "\"clearedOutboxPayloads\":$clearedOutboxPayloads}",
             )
         }
 
@@ -114,6 +133,7 @@ class RetentionWorker @AssistedInject constructor(
                 KEY_DELETED_CAPTURES to deletedCaptures,
                 KEY_DELETED_DATES to deletedDates,
                 KEY_REDACTED_AUDIT to redactedAudit,
+                KEY_CLEARED_OUTBOX_PAYLOADS to clearedOutboxPayloads,
             )
         )
     }
@@ -122,5 +142,6 @@ class RetentionWorker @AssistedInject constructor(
         const val KEY_DELETED_CAPTURES = "retention.deletedCaptures"
         const val KEY_DELETED_DATES = "retention.deletedDates"
         const val KEY_REDACTED_AUDIT = "retention.redactedAudit"
+        const val KEY_CLEARED_OUTBOX_PAYLOADS = "retention.clearedOutboxPayloads"
     }
 }

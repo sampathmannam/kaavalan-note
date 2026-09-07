@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
@@ -20,11 +21,14 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.kaavalan.note.R
@@ -32,6 +36,7 @@ import com.kaavalan.note.data.instructions.audienceFromColumns
 import com.kaavalan.note.data.local.entities.InstructionEntity
 import com.kaavalan.note.data.person.Person
 import com.kaavalan.note.ui.home.TagCount
+import com.kaavalan.note.ui.theme.KaavalanThemeTokens
 
 fun LazyListScope.homeHierarchySections(
     outgoing: List<InstructionEntity>,
@@ -108,11 +113,39 @@ fun HomeHierarchyAwarePersonList(persons: List<Person>, openCountByPersonId: Map
     // list (the pre-v2.0 `PersonList` used the same token).
     Row(modifier = Modifier.fillMaxWidth().heightIn(min = 88.dp).clickable(onClickLabel = "Open person", onClick = onClick).padding(horizontal = 0.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(person.name, style = MaterialTheme.typography.bodyLarge)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(person.name, style = MaterialTheme.typography.bodyLarge)
+                if (isStale) {
+                    val staleDescription = stringResource(R.string.a11y_person_stale_indicator)
+                    Spacer(Modifier.size(8.dp))
+                    Surface(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .semantics {
+                                contentDescription = staleDescription
+                            },
+                        color = KaavalanThemeTokens.staleIndicator(),
+                        contentColor = androidx.compose.ui.graphics.Color.Transparent,
+                        shape = androidx.compose.foundation.shape.CircleShape,
+                    ) {}
+                }
+            }
             val sub = listOfNotNull(person.designation, person.station).filter { it.isNotBlank() }.joinToString(" · ")
             if (sub.isNotBlank()) Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
-        if (openCount > 0) Text("$openCount", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (openCount > 0) {
+            val countDescription = if (openCount == 1) {
+                stringResource(R.string.a11y_person_count_badge_one)
+            } else {
+                stringResource(R.string.a11y_person_count_badge, openCount)
+            }
+            Text(
+                text = "$openCount ${stringResource(R.string.today_count_open_short)}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.semantics { contentDescription = countDescription },
+            )
+        }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }

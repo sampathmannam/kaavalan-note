@@ -48,16 +48,16 @@ import io.mockk.mockk
  * The tests cover:
  *   - Sheet visibility (open / dismiss)
  *   - Draft persistence (F-09 SavedStateHandle)
- *   - The `onSaveRaw` save flow (with and without people)
+ *   - The `onSaveRaw` save flow, including the first note before a
+ *     person has been added
  *   - The `hasPeople` / `selectedPersonId` flows
  *   - The voice transcript / error paths
  *   - The `addToCalendar` flag fires a calendar event on Save
- *   - The `NoPeopleException` copy is neutral + action-oriented
  *
  * The `FakeCaptureRepository`, `FakePersonRepository`, and
  * `FakeInstructionRepository` are in-memory implementations of
  * the real repository interfaces so the save flow can be
- * asserted without a real Supabase backend.
+ * asserted without a real Room-backed repository.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class CaptureViewModelTest {
@@ -362,14 +362,9 @@ class CaptureViewModelTest {
         assertEquals(CaptureMode.TEXT, vm.state.value.mode)
     }
 
-    // ---- v1.4 (PHONE-FINDING-8): no-people guard on the capture
-    //      sheet. The brand-new user with zero people used to hit
-    //      a vague "Could not save note. Try again." error; the
-    //      v1.4 path exposes [hasPeople] as a StateFlow, gates
-    //      [onSaveRaw] in the VM, and renders an inline "Add a
-    //      person first" card in the UI. These tests lock the VM
-    //      contract; the UI-side assertions are static-scanned in
-    //      [com.kaavalan.note.ui.home.HomeScreenTest].
+    // ---- The roster state remains useful to the UI, but a person
+    //      is optional for raw capture. That makes the very first
+    //      note a reliable, low-friction entry point.
 
     @Test
     fun `hasPeople is false when the repo has no people`() = runTest(testDispatcher) {
@@ -406,7 +401,7 @@ class CaptureViewModelTest {
     }
 
     @Test
-    fun `onSaveRaw with no people surfaces NoPeopleException message and does not create an instruction`() = runTest(testDispatcher) {
+    fun `onSaveRaw with no people creates a free-floating instruction`() = runTest(testDispatcher) {
         val f = fakes()
         val vm = makeVm(f.first, f.second, f.third)
         // Set up enough state for canSaveRaw to be true: a non-blank
@@ -419,23 +414,17 @@ class CaptureViewModelTest {
         vm.onSaveRaw()
         advanceUntilIdle()
 
-        // No instruction row is created when the user has no people.
         assertEquals(
-            "onSaveRaw must NOT create an instruction when the user has no people",
-            0,
+            "the first note must create an instruction without requiring a person",
+            1,
             f.third.created.size,
         )
-        // The error surfaces the neutral NoPeopleException message.
-        val expected = NoPeopleException().message
-        assertEquals(
-            "onSaveRaw must surface the NoPeopleException message as the inline error",
-            expected,
-            vm.state.value.error,
+        assertNull(
+            "a raw first note is intentionally unassigned",
+            f.third.created.single().personId,
         )
-        // The sheet stays open so the user can tap the inline "Add
-        // person" button on the NoPeopleCard.
-        assertTrue(
-            "sheet must stay open after a no-people onSaveRaw",
+        assertFalse(
+            "sheet must dismiss after a successful first-note save",
             vm.state.value.isVisible,
         )
     }
@@ -574,27 +563,6 @@ class CaptureViewModelTest {
         // the mockk relaxed call we set up in
         // `fakeTagRepo` (coEvery ... attachToInstruction).
         assertEquals(1, f.third.created.size)
-    }
-
-    @Test
-    fun `NoPeopleException message is neutral and action-oriented`() {
-        val ex = NoPeopleException()
-        val msg = ex.message ?: ""
-        // Spec §1: no red / no shame framing. The message must
-        // tell the user the next action in neutral language.
-        assertTrue("message must be non-blank", msg.isNotBlank())
-        assertTrue(
-            "message must not use the word 'error' (no-shame spec §1)",
-            !msg.contains("error", ignoreCase = true),
-        )
-        assertTrue(
-            "message must not use the word 'failed' (no-shame spec §1)",
-            !msg.contains("failed", ignoreCase = true),
-        )
-        assertTrue(
-            "message must guide the user to the next action",
-            msg.contains("Add a person", ignoreCase = true),
-        )
     }
 
     // ---- v1.8.0 (PROD-READINESS-P0-#2): crash-recovery

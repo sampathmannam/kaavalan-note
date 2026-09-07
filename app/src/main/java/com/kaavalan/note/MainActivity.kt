@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -65,6 +66,7 @@ import com.kaavalan.note.data.preferences.KaavalanPreferences
 import com.kaavalan.note.data.preferences.ThemeMode
 import com.kaavalan.note.data.undo.UndoController
 import com.kaavalan.note.features.capture.ShareIntake
+import com.kaavalan.note.features.capture.ocrTextOrEmpty
 import com.kaavalan.note.features.onboarding.OnboardingScreen
 import com.kaavalan.note.features.search.SearchViewModel
 import com.kaavalan.note.features.theme.ThemeViewModel
@@ -184,7 +186,15 @@ class MainActivity : ComponentActivity() {
         when (payload) {
             is ShareIntake.Result.Text -> rootViewModel.onSharedText(payload.text)
             is ShareIntake.Result.Image -> {
-                // Receiver activity already OCR'd; main entry is text.
+                // The manifest share target is an activity alias that
+                // launches MainActivity directly. OCR the sender-owned
+                // URI here and degrade to an empty capture when it is
+                // revoked, cloud-only, or undecodable.
+                lifecycleScope.launch {
+                    rootViewModel.onSharedText(
+                        ocrTextOrEmpty(applicationContext, payload.uri),
+                    )
+                }
             }
         }
     }
@@ -267,6 +277,10 @@ private fun MainScaffold(
     var showVaultImport by remember { mutableStateOf(false) }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: Routes.HOME
+    // Settings is intentionally a configuration sheet rather than a
+    // fourth working screen. Reflect that temporary state in the
+    // navigation bar so its tap has visible, persistent feedback.
+    val selectedNavRoute = if (showSettings) Routes.SETTINGS else currentRoute
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -329,7 +343,7 @@ private fun MainScaffold(
             if (currentRoute in setOf(Routes.HOME, Routes.TODAY)) {
                 BottomNav(
                     navController = navController,
-                    currentRoute = currentRoute,
+                    currentRoute = selectedNavRoute,
                     onSettingsClick = { showSettings = true },
                 )
             }
@@ -348,8 +362,13 @@ private fun MainScaffold(
             ) {
                 composable(Routes.HOME) {
                     HomeScreen(
-                        onOpenSettings = { showSettings = true },
                         onOpenPerson = { id -> navController.navigate("person/$id") },
+                        // RootViewModel is activity-scoped because share,
+                        // widget, and tile actions arrive at MainActivity.
+                        // Passing this same instance into Home prevents a
+                        // navigation-scoped replacement from dropping an
+                        // ingress event before CaptureSheet can consume it.
+                        rootViewModel = rootViewModel,
                     )
                 }
                 composable(Routes.TODAY) {
@@ -596,7 +615,7 @@ private fun BottomNav(
         NavEntry(
             label = stringResource(R.string.tab_settings),
             icon = Icons.Default.Settings,
-            route = "settings-tab",
+            route = Routes.SETTINGS,
             currentRoute = currentRoute,
             onClick = onSettingsClick,
         )
@@ -684,6 +703,7 @@ private fun HomeScreenPersonDetail(
 object Routes {
     const val HOME = "home"
     const val TODAY = "today"
+    const val SETTINGS = "settings"
     const val PERSON = "person/{personId}"
     // v2.0 T3-2 + T3-3: the recovery phrase and threat model
     // screens. They are reachable from Settings → Privacy

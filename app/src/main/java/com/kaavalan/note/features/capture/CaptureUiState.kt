@@ -47,7 +47,6 @@ data class CaptureUiState(
  */
 enum class ErrorType {
     NONE,
-    NEEDS_PERSON_FIRST,
     NETWORK_UNAVAILABLE,
     PERMISSION_DENIED,
     UNKNOWN,

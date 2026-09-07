@@ -2,7 +2,7 @@
 
 ![KaavalanNote app icon](docs/icon-shield-1024.png)
 
-**An ADHD-friendly, **local-only** instruction tracker for IPS officers and other coordination-heavy roles.**
+**An ADHD-friendly, local-first instruction tracker for IPS officers and other coordination-heavy roles.**
 
 KaavalanNote is built for one job: keeping up with what seniors tell you, what you tell subordinates, and what you told yourself you'd do — without dropping the ball, without shame, and without leaking the data.
 
@@ -22,25 +22,25 @@ A working IPS officer gets instructions from a dozen people, gives instructions 
 
 ## What it does
 
-- **Single note bar everywhere.** Speak, type, or snap. The on-device LLM (when enabled) decides what kind of instruction it is and extracts the person, designation, station, FIR number, due date, and tags — automatically. If the LLM isn't available, capture still works as plain text.
+- **Single note bar everywhere.** Speak, type, or snap a photo. Capture always lands as an editable raw note; people, tags, and a calendar reminder are optional context, not prerequisites.
 - **People-centric.** The home screen is a list of people (SP, DSP, SHOs, IOs) with a quiet badge showing open items per person. Tap a person → their full timeline.
-- **Auto-tagging.** Person, designation, station, FIR number, due date, priority markers — all extracted. Free-form `#tags` preserved. Tags have their own management screen.
-- **Layered follow-up.** Morning brief, stale-surfacing dot, AI-drafted nudge messages, evening review. All opt-out-able, none punishing.
-- **Local-only by design (v2.0).** All data lives in a SQLCipher-encrypted Room DB on the device. No cloud sync, no remote auth, no analytics. The only network call is the in-app "check for updates" against the public GitHub Releases API (no auth, no PII). See [`docs/threat-model.md`](docs/threat-model.md) for the full threat model.
-- **On-device AI.** All LLM and STT inference runs on-device (llama.cpp + Whisper.cpp JNI). **ML Kit OCR** is the one third-party SDK; see "What this is NOT" below.
+- **Lightweight organisation.** Add people and tags when they help; the app never tries to infer sensitive work context remotely.
+- **Layered follow-up.** A focus-first daily brief, quiet-contact cues, and review tools support follow-through without red badges or shame language.
+- **Local-first by design (v2.1.1).** The working database is SQLCipher-encrypted Room on the device. There is no shared workspace, telemetry, or service-backed product account. Optional encrypted Google Drive backup and release checks are the only application-controlled network features. See [`docs/threat-model.md`](docs/threat-model.md) for the current privacy surface.
+- **Device capture services.** Photo OCR uses ML Kit's on-device recogniser. Voice capture uses Android's system `SpeechRecognizer`, whose on-device versus network routing depends on the device and account settings.
 - **Vault mode.** Optional hidden storage for the sensitive subset of your data. The whole app is local-only, but vault-mode rows are also gated behind a 4-6 digit PIN and the hidden list lives in a separate Room table.
-- **Backup.** Local export to a SAF-chosen CSV or JSON. No cloud backup; the user owns the bytes.
+- **Backup.** Local export/restore is available, and an opt-in Google Drive backup encrypts a snapshot client-side with the user's recovery phrase before upload.
 
 ## What this is NOT (v2.0)
 
 Baton v2.0.0 is deliberately narrow. It is **not**:
 
-- **A multi-device app.** No cloud sync, no shared state between devices. Each device is its own source of truth. The v1.x "phone ↔ laptop ↔ tablet" sync via Supabase is gone.
-- **A cloud-backed app.** No remote auth, no account, no email, no Supabase. The device is the principal.
+- **A multi-device app.** There is no live cloud sync or shared state between devices. A Drive backup can be restored manually on another device.
+- **A cloud-backed workspace.** There is no Supabase backend, team account, remote task store, or remote auth for the core app. Google OAuth exists only for the optional Drive backup.
 - **A team app.** No shared instructions, no delegation, no @-mentions. Single-officer use only.
 - **An analytics product.** No usage telemetry, no funnel events, no A/B test scaffolding. Crash logs stay in `cacheDir/crashes/` and never leave the device unless the user explicitly taps "Report a problem" in Settings.
 - **An enterprise-IT app.** No MDM hooks, no remote admin, no policy enforcement, no audit-log shipping. The audit chain is a local append-only table that the officer can review in-app.
-- **A free-of-every-third-party app.** ML Kit OCR uses Google Play Services. The threat model documents this and the user can disable OCR in Settings if they need to. The LLM and STT are on-device and do not call out.
+- **A free-of-every-third-party app.** ML Kit uses Google Play Services, `SpeechRecognizer` may use a device-configured speech service, and the optional Drive backup uses Google OAuth/Drive. The privacy model calls these surfaces out explicitly.
 
 If you need any of the above, v1.x is in the [GitHub Releases](../../releases) history. v2.0 is a deliberate narrowing, not a step backward.
 
@@ -53,15 +53,15 @@ These are non-negotiable, applied at the component level:
 3. **"Carried over", never "overdue."** No red badges, no streaks, no shame.
 4. **Capture in < 5 seconds.** Measured. CI fails if it regresses.
 5. **Forgive inconsistency.** Skip the review for a month → still works, still calm.
-6. **Local-first.** No data leaves the device unless the user explicitly exports it.
+6. **Local-first.** No data leaves the device unless the user explicitly exports it or enables encrypted Drive backup.
 7. **External scaffolding, not rigid.** Suggestions, not diktats.
 
-See [`docs/superpowers/specs/2026-08-10-baton-design.md`](docs/superpowers/specs/2026-08-10-baton-design.md) for the full design.
+See [`docs/architecture/focus-first-redesign.md`](docs/architecture/focus-first-redesign.md) for the current interaction model. The earlier Baton specification remains useful historical context.
 
 ## Status
 
-**v2.0.0 — "Local-only by design"** (in progress, August 2026).
-Single-officer, single-device, local-only. 490 unit tests pass (`./gradlew :app:testDebugUnitTest`).
+**v2.2 — Focus-first redesign** (in progress).
+Built on v2.1.1's local-first foundation: single-officer workflow, no live sync, and calm action-first surfaces. Validation is performed in CI before merge.
 
 ## Releases
 
@@ -70,8 +70,8 @@ Every release ships a signed `app-arm64-v8a-release.apk` with a SHA-256 fingerpr
 ## Stack
 
 - **Android:** Kotlin, Jetpack Compose, Hilt, Room/SQLCipher, WorkManager
-- **On-device AI:** llama.cpp (JNI) for LLM, Whisper.cpp (JNI) for STT, ML Kit for OCR
-- **Networking:** Ktor + OkHttp (only used by the in-app "Check for updates" → GitHub Releases API)
+- **Capture:** Android system `SpeechRecognizer` for voice and ML Kit Text Recognition for on-device photo OCR; no LLM extraction pipeline
+- **Networking:** Ktor + OkHttp for the in-app GitHub release check and the optional Google Drive encrypted-backup flow
 - **Local encryption:** SQLCipher (`net.zetetic:sqlcipher-android:4.6.1`), Argon2id + AES-GCM for vault-mode rows, BIP39 recovery phrase
 - **Shared with MindAnchor:** `app-anchor-crypto` Kotlin module (Argon2id + AES-GCM + SQLCipher setup)
 
@@ -95,15 +95,15 @@ Full test suite + lint + assemble is what CI runs on every push. See [`.github/w
 
 ## Repo layout
 
-This is a single-module Android project (`:app`). The multi-module split described in early drafts of `AGENTS.md` is a **v2.0 plan** — see [`docs/PRODUCTION_READINESS_PLAN.md`](docs/PRODUCTION_READINESS_PLAN.md) §3.1.
+This is a single-module Android project (`:app`). The tree below reflects the current local-first implementation.
 
 ```
-baton/
+kaavalan-note/
 ├── app/                          # The whole app (Kotlin + Compose)
-│   ├── src/main/java/com/baton/app/
+│   ├── src/main/java/com/kaavalan/note/
 │   │   ├── ui/                   # home, today, settings, privacy, components, theme
 │   │   ├── features/             # capture, theme, onboarding, vault, adhd
-│   │   ├── data/                 # local (Room/SQLCipher), vault, export
+│   │   ├── data/                 # local (Room/SQLCipher), vault, backup, export
 │   │   ├── di/                   # Hilt modules, migrations
 │   │   ├── qa/                   # in-app QA hooks
 │   │   └── integration/          # cross-feature tests
@@ -122,22 +122,23 @@ baton/
 ## Project docs
 
 - [`docs/PRODUCTION_READINESS_PLAN.md`](docs/PRODUCTION_READINESS_PLAN.md) — living project plan, priorities, open questions
-- [`docs/superpowers/specs/2026-08-10-baton-design.md`](docs/superpowers/specs/2026-08-10-baton-design.md) — design source of truth
+- [`docs/architecture/focus-first-redesign.md`](docs/architecture/focus-first-redesign.md) — current UX and reliability plan
+- [`docs/superpowers/specs/2026-08-10-baton-design.md`](docs/superpowers/specs/2026-08-10-baton-design.md) — historical product-design background
 - [`AGENTS.md`](AGENTS.md) — guide for AI coding agents working in this repo
 - [`docs/threat-model.md`](docs/threat-model.md) — local-only threat model
 - [`docs/development/sdd-history/`](docs/development/sdd-history/) — pre-1.0 QA reports + dev diary
 
-## Privacy posture (v2.0)
+## Privacy posture (v2.1.1)
 
-- All user data stays on the device. SQLCipher-encrypted Room DB at `filesDir/databases/baton.db`.
-- The only outbound network call is the in-app "Check for updates" → `api.github.com/repos/sampathmannam/baton/releases`. No auth, no PII, no analytics cookies.
-- No third-party AI provider ever sees your data. LLM (llama.cpp) and STT (Whisper.cpp) run on-device. ML Kit OCR is a third-party SDK that uses Google Play Services — see [`docs/threat-model.md`](docs/threat-model.md) §8.2 for the precise surface and the user-facing toggle.
+- The primary store is the SQLCipher-encrypted Room DB at `filesDir/databases/kaavalan-note.db`.
+- Network features are limited to release checks and the optional Google Drive backup. Drive snapshots are encrypted on-device before upload and require Google OAuth plus a recovery phrase.
+- ML Kit OCR runs on-device through Google Play Services. Android system speech recognition may use a device-configured online service; it is not represented as a guaranteed fully offline feature.
 - No analytics, no telemetry, no crash reporting that sends data off-device. In-app crash log stays in `cacheDir/crashes/`.
 - Threat model: [`docs/threat-model.md`](docs/threat-model.md).
 
 ## License
 
-TBD — will follow once the project is ready for a public release. Currently private.
+TBD — a license will be added before a public release.
 
 ## Related projects
 

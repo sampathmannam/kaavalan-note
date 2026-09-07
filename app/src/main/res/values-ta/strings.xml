@@ -36,10 +36,15 @@
     <string name="capture_sheet_text_placeholder">தன்னிச்சையான குறிப்பை இங்கே தட்டச்சு செய்க.</string>
     <string name="capture_sheet_save">சேமி</string>
     <string name="capture_sheet_add_to_calendar">நாட்காட்டியில் சேர்</string>
-    <string name="capture_needs_person_message">முதலில் ஒரு நபரைச் சேர்த்து, பின் உங்கள் முதல் குறிப்பை சேமிக்கவும்.</string>
 
     <!-- Today -->
     <string name="today_count_open_short">திறந்தவை</string>
+    <string name="today_focus_title">இங்கிருந்து தொடங்குங்கள்</string>
+    <string name="today_focus_needs_you">உங்கள் கவனம் தேவைப்படும் முதல் அறிவுறுத்தல்.</string>
+    <string name="today_focus_waiting">தொடங்குவதற்கான பயனுள்ள பின்தொடர்வு.</string>
+    <string name="today_focus_hint">புதுப்பிக்க அல்லது முடிக்க இதைத் திறக்கவும்.</string>
+    <string name="today_section_needs_you">உங்கள் கவனம் தேவை</string>
+    <string name="today_section_context">இன்றைக்கான சூழல்</string>
 
     <!-- Vault export -->
     <string name="vault_export_title">மறைகுறியாக்கப்பட்ட பெட்டகத்தை ஏற்றுமதி செய்</string>

@@ -5,8 +5,6 @@ import com.kaavalan.note.data.local.SyncQueueDao
 import com.kaavalan.note.data.local.entities.CaptureEntity
 import com.kaavalan.note.data.local.entities.SyncQueueEntity
 import com.kaavalan.note.data.local.entities.SyncStatus
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -37,11 +35,27 @@ import javax.inject.Singleton
  *     `syncStatus = PENDING_INSERT`. The user sees the row
  *     immediately.
  *  3. Enqueue a `sync_queue` row (`table = "captures"`, op =
- *     `INSERT`, `payloadJson` carries the full row as
- *     [CaptureSyncPayload]). The existing
- *     [com.kaavalan.note.data.local.SyncEngine] periodic drain *and*
- *     the new [com.kaavalan.note.data.sync.CaptureSyncWorker] use this
- *     payload to push the row to Supabase.
+ *     `INSERT`, `payloadJson = "{}"`).
+ *
+ *     **v2.2.1: the payload is empty.** It used to carry the
+ *     capture's `rawText`, for a drain that would read it and
+ *     POST it. v2.0.0 removed Supabase and with it every drain:
+ *     `enqueueCaptureSync` is a no-op, nothing calls
+ *     `SyncQueueDao.deleteById`, and `CaptureSyncWorker` and
+ *     `SyncEngine` are deleted. So the payload was read by
+ *     nothing and deleted by nothing — it just accumulated a
+ *     second copy of every note's text in a table the retention
+ *     sweep does not touch. `RetentionWorker` hard-deletes
+ *     captures past their window with
+ *     `DELETE FROM captures`, which left that copy behind: text
+ *     the app had told the user was deleted, kept indefinitely.
+ *
+ *     The empty payload matches what
+ *     [com.kaavalan.note.data.instructions.RoomInstructionRepository]
+ *     has always enqueued, and makes retention correct by
+ *     construction — there is no second copy to miss.
+ *     `RetentionWorker` clears the historical payloads via
+ *     `SyncQueueDao.clearCapturePayloads`.
  *  4. Return the local [Capture] to the caller synchronously. The
  *     caller never sees a network failure on the hot path.
  *
@@ -71,6 +85,12 @@ import javax.inject.Singleton
  *
  * **Threading.** Room suspend functions dispatch internally; the
  * public methods are safe to call from any dispatcher.
+ *
+ * **Stale above, not touched here.** The paragraphs describing
+ * the wire push still reference `CaptureSyncWorker`, `SyncEngine`
+ * and `SupabaseCaptureRepository`. All three were deleted in
+ * v2.0.0; none of it describes the current code. That predates
+ * this change and rewriting it is a separate job.
  */
 @Singleton
 class RoomCaptureRepository @Inject constructor(
@@ -79,7 +99,6 @@ class RoomCaptureRepository @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
 ) : CaptureRepository {
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val now: () -> Long = { System.currentTimeMillis() }
 
     override suspend fun create(rawText: String, mode: CaptureMode): Capture {
@@ -103,14 +122,7 @@ class RoomCaptureRepository @Inject constructor(
                 table = "captures",
                 rowId = id,
                 op = SyncQueueEntity.OP_INSERT,
-                payloadJson = json.encodeToString(
-                    CaptureSyncPayload.serializer(),
-                    CaptureSyncPayload(
-                        id = id,
-                        rawText = rawText,
-                        mode = mode.toDbValue(),
-                    ),
-                ),
+                payloadJson = "{}",
                 createdAt = now(),
             )
         )
@@ -134,20 +146,16 @@ class RoomCaptureRepository @Inject constructor(
         // [com.kaavalan.note.data.sync.CaptureSyncWorker]) will PATCH
         // the server row; on success, both `syncStatus` is set to
         // `SYNCED` and the sync_queue row is deleted.
-        val row = dao.getById(id) ?: return
+        // Still guard on existence: enqueueing for a row that
+        // isn't there would leave an outbox entry pointing at
+        // nothing.
+        dao.getById(id) ?: return
         syncQueueDao.enqueue(
             SyncQueueEntity(
                 table = "captures",
                 rowId = id,
                 op = SyncQueueEntity.OP_UPDATE,
-                payloadJson = json.encodeToString(
-                    CaptureSyncPayload.serializer(),
-                    CaptureSyncPayload(
-                        id = row.id,
-                        rawText = row.rawText,
-                        mode = row.mode,
-                    ),
-                ),
+                payloadJson = "{}",
                 createdAt = now(),
             )
         )
@@ -168,22 +176,3 @@ class RoomCaptureRepository @Inject constructor(
         createdAt = createdAt,
     )
 }
-
-/**
- * Wire-payload for a [com.kaavalan.note.data.local.SyncQueueEntity]
- * row whose `table = "captures"`. Decoded by
- * [com.kaavalan.note.data.sync.CaptureSyncWorker] to know the
- * `(id, rawText, mode)` triple that
- * [com.kaavalan.note.data.captures.SupabaseCaptureRepository.insertCapture]
- * expects.
- *
- * The id is the BATON-WIRE-006 idempotency key (client-generated
- * UUID, primary key on the server) — the worker passes the same
- * id on the POST so a retry is a server-side no-op.
- */
-@Serializable
-internal data class CaptureSyncPayload(
-    val id: String,
-    val rawText: String?,
-    val mode: String,
-)

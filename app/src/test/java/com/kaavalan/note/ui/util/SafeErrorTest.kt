@@ -2,7 +2,6 @@ package com.kaavalan.note.ui.util
 
 import com.kaavalan.note.features.capture.ErrorType
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -107,23 +106,9 @@ class SafeErrorTest {
     }
 
     // -----------------------------------------------------------------
-    // v1.4 (PHONE-FINDING-7): capture-context mapper. The enum and
-    // the user-facing strings are stable; v2.0.0 keeps them.
+    // Capture-context mapper: only current failure types retain a
+    // user-facing mapping. Setup state is not an error condition.
     // -----------------------------------------------------------------
-
-    @Test
-    fun `forCaptureErrorType - NEEDS_PERSON_FIRST returns the locked fallback text`() {
-        val s = SafeError.forCaptureErrorType(ErrorType.NEEDS_PERSON_FIRST)
-        assertNotNull(s)
-        assertTrue(
-            "NEEDS_PERSON_FIRST message must start with 'Save failed.' (no 'Could not...')",
-            s!!.startsWith("Save failed."),
-        )
-        assertTrue(
-            "NEEDS_PERSON_FIRST message must guide the user ('Add a person first')",
-            s.contains("Add a person first", ignoreCase = true),
-        )
-    }
 
     @Test
     fun `forCaptureErrorType - NONE returns null so the sheet renders nothing`() {

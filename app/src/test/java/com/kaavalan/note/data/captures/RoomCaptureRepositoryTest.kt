@@ -18,8 +18,8 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -137,15 +137,29 @@ class RoomCaptureRepositoryTest {
         assertEquals("captures", entry.table)
         assertEquals(capture.id, entry.rowId)
         assertEquals(SyncQueueEntity.OP_INSERT, entry.op)
-        // 5. The payload is a JSON object carrying the
-        // (id, rawText, mode) triple that the worker needs.
-        assertTrue(
-            "payload must contain the row id, was: ${entry.payloadJson}",
-            entry.payloadJson.contains("\"id\":\"${capture.id}\""),
+        // 5. v2.2.1: the payload is empty, and in particular
+        // carries no copy of the note.
+        //
+        // It used to carry the (id, rawText, mode) triple for a
+        // drain to POST. v2.0.0 deleted Supabase and every drain
+        // with it, so nothing read the payload and nothing deleted
+        // the row -- it just kept a second copy of the note's text
+        // in a table `RetentionWorker` does not touch. Its
+        // `DELETE FROM captures` cleared the capture and left the
+        // copy behind, so text the app had reported as deleted
+        // stayed in the database indefinitely.
+        //
+        // This assertion used to require the opposite. It was
+        // pinning the duplication in place.
+        assertEquals(
+            "the outbox payload must be empty; nothing reads it, and anything in it " +
+                "outlives the capture the retention sweep deletes",
+            "{}",
+            entry.payloadJson,
         )
-        assertTrue(
-            "payload must contain the raw text, was: ${entry.payloadJson}",
-            entry.payloadJson.contains("\"rawText\":\"First note of the day\""),
+        assertFalse(
+            "the note's text must not be copied into the outbox, was: ${entry.payloadJson}",
+            entry.payloadJson.contains("First note of the day"),
         )
     }
 
@@ -173,11 +187,15 @@ class RoomCaptureRepositoryTest {
         val row = captureDao.getById(capture.id)
         assertNotNull(row)
         assertEquals("PHOTO", row!!.mode)
-        // sync_queue row carries the mode too.
+        // v2.2.1: the mode lives on the Room row, asserted
+        // above. The outbox row no longer duplicates it -- nor
+        // the OCR'd text, which for a PHOTO capture is the whole
+        // content of the photo.
         val entry = syncQueueDao.snapshot().first()
-        assertTrue(
-            "payload must carry PHOTO mode, was: ${entry.payloadJson}",
-            entry.payloadJson.contains("\"mode\":\"PHOTO\""),
+        assertEquals("{}", entry.payloadJson)
+        assertFalse(
+            "OCR text must not be copied into the outbox, was: ${entry.payloadJson}",
+            entry.payloadJson.contains("OCR'd text from a photo"),
         )
     }
 

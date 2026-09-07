@@ -18,9 +18,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FabPosition
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -76,14 +75,13 @@ import androidx.core.content.ContextCompat
  * owns the [selectedPersonId] state; it calls [onOpenPerson] to
  * trigger the nav.
  *
- * M3-T4: the settings gear in the top bar is removed (M4-T2
- * promotes Settings to a bottom-nav tab). The sheet is owned by
- * MainScaffold and is opened via [onOpenSettings].
+ * M3-T4: Settings is owned by MainScaffold. The People header keeps
+ * only its local, secondary action: adding a person. The persistent
+ * note bar remains the one prominent creation path.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onOpenSettings: () -> Unit = {},
     onOpenPerson: (String) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
     captureViewModel: CaptureViewModel = hiltViewModel(),
@@ -213,6 +211,16 @@ fun HomeScreen(
                             modifier = Modifier.padding(start = 4.dp),
                         )
                     },
+                    actions = {
+                        IconButton(
+                            onClick = { showAddPerson = true },
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = stringResource(R.string.home_add_person),
+                            )
+                        }
+                    },
                     windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
                 )
                 // v2.0 (Tier 1.3): the search bar below the
@@ -274,12 +282,6 @@ fun HomeScreen(
                 },
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showAddPerson = true }) {
-                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.home_add_person))
-            }
-        },
-        floatingActionButtonPosition = FabPosition.End,
     ) { padding ->
             val searchViewModel: SearchViewModel = androidx.hilt.navigation.compose.hiltViewModel()
             val query by searchViewModel.query.collectAsStateWithLifecycle()
@@ -364,17 +366,6 @@ fun HomeScreen(
         CaptureSheet(
             viewModel = captureViewModel,
             onDismiss = { /* sheet closed via VM */ },
-            // v1.4 (PHONE-FINDING-8): when the user has no people
-            // yet, the inline "Add a person first" card on the
-            // capture sheet points its "Add person" button at the
-            // same entry point the Home screen uses, so the user
-            // lands in the same AddPerson form. The sheet is
-            // dismissed before the AddPerson sheet opens so the
-            // back stack is single-step.
-            onOpenAddPerson = {
-                captureViewModel.dismissSheet()
-                showAddPerson = true
-            },
         )
     }
     // v1.7.0: tapping an instruction in search results now
@@ -438,17 +429,9 @@ private fun EmptyState(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            // v1.4 (PHONE-FINDING-1): the FAB in the Scaffold above
-            // uses primaryContainer which is too low-contrast against
-            // the dark surface — new users miss the entry point. The
-            // empty-state copy now carries its own prominent primary-
-            // coloured "Add person" button so the first thing a
-            // brand-new user sees gives them an obvious action. The
-            // FAB is still present (so power users have a constant
-            // anchor), but the empty-state button is the
-            // first-impression entry point. The button uses
-            // colorScheme.primary (not primaryContainer) so it stands
-            // out against both the dark and the light surface.
+            // The empty-state button gives a first-time user one
+            // clear way to build their people list. The note bar
+            // stays primary and works even before this list exists.
             Spacer(Modifier.height(20.dp))
             Button(
                 onClick = onAddPersonClick,

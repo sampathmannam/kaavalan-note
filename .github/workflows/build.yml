@@ -1,4 +1,4 @@
-name: Baton Android CI
+name: KaavalanNote Android CI
 
 # v1.9.7 (CI-002): CodeRabbit review caught that the workflow had
 # no `permissions` block. Restrict GITHUB_TOKEN to read-only at the

@@ -33,10 +33,15 @@
     <string name="capture_sheet_text_placeholder">यहां मुफ्त-प्रपत्र नोट टाइप करें।</string>
     <string name="capture_sheet_save">सहेजें</string>
     <string name="capture_sheet_add_to_calendar">कैलेंडर में जोड़ें</string>
-    <string name="capture_needs_person_message">पहले एक व्यक्ति जोड़ें, फिर अपना पहला नोट सहेजें।</string>
 
     <!-- Today -->
     <string name="today_count_open_short">खुले</string>
+    <string name="today_focus_title">यहाँ से शुरू करें</string>
+    <string name="today_focus_needs_you">पहला निर्देश जिस पर आपके ध्यान की ज़रूरत है।</string>
+    <string name="today_focus_waiting">शुरू करने के लिए उपयोगी फ़ॉलो-अप।</string>
+    <string name="today_focus_hint">इसे खोलकर अपडेट करें या काम पूरा करें।</string>
+    <string name="today_section_needs_you">आपके ध्यान की ज़रूरत</string>
+    <string name="today_section_context">आज का संदर्भ</string>
 
     <!-- Vault export -->
     <string name="vault_export_title">एन्क्रिप्टेड वॉल्ट निर्यात करें</string>

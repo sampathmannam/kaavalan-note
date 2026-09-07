@@ -1,6 +1,7 @@
 package com.kaavalan.note.data.backup
 
 import android.util.Base64
+import com.kaavalan.note.data.vault.IdentityCrypto
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.SecretKey
@@ -114,6 +115,49 @@ class BackupCrypto @Inject constructor() {
     }
 
     /**
+     * Decrypt a Drive backup given the user's recovery
+     * phrase, whichever of the two key derivations
+     * wrote it.
+     *
+     * **Why two.** Until v2.2.1 the two write paths
+     * disagreed. `SettingsViewModel.googleDriveBackUpNow`
+     * passed the phrase straight through, while
+     * [com.kaavalan.note.data.backup.DriveBackupWorker] —
+     * which cannot prompt for a phrase at 3am — passed the
+     * SHA-256 hash that `SecurePreferences` had stored. Two
+     * different key sources, so the daily automatic backup
+     * could not be opened with the phrase the restore
+     * dialog asks for, and the hash it *could* be opened
+     * with was never shown anywhere in the app. Every
+     * automatic backup was unreadable, silently: the upload
+     * succeeded, the file listed, the size looked right.
+     *
+     * v2.2.1 makes [keyMaterialFor] the one key source, so
+     * new backups from either path open with the phrase.
+     * The fallback below is for blobs already sitting in a
+     * user's `appDataFolder` from a manual backup taken
+     * before that change; without it, unifying the paths
+     * would itself have made those unreadable.
+     *
+     * The legacy attempt only runs after the canonical one
+     * has failed its GCM tag check, so the normal path
+     * costs one PBKDF2, not two.
+     */
+    fun decryptWithRecoveryPhrase(blob: ByteArray, recoveryPhrase: CharArray): ByteArray {
+        return try {
+            decrypt(blob, keyMaterialFor(recoveryPhrase))
+        } catch (canonicalFailure: Throwable) {
+            try {
+                decrypt(blob, recoveryPhrase)
+            } catch (_: Throwable) {
+                // Report the canonical failure: for anything
+                // written by a current build, that is the real one.
+                throw canonicalFailure
+            }
+        }
+    }
+
+    /**
      * Decrypt [blob] (in BTV1 or BTV2 format) using a
      * key derived from [passphrase]. Throws on:
      *  - unknown magic (not a Kaavalan note backup)
@@ -204,6 +248,29 @@ class BackupCrypto @Inject constructor() {
     }
 
     companion object {
+        /**
+         * The one key source for a Drive backup: the SHA-256
+         * hex of the recovery phrase.
+         *
+         * Both write paths derive from this, so what
+         * [DriveBackupWorker] writes unattended opens with the
+         * phrase the restore dialog asks for. It is also
+         * exactly the value
+         * `SecurePreferences.setBackupEncryptionKeyHash`
+         * stores, so the stored value and the encryption key
+         * cannot drift apart — the drift is what broke every
+         * automatic backup before v2.2.1.
+         *
+         * The hash, not the phrase, because the worker needs
+         * usable key material at rest and the phrase is the
+         * master secret other keys derive from. That does mean
+         * someone holding both the unlocked device and the
+         * Google account can open a backup; the threat-model
+         * screen says so.
+         */
+        fun keyMaterialFor(recoveryPhrase: CharArray): CharArray =
+            IdentityCrypto.sha256Hex(String(recoveryPhrase)).toCharArray()
+
         // "BTV1" — Kaavalan note encrypted-backup Version 1
         // (v2.1.0 / v2.1.1's original format). Kept
         // here so [decrypt] can recognise + restore

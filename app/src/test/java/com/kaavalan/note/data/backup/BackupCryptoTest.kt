@@ -1,5 +1,6 @@
 package com.kaavalan.note.data.backup
 
+import com.kaavalan.note.data.vault.IdentityCrypto
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -26,6 +27,109 @@ import org.junit.Test
 class BackupCryptoTest {
 
     private val crypto = BackupCrypto()
+
+    /**
+     * The property that matters for a backup: what the app wrote
+     * unattended, the user can open with what they typed.
+     *
+     * It did not hold before v2.2.1.
+     * `SettingsViewModel.googleDriveBackUpNow` encrypted with the
+     * raw phrase; [com.kaavalan.note.data.backup.DriveBackupWorker],
+     * which cannot prompt at 3am, encrypted with the SHA-256 hash
+     * `SecurePreferences` had stored. Different key material, so
+     * the daily automatic backup would not open with the phrase
+     * the restore dialog asks for — and the hash it *would* open
+     * with appeared nowhere in the app
+     * (`getBackupEncryptionKeyHash` had no reader outside the
+     * worker). Every automatic backup was unrecoverable, silently:
+     * the upload succeeded, the file listed, the size looked
+     * right. It would have surfaced on a new device, which is the
+     * one moment a backup exists for.
+     *
+     * No mocks. `DriveBackupWorkerTest` stubs the manager out
+     * entirely, so it could never see which key went in; this
+     * drives the real crypto in both directions.
+     */
+    @Test
+    fun `a worker-written backup opens with the recovery phrase the user types`() {
+        val phrase = "abandon ability able about above absent absorb abstract " +
+            "absurd abuse access accident"
+        val payload = """{"people":[],"instructions":[],"tags":[]}""".toByteArray()
+
+        // What DriveBackupWorker writes: the stored key material.
+        val storedKeyMaterial = BackupCrypto.keyMaterialFor(phrase.toCharArray())
+        val blob = crypto.encrypt(payload, storedKeyMaterial)
+
+        // What the restore dialog hands back: the phrase itself.
+        val recovered = crypto.decryptWithRecoveryPhrase(blob, phrase.toCharArray())
+
+        assertArrayEquals(
+            "a backup written with the stored key material must open with the phrase " +
+                "the user types, or every automatic backup is unrecoverable",
+            payload,
+            recovered,
+        )
+    }
+
+    /**
+     * The stored hash and the encryption key have to be the same
+     * value or they drift apart again. `SettingsViewModel` stores
+     * `IdentityCrypto.sha256Hex(phrase)` and the manager derives
+     * `keyMaterialFor(phrase)`; this pins that those agree.
+     */
+    @Test
+    fun `keyMaterialFor is the SHA-256 hex that SecurePreferences stores`() {
+        val phrase = "correct horse battery staple and eight more words here now"
+        val keyMaterial = String(BackupCrypto.keyMaterialFor(phrase.toCharArray()))
+
+        assertEquals(
+            "key material must be the same 64-char SHA-256 hex the app stores as the " +
+                "backup encryption key hash",
+            IdentityCrypto.sha256Hex(phrase),
+            keyMaterial,
+        )
+        assertEquals(64, keyMaterial.length)
+    }
+
+    /**
+     * Unifying the two write paths must not orphan blobs already
+     * in a user's `appDataFolder`. A manual backup taken before
+     * v2.2.1 was encrypted with the raw phrase; restore falls back
+     * to that derivation when the canonical one fails its tag
+     * check.
+     */
+    @Test
+    fun `a pre-v2 dot 2 dot 1 manual backup still opens with the same phrase`() {
+        val phrase = "legacy manual backup phrase from the older build here"
+        val payload = "some older backup json".toByteArray()
+
+        // The old googleDriveBackUpNow path: the raw phrase.
+        val legacyBlob = crypto.encrypt(payload, phrase.toCharArray())
+
+        assertArrayEquals(
+            "a backup written with the pre-v2.2.1 derivation must still restore, or " +
+                "fixing the worker would itself destroy existing backups",
+            payload,
+            crypto.decryptWithRecoveryPhrase(legacyBlob, phrase.toCharArray()),
+        )
+    }
+
+    /**
+     * The fallback must not soften into "any phrase works". A
+     * wrong phrase fails both derivations and still throws.
+     */
+    @Test
+    fun `decryptWithRecoveryPhrase still rejects the wrong phrase`() {
+        val right = "the right recovery phrase with enough words in it"
+        val wrong = "the wrong recovery phrase with enough words in it"
+        val blob = crypto.encrypt(
+            "secret".toByteArray(),
+            BackupCrypto.keyMaterialFor(right.toCharArray()),
+        )
+        assertThrows(Throwable::class.java) {
+            crypto.decryptWithRecoveryPhrase(blob, wrong.toCharArray())
+        }
+    }
 
     @Test
     fun `encrypt then decrypt returns the original plaintext`() {
