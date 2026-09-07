@@ -347,8 +347,19 @@ android {
         // send, and the recovery-phrase screen now warns before
         // replacing an existing phrase.
         // versionCode 46 -> 47.
-        versionCode = 47
-        versionName = "2.2.0"
+        //
+        // v2.3.0: focus-first redesign. Today opens with one useful
+        // instruction before summaries and reflection tools; People is
+        // a clearer directory with the note bar as the sole prominent
+        // creation action; first capture no longer requires a person;
+        // Settings shows its selected state; and activity-scoped share,
+        // widget, and tile events reach the visible capture surface.
+        // Includes the post-v2.2 reliability line already integrated
+        // into main (release build/device CI, capture ingress, backup,
+        // retention, migration, and startup hardening).
+        // versionCode 47 -> 48.
+        versionCode = 48
+        versionName = "2.3.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // v2.2.2 (test-infra): wipe app state between instrumented
         // tests. Without this the six device tests share one Room

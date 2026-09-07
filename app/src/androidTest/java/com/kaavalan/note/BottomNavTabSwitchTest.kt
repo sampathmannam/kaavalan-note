@@ -127,11 +127,11 @@ class BottomNavTabSwitchTest {
         // matched two nodes ("Expected at most 1 node but found 2").
         composeRule.onNodeWithTag("settings_sheet_title").assertIsDisplayed()
 
-        // Step 3: close the sheet, then Home -> Home.
+        // Step 3: close the sheet, then return to People.
         composeRule.onNodeWithContentDescription("Close settings").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithContentDescription("Home").performClick()
+        composeRule.onNodeWithContentDescription("People").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("People").assertIsDisplayed()
+        composeRule.onNodeWithTag("people_screen_title").assertIsDisplayed()
     }
 }

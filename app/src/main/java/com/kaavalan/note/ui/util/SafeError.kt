@@ -55,13 +55,10 @@ object SafeError {
     /**
      * v1.4 (PHONE-FINDING-7): user-facing text for the
      * [com.kaavalan.note.features.capture.CaptureUiState.errorType]
-     * discriminator. v2.0.0: same as before — the ErrorType
-     * enum still has NEEDS_PERSON_FIRST and friends, and the
-     * mapper handles the ones that have a stable user message.
+     * discriminator. It maps only real capture failures with a
+     * stable user-facing message.
      */
     fun forCaptureErrorType(type: ErrorType): String? = when (type) {
-        ErrorType.NEEDS_PERSON_FIRST ->
-            "Save failed. Add a person first to capture instructions."
         ErrorType.NONE -> null
         ErrorType.NETWORK_UNAVAILABLE ->
             "Local storage error. Check available space."

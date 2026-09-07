@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -166,9 +167,11 @@ fun TodayScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                // v1.6.3: 16dp horizontal contentPadding so the
-                // cards no longer need their own horizontal
-                // padding (consistent with HomeScreen.PersonList).
+                // Each Today component owns the same 16dp side inset.
+                // Keep the list itself vertical-only so a focused
+                // instruction, section header, meeting brief, and
+                // reflection card align to one shared content edge
+                // instead of receiving a hidden double inset.
                 //
                 // v1.9.2: bottom contentPadding reset to 8dp
                 // (the v1.6.3 default). The earlier v1.9.2 bump
@@ -194,44 +197,50 @@ fun TodayScreen(
                 // gives the surface room to breathe without
                 // wasting 1/4 of the screen on gaps. 5+ cards
                 // now fit on the Today screen instead of 4.
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                contentPadding = PaddingValues(vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-            // v2.0 Tier 2 (§2.11): Today's win summary.
-            item { TodaysWinCard() }
-            // v2.0 Tier 2 (§2.1, §2.13, §2.14): the "Haven't
-            // touched in N days" section with the redistribution
-            // banner.
-            item { DecaySection(onOpenPerson = onOpenPerson) }
-            // v2.0 Tier 2 (§2.10): the worry box (rendered above
-            // the brief so the user sees it first; non-shaming
-            // surface).
-            item { WorryBoxSection() }
-            // v2.0 Tier 2 (§2.7): meeting brief card.
-            item { MeetingBriefCard() }
-            // Existing brief sections.
-            if (brief.isEmpty) {
-                item { EmptyBriefContent() }
-            } else {
-                if (brief.needsYouToday.isNotEmpty()) {
-                    item { SectionHeader("Needs you today") }
-                    items(items = brief.needsYouToday, key = { it.id }) { ins ->
-                        InstructionCard(ins, onClick = { selected = ins })
-                    }
-                }
-                if (brief.waitingOnOthers.isNotEmpty()) {
-                    item { SectionHeader(stringResource(R.string.today_section_waiting)) }
-                    items(items = brief.waitingOnOthers, key = { it.id }) { ins ->
-                        InstructionCard(ins, onClick = { selected = ins })
-                    }
-                }
-                if (brief.carriedOver.isNotEmpty()) {
-                    item { SectionHeader(stringResource(R.string.today_section_carried_over)) }
-                    items(items = brief.carriedOver, key = { it.id }) { ins ->
-                        InstructionCard(ins, onClick = { selected = ins })
-                    }
+            // Focus-first: the existing BriefGenerator ordering is
+            // the source of truth. We surface one calm starting point
+            // before summaries, quiet contacts, or reflective tools.
+            val focus = focusFirst(brief)
+            focus.instruction?.let { focusInstruction ->
+                item {
+                    FocusInstructionCard(
+                        instruction = focusInstruction,
+                        needsYou = focus.needsYou,
+                        onClick = { selected = focusInstruction },
+                    )
                 }
             }
+
+            if (focus.remainingNeeds.isNotEmpty()) {
+                item { SectionHeader(stringResource(R.string.today_section_needs_you)) }
+                items(items = focus.remainingNeeds, key = { it.id }) { ins ->
+                    InstructionCard(ins, onClick = { selected = ins })
+                }
+            }
+            if (focus.remainingWaiting.isNotEmpty()) {
+                item { SectionHeader(stringResource(R.string.today_section_waiting)) }
+                items(items = focus.remainingWaiting, key = { it.id }) { ins ->
+                    InstructionCard(ins, onClick = { selected = ins })
+                }
+            }
+            if (brief.carriedOver.isNotEmpty()) {
+                item { SectionHeader(stringResource(R.string.today_section_carried_over)) }
+                items(items = brief.carriedOver, key = { it.id }) { ins ->
+                    InstructionCard(ins, onClick = { selected = ins })
+                }
+            }
+
+            // Context is deliberately below the action path. These
+            // tools are useful, but should never hide the instruction
+            // that lets the officer make progress now.
+            item { SectionHeader(stringResource(R.string.today_section_context)) }
+            item { TodaysWinCard() }
+            item { MeetingBriefCard() }
+            item { DecaySection(onOpenPerson = onOpenPerson) }
+            item { WorryBoxSection() }
             // v1.6.3: removed the trailing 80dp Spacer; the
             // LazyColumn's contentPadding(bottom) is the only
             // bottom buffer now (Scaffold.bottomBar is empty
@@ -306,6 +315,68 @@ private fun SectionHeader(title: String) {
 }
 
 /**
+ * The focused first action for the day. It deliberately reuses the
+ * instruction detail sheet instead of inventing a second completion
+ * flow, so every entry point has the same update / done / drop path.
+ */
+@Composable
+private fun FocusInstructionCard(
+    instruction: Instruction,
+    needsYou: Boolean,
+    onClick: () -> Unit,
+) {
+    val openLabel = stringResource(R.string.a11y_today_row_open)
+    val focusDescription = if (needsYou) {
+        stringResource(R.string.today_focus_needs_you)
+    } else {
+        stringResource(R.string.today_focus_waiting)
+    }
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clickable(onClickLabel = openLabel, onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.today_focus_title),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = instruction.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            if (instruction.title != instruction.rawText) {
+                Text(
+                    text = instruction.rawText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                )
+            }
+            Text(
+                text = focusDescription,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = stringResource(R.string.today_focus_hint),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
+}
+
+/**
  * v1.5.3 (VAULT-010): the card is now clickable. Tapping it
  * opens the InstructionDetailSheet. The `clickable` modifier
  * on the outer Card is the smallest change that gets the
@@ -317,9 +388,9 @@ private fun InstructionCard(ins: Instruction, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            // v1.6.3: no horizontal padding here; the
-            // LazyColumn's contentPadding handles it (and
-            // gives a full-width clickable hit target).
+            .padding(horizontal = 16.dp)
+            // The card owns the shared 16dp side inset so it
+            // stays aligned with headers and contextual cards.
             .clickable(onClickLabel = openLabel, onClick = onClick),
     ) {
         Column(
@@ -344,8 +415,12 @@ private fun InstructionCard(ins: Instruction, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            val dueText = ins.dueAt?.let { dueAt ->
+                stringResource(R.string.today_due_at, formatTimeIso(dueAt))
+            }
+            val capturedText = stringResource(R.string.today_captured_at, formatTimeIso(ins.capturedAt))
             Text(
-                text = formatTimeIso(ins.capturedAt),
+                text = listOfNotNull(dueText, capturedText).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -58,10 +58,9 @@ import com.kaavalan.note.features.tags.TagPicker
  *   - user taps Save -> note persists, sheet closes
  *
  * There is no Extract button, no Confirmation card, no
- * model-download card, no LLM-unavailable card. The
- * [NoPeopleCard] is the only state card (preserved from
- * v1.4 PHONE-FINDING-8) because the user still needs a
- * person to attribute the note to.
+ * model-download card, and no LLM-unavailable card. A note
+ * can be saved without a person; organise it later rather
+ * than losing the thought now.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,14 +80,12 @@ fun CaptureSheet(
         skipPartiallyExpanded = true,
     ),
     onDismiss: () -> Unit,
-    onOpenAddPerson: () -> Unit = {},
     // v2.x: the user accepted the audience-mention suggestion and
     // wants to turn this note into a dispatch. Receives the note text
     // typed so far so the composer opens seeded with it.
     onOpenDispatch: (String) -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val hasPeople by viewModel.hasPeople.collectAsStateWithLifecycle()
     // Tier 0.4: collect the process-wide voice-recording
     // state. When `isRecording == true` the sheet renders an
     // in-app "Stop" button above the primary action; tapping
@@ -140,7 +137,6 @@ fun CaptureSheet(
     ) {
         CaptureSheetContent(
             state = state,
-            hasPeople = hasPeople,
             isVoiceRecording = isVoiceRecording,
             onStopVoice = {
                 val svc = Intent(context, VoiceCaptureService::class.java).apply {
@@ -154,7 +150,6 @@ fun CaptureSheet(
             onTagToggled = viewModel::onTagToggled,
             onAddFreeTag = viewModel::onAddFreeTag,
             onSaveRaw = viewModel::onSaveRaw,
-            onOpenAddPerson = onOpenAddPerson,
             onOpenDispatch = {
                 val text = state.text
                 viewModel.dismissSheet()
@@ -192,7 +187,6 @@ fun CaptureSheet(
 @Composable
 private fun CaptureSheetContent(
     state: CaptureUiState,
-    hasPeople: Boolean,
     // Tier 0.4: the in-app voice stop button. Rendered
     // above the Save button when `isVoiceRecording == true`.
     isVoiceRecording: Boolean = false,
@@ -203,7 +197,6 @@ private fun CaptureSheetContent(
     onTagToggled: (String) -> Unit = { },
     onAddFreeTag: (String) -> Unit = { },
     onSaveRaw: () -> Unit = { },
-    onOpenAddPerson: () -> Unit = {},
     onOpenDispatch: () -> Unit = {},
 ) {
     // v2.1.2 (P1-#2): the sheet content is split into a
@@ -222,8 +215,8 @@ private fun CaptureSheetContent(
     // its content by default, so the inset has to be
     // applied here for the bottom action bar to clear the
     // keyboard). The scrollable body keeps the existing
-    // `verticalScroll` so overflow (NoPeopleCard + long
-    // text + tag picker + calendar toggle) still scrolls
+    // `verticalScroll` so overflow (long text + tag picker
+    // + calendar toggle) still scrolls
     // inside the sheet.
     Column(
         modifier = Modifier
@@ -239,20 +232,6 @@ private fun CaptureSheetContent(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             SheetHeader(onClose = onClose)
-            // v1.4 (PHONE-FINDING-8): brand-new users have no
-            // people, so the capture sheet is unusable. The
-            // inline surfaceVariant card sits at the top with
-            // the exact next action ("Add person"). The card
-            // is non-dismissive (X / scrim / BACK still close
-            // the sheet as normal) -- the user can keep typing,
-            // just not save, until they've added a person. The
-            // "Add person" button on the card calls
-            // [onOpenAddPerson], the same entry point the Home
-            // screen uses. The surfaceVariant colour is
-            // neutral grey (per the no-red rule).
-            if (!hasPeople) {
-                NoPeopleCard(onOpenAddPerson = onOpenAddPerson)
-            }
             CaptureTextField(
                 text = state.text,
                 isSaving = state.isSaving,
@@ -318,7 +297,6 @@ private fun CaptureSheetContent(
         PrimaryAction(
             isSaving = state.isSaving,
             canSaveRaw = state.canSaveRaw,
-            hasPeople = hasPeople,
             isVoiceRecording = isVoiceRecording,
             onStopVoice = onStopVoice,
             onSaveRaw = onSaveRaw,
@@ -398,7 +376,6 @@ private fun AddToCalendarRow(
 private fun PrimaryAction(
     isSaving: Boolean,
     canSaveRaw: Boolean,
-    hasPeople: Boolean,
     // Tier 0.4: the in-app stop-voice affordance. When
     // `isVoiceRecording == true` the action column renders
     // a "Stop voice" button above the Save button.
@@ -442,61 +419,20 @@ private fun PrimaryAction(
         // dual-button (Extract + Save as text) is gone --
         // with no LLM there is no extraction step, so a
         // single primary action is the right shape. The
-        // button is hard-disabled when:
-        //   - the text is blank
-        //   - the user has no people (the inline
-        //     NoPeopleCard above is the visible reason)
-        //   - a save is already in flight
+        // button is disabled only while there is no note to
+        // save or a save is already in flight. Person context is
+        // optional and must not make a brand-new user's capture
+        // disappear.
         Box(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
             Button(
                 onClick = onSaveRaw,
-                enabled = canSaveRaw && hasPeople && !isSaving,
+                enabled = canSaveRaw && !isSaving,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(stringResource(R.string.capture_sheet_save))
-            }
-        }
-    }
-}
-
-/**
- * v1.4 (PHONE-FINDING-8): the inline "you need a person
- * first" card. Renders at the top of the capture sheet when
- * [CaptureViewModel.hasPeople] is `false`. The card uses
- * `surfaceVariant` (a neutral grey, not the red
- * `errorContainer`) and carries a single primary-coloured
- * "Add person" button that fires [onOpenAddPerson]. The
- * text is short and action-oriented per the no-shame spec
- * rule.
- */
-@Composable
-private fun NoPeopleCard(onOpenAddPerson: () -> Unit) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.capture_needs_person_message),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Button(
-                onClick = onOpenAddPerson,
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.home_add_person))
             }
         }
     }
@@ -508,8 +444,8 @@ private fun NoPeopleCard(onOpenAddPerson: () -> Unit) {
  * decided entry point into the hierarchy dispatch flow, which shipped
  * in v2.1.1 with no way to reach it.
  *
- * Styled exactly like [NoPeopleCard] (neutral `surfaceVariant`, never
- * an alert colour) because this is an offer, not a problem. Declining
+ * Styled as a neutral `surfaceVariant`, never an alert colour,
+ * because this is an offer, not a problem. Declining
  * it is silent: the user keeps typing and saves an ordinary note.
  */
 @Composable

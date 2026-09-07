@@ -1,4 +1,4 @@
-name: Baton Android CI
+name: KaavalanNote Android CI
 
 # v1.9.7 (CI-002): CodeRabbit review caught that the workflow had
 # no `permissions` block. Restrict GITHUB_TOKEN to read-only at the
@@ -9,9 +9,15 @@ name: Baton Android CI
 permissions:
   contents: read
 
+# Keep only the newest run for a branch so rapid updates do not queue
+# obsolete builds on the single self-hosted runner.
+concurrency:
+  group: kaavalan-ci-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
 on:
   push:
-    branches: [main, master, 'm0/**', 'work/**', 'chore/**', 'fix/**', 'docs/**', 'test/**']
+    branches: [main, master]
     tags: ['v*']
   pull_request:
     branches: [main, master, 'm0/**']
@@ -330,7 +336,7 @@ jobs:
   # v1.9.11 (A3 audit fix): the connected-device androidTest
   # job. This runs the M0AcceptanceTest and VaultEndToEndTest
   # suites (which live under `app/src/androidTest/java/`) on
-  # a real device connected to the self-hosted runner.
+  # the dedicated emulator connected to the self-hosted runner.
   #
   # The job is OPTIONAL — if no device is connected, the job
   # exits early with a `skipped` result. This is the right
@@ -354,6 +360,7 @@ jobs:
     continue-on-error: false
     outputs:
       device_attached: ${{ steps.device_check.outputs.attached }}
+      test_serial: ${{ steps.device_check.outputs.serial }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -376,101 +383,62 @@ jobs:
           echo "PATH=$HOME/Library/Android/sdk/platform-tools:$PATH" >> $GITHUB_ENV
           test -d "$HOME/Library/Android/sdk" || (echo "::error::No SDK at $HOME/Library/Android/sdk" && exit 1)
 
-      - name: Check for a connected device
+      - name: Check for the test emulator
         id: device_check
         run: |
           set +e
           adb devices -l
-          COUNT=$(adb devices | grep -E "device$" | wc -l | tr -d ' ')
-          echo "Detected $COUNT device(s)"
-          if [ "$COUNT" -gt 0 ]; then
+          SERIAL=$(adb devices | awk '$1 ~ /^emulator-/ && $2 == "device" { print $1; exit }')
+          if [ -n "$SERIAL" ]; then
+            echo "Selected test emulator: $SERIAL"
             echo "attached=true" >> "$GITHUB_OUTPUT"
+            echo "serial=$SERIAL" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::No Android device connected to the self-hosted runner. "\
+            echo "::warning::No Android emulator connected to the self-hosted runner. "\
                   "Skipping the connectedAndroidTest job. The androidTest classes "\
-                  "still build and pass locally; this job is for drive-verify on a "\
-                  "physical device."
+                  "still compile in CI; start the dedicated AVD to drive-verify."
             echo "attached=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # v2.2.1: the first device run (34066765127) failed all six tests
-      # on the physical device with "No compose hierarchies found in the
-      # app", while the emulator composed fine and got 3 of 6 through.
-      # Six identical failures is one condition, not six bugs: nothing
-      # ever composed there. Two candidates -- a locked or asleep screen
-      # (instrumentation needs the device awake; an activity that never
-      # resumes never composes), or MainActivity actually failing to
-      # launch on that OS version, which is a release blocker rather
-      # than a harness problem. Nothing in the job output separated
-      # them, so this records what would.
-      #
-      # Read-only with respect to the device: it reads power state,
-      # keyguard state and build version. It does not wake, unlock or
-      # reconfigure anything. Deciding to keep a personal phone awake
-      # for CI is the owner's call, not this file's.
-      #
-      # v2.2.3: the emulator is the test device, by the repo owner's
-      # decision. The getprop probes for codename / preview_sdk /
-      # abilist that used to sit below existed only to test two guesses
-      # about why AGP enumerated the emulator and not the attached
-      # phone (a preview SDK, or an ABI the per-ABI splits do not
-      # cover). That question is closed rather than answered, so the
-      # probes are gone. The power and keyguard reads stay: an activity
-      # on a sleeping or locked device never resumes, so Compose never
-      # composes, and that is worth seeing whatever the device is.
+      # The emulator is the designated CI device. Selecting its serial
+      # keeps an attached personal phone (and any user interaction on it)
+      # outside the deterministic release gate. Record the state that
+      # most directly explains a missing Compose hierarchy.
       - name: Record device state before tests
         if: steps.device_check.outputs.attached == 'true'
         continue-on-error: true
         run: |
           set +e
-          for S in $(adb devices | awk '$2=="device"{print $1}'); do
-            echo "=== $S ==="
-            adb -s "$S" shell getprop ro.product.model
-            echo "-- android release / sdk"
-            adb -s "$S" shell getprop ro.build.version.release
-            adb -s "$S" shell getprop ro.build.version.sdk
-            echo "-- awake?"
-            adb -s "$S" shell dumpsys power | grep -E "mWakefulness=|mHoldingDisplaySuspendBlocker="
-            echo "-- locked?"
-            adb -s "$S" shell dumpsys window | grep -iE "mDreamingLockscreen|mShowingLockscreen|keyguardShowing"
-            echo
-          done
+          S="${{ steps.device_check.outputs.serial }}"
+          echo "=== $S ==="
+          adb -s "$S" shell getprop ro.product.model
+          echo "-- android release / sdk"
+          adb -s "$S" shell getprop ro.build.version.release
+          adb -s "$S" shell getprop ro.build.version.sdk
+          echo "-- awake?"
+          adb -s "$S" shell dumpsys power | grep -E "mWakefulness=|mHoldingDisplaySuspendBlocker="
+          echo "-- locked?"
+          adb -s "$S" shell dumpsys window | grep -iE "mDreamingLockscreen|mShowingLockscreen|keyguardShowing"
 
-      # Runs 34066765127 and 34069968241 both found this phone
-      # `mWakefulness=Dozing` with `isKeyguardShowing=true`, while the
-      # emulator was Awake and unlocked and composed fine. An activity
-      # on a dozing, locked device never resumes, so Compose never
-      # composes -- which is exactly the "No compose hierarchies found
-      # in the app" that failed all six tests there. The app was not
-      # crashing; the screen was off.
-      #
-      # Both commands are transient. No persistent setting is changed
-      # and nothing is left enabled afterwards. `svc power stayon usb`
-      # would be the usual test-rig answer and is deliberately not used
-      # here: keeping someone's screen on whenever it is plugged in is a
-      # lasting change to their phone, not CI's to make.
-      #
-      # `wm dismiss-keyguard` only clears an insecure lock screen. On a
-      # device with a PIN, pattern or password the keyguard stays up and
-      # the tests fail the same way -- the state printed after each
-      # attempt below is what says which case this is.
-      - name: Wake the devices for the run
+      # Compose tests need a resumed activity. Wake and dismiss the AVD's
+      # keyguard for this run without changing persistent power settings.
+      - name: Wake the test emulator for the run
         if: steps.device_check.outputs.attached == 'true'
         continue-on-error: true
         run: |
           set +e
-          for S in $(adb devices | awk '$2=="device"{print $1}'); do
-            echo "=== $S ==="
-            adb -s "$S" shell input keyevent KEYCODE_WAKEUP
-            adb -s "$S" shell wm dismiss-keyguard
-            sleep 2
-            adb -s "$S" shell dumpsys power | grep -E "mWakefulness="
-            adb -s "$S" shell dumpsys window | grep -iE "isKeyguardShowing"
-            echo
-          done
+          S="${{ steps.device_check.outputs.serial }}"
+          echo "=== $S ==="
+          adb -s "$S" shell input keyevent KEYCODE_WAKEUP
+          adb -s "$S" shell wm dismiss-keyguard
+          sleep 2
+          adb -s "$S" shell dumpsys power | grep -E "mWakefulness="
+          adb -s "$S" shell dumpsys window | grep -iE "isKeyguardShowing"
 
       - name: Run connectedAndroidTest
         if: steps.device_check.outputs.attached == 'true'
+        env:
+          ANDROID_SERIAL: ${{ steps.device_check.outputs.serial }}
         run: ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace -PBATON_SUPABASE_URL=https://placeholder.supabase.co -PBATON_SUPABASE_ANON_KEY=placeholder-anon-key-for-ci-only
 
       # Gradle's console prints only the assertion message and one
@@ -517,26 +485,24 @@ jobs:
         run: |
           set +e
           mkdir -p build/device-logs
-          for S in $(adb devices | awk '$2=="device"{print $1}'); do
-            SAFE=$(echo "$S" | tr -c 'A-Za-z0-9_.-' '_')
-            adb -s "$S" logcat -d -v time > "build/device-logs/logcat-$SAFE.txt" 2>&1
-            echo "=== $S -> $(wc -l < "build/device-logs/logcat-$SAFE.txt") lines ==="
-            grep -E "FATAL EXCEPTION|AndroidRuntime|kaavalan" "build/device-logs/logcat-$SAFE.txt" | tail -80
-            echo
-            # v2.2.3: whether the tests were actually isolated. The
-            # grep above is tail-limited and the per-test teardown
-            # happens long before the end of the buffer, so counts are
-            # the only way to see it from the job log. Under Android
-            # Test Orchestrator with clearPackageData the orchestrator
-            # runs `pm clear` around every test, which logs
-            # "user=0: clear data" once per package per test; without
-            # it the count is zero and all six tests share one Room
-            # database and one DataStore.
-            echo "-- isolation evidence --"
-            echo "orchestrator lines: $(grep -c androidx.test.orchestrator "build/device-logs/logcat-$SAFE.txt")"
-            echo "clear data lines:   $(grep -c "user=0: clear data" "build/device-logs/logcat-$SAFE.txt")"
-            echo
-          done
+          S="${{ steps.device_check.outputs.serial }}"
+          SAFE=$(echo "$S" | tr -c 'A-Za-z0-9_.-' '_')
+          adb -s "$S" logcat -d -v time > "build/device-logs/logcat-$SAFE.txt" 2>&1
+          echo "=== $S -> $(wc -l < "build/device-logs/logcat-$SAFE.txt") lines ==="
+          grep -E "FATAL EXCEPTION|AndroidRuntime|kaavalan" "build/device-logs/logcat-$SAFE.txt" | tail -80
+          echo
+          # v2.2.3: whether the tests were actually isolated. The
+          # grep above is tail-limited and the per-test teardown
+          # happens long before the end of the buffer, so counts are
+          # the only way to see it from the job log. Under Android
+          # Test Orchestrator with clearPackageData the orchestrator
+          # runs `pm clear` around every test, which logs
+          # "user=0: clear data" once per package per test; without
+          # it the count is zero and all six tests share one Room
+          # database and one DataStore.
+          echo "-- isolation evidence --"
+          echo "orchestrator lines: $(grep -c androidx.test.orchestrator "build/device-logs/logcat-$SAFE.txt")"
+          echo "clear data lines:   $(grep -c "user=0: clear data" "build/device-logs/logcat-$SAFE.txt")"
 
       - name: Upload androidTest results
         if: always() && steps.device_check.outputs.attached == 'true'
@@ -552,7 +518,6 @@ jobs:
       - name: Skip notice
         if: steps.device_check.outputs.attached == 'false'
         run: |
-          echo "::notice::Skipped connectedAndroidTest — no device connected. "\
+          echo "::notice::Skipped connectedAndroidTest — no test emulator connected. "\
                 "The androidTest classes are still built by gradle but not "\
-                "executed. Run \`./gradlew :app:connectedDebugAndroidTest\` "\
-                "locally with a device attached to drive-verify."
+                "executed. Start the dedicated AVD to drive-verify."

@@ -148,18 +148,10 @@ class CaptureViewModel @Inject constructor(
     }
 
     /**
-     * v1.4 (PHONE-FINDING-8): the capture sheet refuses to
-     * accept a save when the user has zero people — there is no
-     * person to attribute the instruction to. The UI observes
-     * [hasPeople] and renders an inline "Add a person first"
-     * card with a primary-coloured button that opens the
-     * AddPersonSheet; the Save button is disabled when this is
-     * `false`. Defaulting to `false` is the safe direction: the
-     * first emission of [hasPeople] is the synchronous initial
-     * value, so a brand-new user who taps the note bar before
-     * the Room flow has emitted is protected by the inline card
-     * until [personRepository.observeAll] confirms the empty
-     * state. A real "has people" emit flips the flag on.
+     * Roster presence remains useful for optional people-oriented
+     * affordances, but it must never block raw capture. A note can
+     * legitimately be free-floating (`personId = null`) and the
+     * capture-first flow must work on a brand-new device.
      */
     val hasPeople: StateFlow<Boolean> = personRepository.observeAll()
         .map { it.isNotEmpty() }
@@ -396,26 +388,9 @@ class CaptureViewModel @Inject constructor(
     fun onSaveRaw() {
         val current = _state.value
         if (!current.canSaveRaw) return
-        // v1.4 (PHONE-FINDING-8): the no-people guard. The
-        // UI hides the Save button when [hasPeople] is false
-        // (the inline "Add a person first" card replaces it),
-        // so this guard is the same defensive backstop. The
-        // user sees a clear error and the sheet stays open.
-        // v1.6.1 note: the v1.5.4 NoPeopleCard copy says
-        // "capture instructions" — the user is now saving a
-        // free-floating note, not an instruction. We keep the
-        // same exception type for test stability but the
-        // copy in the capture sheet is the user-facing truth.
-        if (!hasPeople.value) {
-            _state.update {
-                it.copy(
-                    isSaving = false,
-                    error = NoPeopleException().message,
-                    errorType = ErrorType.NEEDS_PERSON_FIRST,
-                )
-            }
-            return
-        }
+        // Free-floating capture is intentional. A person link is
+        // optional context, not a prerequisite for retaining an
+        // instruction that might otherwise be lost.
         // v1.8.0 (PROD-READINESS-P0-#2): the crash-recovery
         // dedup guard. If a previous save of the same draft
         // (text + mode + tags) completed within the dedup
@@ -533,29 +508,3 @@ class CaptureViewModel @Inject constructor(
         CaptureMode.PHOTO -> Source.PHOTO
     }
 }
-
-/**
- * v1.4 (PHONE-FINDING-8): the locked "no people" failure. The
- * capture sheet is unusable for a brand-new user with zero people
- * — there is no person to attribute the instruction to. The
- * previous behaviour surfaced this as a vague "Could not save note.
- * Try again." which left the user stuck. The new path:
- *
- *  1. UI: when [com.kaavalan.note.features.capture.CaptureViewModel.hasPeople]
- *     is `false`, [com.kaavalan.note.features.capture.CaptureSheet]
- *     renders an inline "Add a person first" card and disables
- *     the Save button. The user sees the recovery path before
- *     they can fail.
- *  2. VM: even if the UI somehow fires [onSaveRaw] with
- *     [hasPeople] false (a stale state from a delete race), the
- *     VM surfaces [NoPeopleException.message] as the inline
- *     error instead of attempting an un-attributable save.
- *  3. Test: the VM's `onSave` test asserts this exception type,
- *     so a future "let's just save with personId = null" shortcut
- *     fails the test.
- *
- * The message is short, neutral, and tells the user the next
- * action. No "error" / "failed" / red colour (the spec §1
- * no-shame rule).
- */
-class NoPeopleException : Exception("Add a person first to capture instructions.")

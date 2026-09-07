@@ -18,9 +18,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FabPosition
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -77,14 +77,13 @@ import androidx.core.content.ContextCompat
  * owns the [selectedPersonId] state; it calls [onOpenPerson] to
  * trigger the nav.
  *
- * M3-T4: the settings gear in the top bar is removed (M4-T2
- * promotes Settings to a bottom-nav tab). The sheet is owned by
- * MainScaffold and is opened via [onOpenSettings].
+ * M3-T4: Settings is owned by MainScaffold. The People header keeps
+ * only its local, secondary action: adding a person. The persistent
+ * note bar remains the one prominent creation path.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onOpenSettings: () -> Unit = {},
     onOpenPerson: (String) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
     captureViewModel: CaptureViewModel = hiltViewModel(),
@@ -215,8 +214,18 @@ fun HomeScreen(
                             text = stringResource(R.string.home_title),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(start = 4.dp),
+                            modifier = Modifier
+                                .testTag("people_screen_title")
+                                .padding(start = 4.dp),
                         )
+                    },
+                    actions = {
+                        IconButton(onClick = { showAddPerson = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = stringResource(R.string.home_add_person),
+                            )
+                        }
                     },
                     windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
                 )
@@ -279,12 +288,6 @@ fun HomeScreen(
                 },
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showAddPerson = true }) {
-                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.home_add_person))
-            }
-        },
-        floatingActionButtonPosition = FabPosition.End,
     ) { padding ->
             val searchViewModel: SearchViewModel = androidx.hilt.navigation.compose.hiltViewModel()
             val query by searchViewModel.query.collectAsStateWithLifecycle()
@@ -369,17 +372,6 @@ fun HomeScreen(
         CaptureSheet(
             viewModel = captureViewModel,
             onDismiss = { /* sheet closed via VM */ },
-            // v1.4 (PHONE-FINDING-8): when the user has no people
-            // yet, the inline "Add a person first" card on the
-            // capture sheet points its "Add person" button at the
-            // same entry point the Home screen uses, so the user
-            // lands in the same AddPerson form. The sheet is
-            // dismissed before the AddPerson sheet opens so the
-            // back stack is single-step.
-            onOpenAddPerson = {
-                captureViewModel.dismissSheet()
-                showAddPerson = true
-            },
             // v2.x: the note mentions an audience (@si,
             // @station:Subedari, @all) and the user accepted the
             // suggestion. Carry the text into the dispatch composer.

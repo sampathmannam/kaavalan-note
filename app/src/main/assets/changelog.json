@@ -1,6 +1,19 @@
 {
   "changelog": [
     {
+      "version": "2.3.0",
+      "code": 48,
+      "date": "2026-09-07",
+      "highlights": [
+        "Today is focus-first: one calm “Start here” instruction appears before remaining work, summaries, quiet-contact prompts and reflection tools.",
+        "People is now a clearer directory. Adding a person lives in the header and empty state, while the persistent note bar remains the single prominent capture action.",
+        "Your first note can be saved before you add anyone. Person context is optional, so setup can never block or lose a thought.",
+        "Shared text, shared photos, the home-screen widget and the quick-settings tile now use the same activity-owned one-shot capture path, preventing dropped or repeated intake events.",
+        "Settings visibly stays selected while its sheet is open, and person rows retain readable open counts and quiet-follow-up accessibility cues.",
+        "Includes the post-2.2 reliability line: release-build and connected-device CI, migration/startup hardening, safe shared-image OCR, restorable automatic Drive backups, and cleanup of historical raw-note outbox copies."
+      ]
+    },
+    {
       "version": "2.2.0",
       "code": 47,
       "date": "2026-09-06",

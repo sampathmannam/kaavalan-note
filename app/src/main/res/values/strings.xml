@@ -10,7 +10,7 @@
     <string name="person_station">Station (optional)</string>
     <string name="person_save">Save</string>
     <string name="cancel">Cancel</string>
-    <string name="tab_home">Home</string>
+    <string name="tab_home">People</string>
     <string name="tab_today">Today</string>
     <string name="tab_settings">Settings</string>
 
@@ -151,17 +151,6 @@
     <!-- v1.4 (PHONE-FINDING-10 / F-02): POST_NOTIFICATIONS rationale. -->
     <string name="notifications_rationale">Allow notifications so Kaavalan can show your morning brief.</string>
 
-    <!-- v1.4 (PHONE-FINDING-8): the inline "you need a person
-         first" card on the capture sheet. The message is short,
-         action-oriented, and non-shame per the no-red / no-shame
-         spec rule. The Add Person button uses the same
-         home_add_person string as the Home screen entry point. -->
-    <!-- v1.6.1: v1.5.4's copy said "attach this note to" but with the LLM
-         gone the note is free-floating (personId = null). The person
-         requirement is a sanity check that the user has used the app
-         enough to set up, not an attribution step. Updated copy says so
-         plainly without the misleading "attach to" promise. -->
-    <string name="capture_needs_person_message">Add a person first, then save your first note.</string>
     <string name="capture_dispatch_suggestion_message">This note mentions %1$s. Send it to them instead of just saving it?</string>
     <string name="capture_dispatch_suggestion_action">Send to a group…</string>
 
@@ -543,6 +532,12 @@
     <!-- Today screen -->
     <string name="today_section_waiting">Waiting on others</string>
     <string name="today_section_carried_over">Carried over</string>
+    <string name="today_focus_title">Start here</string>
+    <string name="today_focus_needs_you">The first instruction that needs your attention.</string>
+    <string name="today_focus_waiting">A useful follow-up to start with.</string>
+    <string name="today_focus_hint">Open it to update or close the loop.</string>
+    <string name="today_section_needs_you">Needs your attention</string>
+    <string name="today_section_context">Context for the day</string>
     <string name="today_empty_title">Nothing on your plate.</string>
     <string name="today_empty_subtitle">When instructions come in, they\'ll show up here.</string>
     <string name="today_due_at">Due: %1$s</string>
@@ -861,5 +856,4 @@
     <string name="recovery_clipboard_label">Kaavalan note recovery phrase</string>
     <string name="recovery_pdf_title">Kaavalan note — Recovery Sheet</string>
 </resources>
-
 
