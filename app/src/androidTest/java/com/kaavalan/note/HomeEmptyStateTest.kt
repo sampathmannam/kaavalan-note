@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -95,10 +96,42 @@ class HomeEmptyStateTest {
         runCatching { composeRule.onNodeWithText("Skip").performClick() }
         composeRule.waitForIdle()
 
+        // Same post-onboarding race AddPersonFlowTest hit: the wait
+        // above is satisfied by "Skip" alone, and dismissing
+        // onboarding routes to Home through a DataStore write whose
+        // emission waitForIdle() does not cover.
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithContentDescription("Add person")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+
         // The Quick note bar is the persistent bottom-of-Home
         // Surface (R.string.note_bar_hint = "Quick note").
         composeRule.onNodeWithText("Quick note").assertIsDisplayed()
-        composeRule.onNodeWithText("Import from contacts").assertIsDisplayed()
+        // Run 34073735523 failed on the next line specifically. The
+        // node EXISTS -- a miss reports "could not find any node"
+        // instead -- so Home is composed and the empty state is the
+        // rendered state; the button is simply laid out off screen.
+        // "Import from contacts" is rendered in exactly one place,
+        // the empty state's OutlinedButton (HomeScreen.kt:501), and
+        // that Column is centred inside a Box with no scrolling, so
+        // anything that overflows is clipped and genuinely
+        // unreachable -- an app defect, not a test problem, if that
+        // is what is happening. Telling the two apart needs the real
+        // geometry, which nothing reports today. The assertion is
+        // left exactly as strong; the numbers are attached to the
+        // failure rather than guessed at.
+        try {
+            composeRule.onNodeWithText("Import from contacts").assertIsDisplayed()
+        } catch (failure: AssertionError) {
+            val button = composeRule.onNodeWithText("Import from contacts").fetchSemanticsNode()
+            val root = composeRule.onRoot().fetchSemanticsNode()
+            throw AssertionError(
+                "${failure.message} | import button boundsInRoot=${button.boundsInRoot} " +
+                    "size=${button.size} | root boundsInRoot=${root.boundsInRoot} size=${root.size}",
+                failure,
+            )
+        }
 
         // Open the capture sheet.
         composeRule.onNodeWithText("Quick note").performClick()

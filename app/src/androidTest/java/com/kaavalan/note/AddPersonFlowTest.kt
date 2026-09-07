@@ -93,6 +93,22 @@ class AddPersonFlowTest {
         runCatching { composeRule.onNodeWithText("Skip").performClick() }
         composeRule.waitForIdle()
 
+        // The wait above is satisfied by EITHER outcome, so when
+        // onboarding is showing it returns on "Skip" without Home
+        // ever having composed. Dismissing onboarding then routes
+        // through a DataStore write and its flow emission, which is
+        // exactly the async step waitForIdle() does not cover
+        // (Compose is legitimately idle while waiting on external
+        // data). Run 34073735523 lost that race and reported
+        // "could not find any node that satisfies:
+        // (ContentDescription = 'Add person')" -- zero nodes, for a
+        // description the FAB carries unconditionally once Home is
+        // up. So wait for Home itself before touching it.
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithContentDescription("Add person")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+
         // The Home FAB has contentDescription="Add person"
         // (R.string.home_add_person). On the empty state, the
         // same text is also rendered as a Button label, so we
