@@ -9,16 +9,15 @@ name: KaavalanNote Android CI
 permissions:
   contents: read
 
-# Push and pull_request fire for the same work branch. Keep only the
-# newest run for that branch so the single self-hosted runner does not
-# build and device-test an identical commit twice.
+# Keep only the newest run for a branch so rapid updates do not queue
+# obsolete builds on the single self-hosted runner.
 concurrency:
   group: kaavalan-ci-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 on:
   push:
-    branches: [main, master, 'm0/**', 'work/**', 'chore/**', 'fix/**', 'docs/**', 'test/**']
+    branches: [main, master]
     tags: ['v*']
   pull_request:
     branches: [main, master, 'm0/**']
