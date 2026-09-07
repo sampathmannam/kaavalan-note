@@ -471,6 +471,25 @@ jobs:
         if: steps.device_check.outputs.attached == 'true'
         run: ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace -PBATON_SUPABASE_URL=https://placeholder.supabase.co -PBATON_SUPABASE_ANON_KEY=placeholder-anon-key-for-ci-only
 
+      # Gradle's console prints only the assertion message and one
+      # library frame for a failed instrumented test -- not the frame
+      # in the test itself, so "which assertion failed" is unanswerable
+      # from the job log. That frame is in the JUnit XML, which today
+      # only reaches the uploaded artifact. Run 34071184779 needed it
+      # and did not have it: two tests failed with an identical
+      # "The component is not displayed!" and only one of them could
+      # be pinned to a line. This prints the failure elements so the
+      # log answers it directly. No backslashes, non-gating.
+      - name: Print androidTest failure details
+        if: always() && steps.device_check.outputs.attached == 'true'
+        continue-on-error: true
+        run: |
+          set +e
+          for F in $(find app/build/outputs/androidTest-results -name '*.xml'); do
+            echo "===== $F ====="
+            grep -B 2 -A 25 "<failure" "$F"
+          done
+
       # If MainActivity crashed on launch rather than the screen being
       # locked, the stack trace exists here and nowhere else in this
       # job's output. `always()` because the failing run is the only

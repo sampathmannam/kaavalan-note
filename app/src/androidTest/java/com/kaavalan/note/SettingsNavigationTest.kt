@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.rule.GrantPermissionRule
 import org.junit.Rule
@@ -99,13 +100,29 @@ class SettingsNavigationTest {
 
         // Step 2: the sheet renders three section headers.
         // They are Text widgets so we assert on their text.
-        composeRule.onNodeWithText("Privacy").assertIsDisplayed()
-        composeRule.onNodeWithText("Data").assertIsDisplayed()
-        composeRule.onNodeWithText("About").assertIsDisplayed()
+        //
+        // The sheet's content is one Column with
+        // `verticalScroll` (SettingsSheet.kt) -- added because a
+        // non-scrolling Column clipped the bottom rows and left
+        // "Erase all data" unreachable on a 1080x2400 emulator.
+        // Every header therefore composes, but only the topmost
+        // is on screen: "Privacy" and "Data" are ~220 lines of
+        // composable apart. Asserting all three are displayed at
+        // once asserts something the scrolling sheet cannot do,
+        // so each one is scrolled into view before it is checked.
+        composeRule.onNodeWithText("Privacy").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Data").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("About").performScrollTo().assertIsDisplayed()
 
         // Step 3: close via the X icon (contentDescription
         // is R.string.settings_close = "Close settings").
-        composeRule.onNodeWithContentDescription("Close settings").performClick()
+        // The X sits in the title Row, which is the first child
+        // *inside* the scrolling Column -- scrolling down to
+        // "About" above carries it off the top of the sheet, so
+        // it has to be brought back before it can be tapped.
+        composeRule.onNodeWithContentDescription("Close settings")
+            .performScrollTo()
+            .performClick()
         composeRule.waitForIdle()
 
         // Step 4: Home is back; the TopAppBar title
