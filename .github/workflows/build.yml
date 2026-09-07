@@ -408,6 +408,16 @@ jobs:
       # keyguard state and build version. It does not wake, unlock or
       # reconfigure anything. Deciding to keep a personal phone awake
       # for CI is the owner's call, not this file's.
+      #
+      # v2.2.3: the emulator is the test device, by the repo owner's
+      # decision. The getprop probes for codename / preview_sdk /
+      # abilist that used to sit below existed only to test two guesses
+      # about why AGP enumerated the emulator and not the attached
+      # phone (a preview SDK, or an ABI the per-ABI splits do not
+      # cover). That question is closed rather than answered, so the
+      # probes are gone. The power and keyguard reads stay: an activity
+      # on a sleeping or locked device never resumes, so Compose never
+      # composes, and that is worth seeing whatever the device is.
       - name: Record device state before tests
         if: steps.device_check.outputs.attached == 'true'
         continue-on-error: true
@@ -419,20 +429,6 @@ jobs:
             echo "-- android release / sdk"
             adb -s "$S" shell getprop ro.build.version.release
             adb -s "$S" shell getprop ro.build.version.sdk
-            # Why gradle enumerates only the emulator while this phone
-            # sits there attached and Awake (runs 34070444647,
-            # 34073255023) is still unexplained. Two candidates these
-            # three properties separate:
-            #   codename != REL, or preview_sdk != 0 -> a preview build.
-            #     AGP skips devices running a preview SDK unless the
-            #     project compiles against that same preview.
-            #   abilist -> the project ships per-ABI splits, so AGP has
-            #     to pick a split per device; a device whose ABIs the
-            #     splits do not cover gets no installable artifact.
-            echo "-- codename / preview / abis"
-            adb -s "$S" shell getprop ro.build.version.codename
-            adb -s "$S" shell getprop ro.build.version.preview_sdk
-            adb -s "$S" shell getprop ro.product.cpu.abilist
             echo "-- awake?"
             adb -s "$S" shell dumpsys power | grep -E "mWakefulness=|mHoldingDisplaySuspendBlocker="
             echo "-- locked?"
@@ -472,14 +468,6 @@ jobs:
             adb -s "$S" shell dumpsys window | grep -iE "isKeyguardShowing"
             echo
           done
-          # Run 34070444647: both devices were present and Awake here,
-          # then gradle ran the suite on the emulator only -- the phone
-          # produced no test run at all and nothing in the log said
-          # why. This re-prints the device list at the last moment
-          # before gradle enumerates, which separates "the phone fell
-          # off USB" from "gradle saw it and declined to use it".
-          echo "-- adb devices immediately before gradle:"
-          adb devices -l
 
       - name: Run connectedAndroidTest
         if: steps.device_check.outputs.attached == 'true'
