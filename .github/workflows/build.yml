@@ -426,6 +426,39 @@ jobs:
             echo
           done
 
+      # Runs 34066765127 and 34069968241 both found this phone
+      # `mWakefulness=Dozing` with `isKeyguardShowing=true`, while the
+      # emulator was Awake and unlocked and composed fine. An activity
+      # on a dozing, locked device never resumes, so Compose never
+      # composes -- which is exactly the "No compose hierarchies found
+      # in the app" that failed all six tests there. The app was not
+      # crashing; the screen was off.
+      #
+      # Both commands are transient. No persistent setting is changed
+      # and nothing is left enabled afterwards. `svc power stayon usb`
+      # would be the usual test-rig answer and is deliberately not used
+      # here: keeping someone's screen on whenever it is plugged in is a
+      # lasting change to their phone, not CI's to make.
+      #
+      # `wm dismiss-keyguard` only clears an insecure lock screen. On a
+      # device with a PIN, pattern or password the keyguard stays up and
+      # the tests fail the same way -- the state printed after each
+      # attempt below is what says which case this is.
+      - name: Wake the devices for the run
+        if: steps.device_check.outputs.attached == 'true'
+        continue-on-error: true
+        run: |
+          set +e
+          for S in $(adb devices | awk '$2=="device"{print $1}'); do
+            echo "=== $S ==="
+            adb -s "$S" shell input keyevent KEYCODE_WAKEUP
+            adb -s "$S" shell wm dismiss-keyguard
+            sleep 2
+            adb -s "$S" shell dumpsys power | grep -E "mWakefulness="
+            adb -s "$S" shell dumpsys window | grep -iE "isKeyguardShowing"
+            echo
+          done
+
       - name: Run connectedAndroidTest
         if: steps.device_check.outputs.attached == 'true'
         run: ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace -PBATON_SUPABASE_URL=https://placeholder.supabase.co -PBATON_SUPABASE_ANON_KEY=placeholder-anon-key-for-ci-only
