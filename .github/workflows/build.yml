@@ -445,8 +445,7 @@ jobs:
             SAFE=$(echo "$S" | tr -c 'A-Za-z0-9_.-' '_')
             adb -s "$S" logcat -d -v time > "build/device-logs/logcat-$SAFE.txt" 2>&1
             echo "=== $S -> $(wc -l < "build/device-logs/logcat-$SAFE.txt") lines ==="
-            grep -E "FATAL EXCEPTION|AndroidRuntime|ActivityManager.*kaavalan|com\\.kaavalan\\.note" \\
-              "build/device-logs/logcat-$SAFE.txt" | tail -80
+            grep -E "FATAL EXCEPTION|AndroidRuntime|kaavalan" "build/device-logs/logcat-$SAFE.txt" | tail -80
             echo
           done
 
@@ -466,5 +465,5 @@ jobs:
         run: |
           echo "::notice::Skipped connectedAndroidTest — no device connected. "\
                 "The androidTest classes are still built by gradle but not "\
-                "executed. Run \\`./gradlew :app:connectedDebugAndroidTest\\` "\
+                "executed. Run \`./gradlew :app:connectedDebugAndroidTest\` "\
                 "locally with a device attached to drive-verify."
