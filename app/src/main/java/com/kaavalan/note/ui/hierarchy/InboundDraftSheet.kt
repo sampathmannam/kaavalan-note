@@ -22,7 +22,16 @@ fun InboundDraftSheet(inboundTitle: String, inboundRawText: String, onSaveAsOutg
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(value = rawText, onValueChange = { rawText = it }, label = { Text(stringResource(R.string.hierarchy_inbound_draft_body_label)) }, modifier = Modifier.fillMaxWidth(), minLines = 3, maxLines = 10)
             Spacer(Modifier.height(16.dp))
-            Button(onClick = { onSaveAsOutgoing(title, rawText) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.hierarchy_inbound_draft_save)) }
+            Button(
+                onClick = { onSaveAsOutgoing(title, rawText) },
+                // Same gating pattern as DispatchComposerSheet's "Next"
+                // button and PersonLinksRow's confirmButton: don't fire
+                // the callback with fields the user never actually filled
+                // in. Both Title and Body feed directly into the saved
+                // outgoing note, so both must be non-blank.
+                enabled = title.isNotBlank() && rawText.isNotBlank(),
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(stringResource(R.string.hierarchy_inbound_draft_save)) }
             Spacer(Modifier.height(24.dp))
         }
     }

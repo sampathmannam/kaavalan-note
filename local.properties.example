@@ -1,5 +1,44 @@
-# Supabase project credentials. Copy this file to `local.properties` and
-# fill in the values from the Supabase dashboard (Project Settings -> API).
+# Copy this file to `local.properties` and fill in the values you need.
 # `local.properties` is gitignored; never commit it.
-BATON_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-BATON_SUPABASE_ANON_KEY=sb_publishable_YOUR_ANON_KEY
+
+# ---------------------------------------------------------------
+# Android SDK (required)
+# ---------------------------------------------------------------
+sdk.dir=/Users/YOUR_USER/Library/Android/sdk
+
+# ---------------------------------------------------------------
+# Release signing (optional)
+# ---------------------------------------------------------------
+# Only needed to produce a SIGNED release build. Without these,
+# `./gradlew :app:assembleRelease` still succeeds and still runs
+# R8, resource shrinking and the per-ABI splits — it just emits
+# UNSIGNED APKs. That is the intended mode for CI, which should
+# not hold signing secrets.
+#
+# Resolution order for each value: Gradle property (-P or
+# ~/.gradle/gradle.properties) -> local.properties -> environment
+# variable. Nothing is read from a checked-in default.
+#
+# Generate a keystore (once — then back it up somewhere safe;
+# losing it means you can never update the app on Play):
+#
+#   keytool -genkeypair -v \
+#     -keystore ~/keys/kaavalan-note-release.jks \
+#     -alias kaavalan-note-release \
+#     -keyalg RSA -keysize 4096 -validity 10000 \
+#     -storepass '<strong-password>' -keypass '<strong-password>'
+#
+# A relative path is resolved against the repository root; `~` is
+# expanded. Prefer a path OUTSIDE the repo.
+#
+# KAAVALAN_RELEASE_STORE_FILE=~/keys/kaavalan-note-release.jks
+# KAAVALAN_RELEASE_STORE_PASSWORD=
+# KAAVALAN_RELEASE_KEY_ALIAS=kaavalan-note-release
+# KAAVALAN_RELEASE_KEY_PASSWORD=
+
+# ---------------------------------------------------------------
+# Google Drive backup (optional)
+# ---------------------------------------------------------------
+# Only needed for the optional Drive backup flow.
+# KAAVALAN_NOTE_GOOGLE_OAUTH_CLIENT_ID=
+# KAAVALAN_NOTE_GOOGLE_OAUTH_REDIRECT_URI=kaavalan-note://oauth-callback

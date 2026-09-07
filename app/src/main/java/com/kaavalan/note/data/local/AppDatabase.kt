@@ -264,6 +264,44 @@ abstract class AppDatabase : RoomDatabase() {
             db.execSQL("CREATE INDEX IF NOT EXISTS index_sync_conflict_tableName_rowId ON sync_conflict(tableName, rowId)")
         }
 
+        /**
+         * Does [table] already have a [column]?
+         *
+         * Needed because the pre-v8 migrations and the later
+         * numbered ones are not independent: [runPreV8Migration]
+         * adds `vaultMode`, and so does [MIGRATION_12_13]. A
+         * database that starts below v8 runs both, and SQLite
+         * answers the second `ALTER TABLE ... ADD COLUMN` with
+         * `duplicate column name`. Room migrates inside a
+         * transaction, so that throw rolls the whole upgrade back
+         * and the database stays where it started — a permanent
+         * brick for exactly the pre-v8 installs the v2.1.0
+         * migrations were added to rescue.
+         *
+         * A membership check rather than the try-catch
+         * [runPreV8Migration] uses: swallowing `Throwable` around
+         * an `ALTER TABLE` also swallows a genuinely broken
+         * migration, and this one runs on databases whose schema
+         * we know exactly.
+         *
+         * The classic `PRAGMA table_info` form rather than the
+         * `pragma_table_info(...)` table-valued function — it is
+         * what [DatabasePreflight] already uses against SQLCipher
+         * on real devices.
+         */
+        private fun hasColumn(
+            db: androidx.sqlite.db.SupportSQLiteDatabase,
+            table: String,
+            column: String,
+        ): Boolean = db.query("PRAGMA table_info(`$table`)").use { cursor ->
+            val nameIndex = cursor.getColumnIndex("name")
+            if (nameIndex < 0) return@use false
+            while (cursor.moveToNext()) {
+                if (cursor.getString(nameIndex) == column) return@use true
+            }
+            false
+        }
+
         val MIGRATION_2_3: Migration = object : Migration(2, 3) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) = runPreV8Migration(db)
         }
@@ -499,16 +537,26 @@ abstract class AppDatabase : RoomDatabase() {
                 // @Index annotation on PersonEntity.vaultMode
                 // and InstructionEntity.vaultMode generates
                 // per-table indexes for the per-mode filter queries.
-                db.execSQL(
-                    "ALTER TABLE persons ADD COLUMN vaultMode TEXT NOT NULL DEFAULT 'visible'",
-                )
+                //
+                // Guarded by [hasColumn]: a database that started
+                // below v8 already picked these two columns up from
+                // [runPreV8Migration] on its way here, and a second
+                // unguarded ADD COLUMN would fail the whole upgrade.
+                // See the [hasColumn] KDoc.
+                if (!hasColumn(db, "persons", "vaultMode")) {
+                    db.execSQL(
+                        "ALTER TABLE persons ADD COLUMN vaultMode TEXT NOT NULL DEFAULT 'visible'",
+                    )
+                }
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_persons_vaultMode` " +
                         "ON `persons`(`vaultMode`)",
                 )
-                db.execSQL(
-                    "ALTER TABLE instructions ADD COLUMN vaultMode TEXT NOT NULL DEFAULT 'visible'",
-                )
+                if (!hasColumn(db, "instructions", "vaultMode")) {
+                    db.execSQL(
+                        "ALTER TABLE instructions ADD COLUMN vaultMode TEXT NOT NULL DEFAULT 'visible'",
+                    )
+                }
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_instructions_vaultMode` " +
                         "ON `instructions`(`vaultMode`)",
@@ -575,9 +623,44 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     """.trimIndent(),
                 )
+                // v2.1.2 (data-integrity) FIX: this line used to create a
+                // *partial unique* index:
+                //
+                //   CREATE UNIQUE INDEX ... ON users(deviceOwner)
+                //   WHERE deviceOwner = 1
+                //
+                // The intent was to enforce "exactly one device owner" at the
+                // DB level, on the assumption that Room would not mind an
+                // index stricter than the one `UserEntity` declares. Room
+                // does mind. `TableInfo.equals` compares the index set with
+                // strict set equality, including the `unique` flag, so Room's
+                // post-migration `validateMigration` saw
+                //   expected Index{index_users_deviceOwner, unique=false}
+                //   found    Index{index_users_deviceOwner, unique=true}
+                // and threw `IllegalStateException: Migration didn't properly
+                // handle: users(...)`.
+                //
+                // Because Room runs migrations inside a transaction, the
+                // failure rolled the upgrade back and left the database at
+                // v14 — so every user upgrading from a v1.8.0-era install
+                // crashed on launch, permanently, with no way forward. Fresh
+                // installs were unaffected (Room builds the index straight
+                // from the entity), which is why it survived from v1.8.0 all
+                // the way into the shipping v2.1.1.
+                //
+                // The index now matches `UserEntity` exactly. The single-
+                // device-owner invariant is enforced in
+                // `UserDao.insertDeviceOwnerIfAbsent`, which is the only
+                // write path that sets `deviceOwner = 1`.
+                //
+                // DROP-then-CREATE rather than `CREATE ... IF NOT EXISTS`:
+                // an install that somehow already carries the old unique
+                // index would keep it under `IF NOT EXISTS`, and this
+                // migration would silently fail to repair it.
+                db.execSQL("DROP INDEX IF EXISTS `index_users_deviceOwner`")
                 db.execSQL(
-                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_users_deviceOwner` " +
-                        "ON `users`(`deviceOwner`) WHERE `deviceOwner` = 1",
+                    "CREATE INDEX IF NOT EXISTS `index_users_deviceOwner` " +
+                        "ON `users`(`deviceOwner`)",
                 )
             }
         }

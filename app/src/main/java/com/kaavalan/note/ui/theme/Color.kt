@@ -1,6 +1,5 @@
 package com.kaavalan.note.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
@@ -72,7 +71,7 @@ object KaavalanColors {
 object KaavalanThemeTokens {
     @Composable
     @ReadOnlyComposable
-    fun kindBlue(): Color = if (isSystemInDarkTheme() || MaterialThemeIsDark()) {
+    fun kindBlue(): Color = if (isDarkSurface(MaterialTheme.colorScheme.surface)) {
         KaavalanColors.KindBlueDark
     } else {
         KaavalanColors.KindBlueLight
@@ -80,7 +79,7 @@ object KaavalanThemeTokens {
 
     @Composable
     @ReadOnlyComposable
-    fun kindWarm(): Color = if (isSystemInDarkTheme() || MaterialThemeIsDark()) {
+    fun kindWarm(): Color = if (isDarkSurface(MaterialTheme.colorScheme.surface)) {
         KaavalanColors.KindWarmDark
     } else {
         KaavalanColors.KindWarmLight
@@ -88,7 +87,7 @@ object KaavalanThemeTokens {
 
     @Composable
     @ReadOnlyComposable
-    fun kindNeutral(): Color = if (isSystemInDarkTheme() || MaterialThemeIsDark()) {
+    fun kindNeutral(): Color = if (isDarkSurface(MaterialTheme.colorScheme.surface)) {
         KaavalanColors.KindNeutralDark
     } else {
         KaavalanColors.KindNeutralLight
@@ -96,7 +95,7 @@ object KaavalanThemeTokens {
 
     @Composable
     @ReadOnlyComposable
-    fun staleIndicator(): Color = if (isSystemInDarkTheme() || MaterialThemeIsDark()) {
+    fun staleIndicator(): Color = if (isDarkSurface(MaterialTheme.colorScheme.surface)) {
         KaavalanColors.StaleIndicatorDark
     } else {
         KaavalanColors.StaleIndicatorLight
@@ -104,22 +103,36 @@ object KaavalanThemeTokens {
 }
 
 /**
- * v1.6.8: a best-effort "are we in dark mode?" check that
- * works both inside and outside a `MaterialTheme { }` block.
- * `MaterialTheme.colorScheme.surface.luminance() < 0.5` is
- * the standard heuristic.
+ * Is [surface] a dark surface? `luminance() < 0.5` is the
+ * standard heuristic.
  *
- * Note: this function must be called inside a `MaterialTheme { }`
- * block, just like any other @Composable that reads the
- * `MaterialTheme.colorScheme`. The composable invocation
- * itself is not wrapped in try/catch (the Kotlin compiler
- * doesn't allow that around composable invocations).
+ * The tokens above resolve against the scheme that is actually
+ * applied, and nothing else. They used to read
+ * `isSystemInDarkTheme() || MaterialThemeIsDark()`, which
+ * disagrees with the applied scheme in one reachable case: the
+ * user picks `ThemeMode.Light` while the OS is in dark mode.
+ * `MainActivity` maps that to `darkTheme = false` and
+ * `KaavalanNoteTheme` applies the light scheme, but the first
+ * term of the disjunction was still true — so the tag dots and
+ * the person-list stale dot were painted in their dark-mode
+ * tones, which are deliberately *lighter* for contrast against a
+ * dark surface, on white. The stale dot is the whole quiet-nudge
+ * signal on the home list, and at `0xFFE6B783` on `0xFFFFFFFF`
+ * it is close to invisible.
+ *
+ * Reading the applied surface is also sufficient on its own. The
+ * `isSystemInDarkTheme()` term was a fallback for callers outside
+ * a `MaterialTheme { }` block, where `MaterialTheme.colorScheme`
+ * returns the M3 default rather than throwing — but every call
+ * site is inside the app's theme, and the fallback cost more than
+ * it covered.
+ *
+ * `internal` and non-composable so the light/dark decision can be
+ * asserted directly: this project's unit tests cannot render
+ * Compose (see [com.kaavalan.note.ui.home.HomeScreenTest] on
+ * Robolectric 4.13's `createComposeRule()` limitation).
  */
-@Composable
-@ReadOnlyComposable
-private fun MaterialThemeIsDark(): Boolean {
-    return MaterialTheme.colorScheme.surface.luminance() < 0.5f
-}
+internal fun isDarkSurface(surface: Color): Boolean = surface.luminance() < 0.5f
 
 private fun Color.luminance(): Float {
     // sRGB → relative luminance, simplified. Good enough for a

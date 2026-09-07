@@ -10,12 +10,43 @@
          suggest a calendar link when a capture is saved. -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <!-- v2.0 Tier 2 (§2.6): the morning brief notification fires
-         at 9 AM via WorkManager; SCHEDULE_EXACT_ALARM lets us
-         fire exactly at the user's chosen time. Android 14+
-         requires the user to grant this manually; we request it
-         from the Settings sheet (no silent ask). -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+         at 9 AM via WorkManager's PeriodicWorkRequest.
+         SCHEDULE_EXACT_ALARM, when granted, is what lets that
+         land at exactly the user's chosen time rather than
+         WorkManager's normal +/- window.
+
+         v2.1.2 (release-integrity) correction: the "we request
+         it from the Settings sheet" claim that used to be here
+         was aspirational, not real — nothing in this codebase
+         calls AlarmManager#canScheduleExactAlarms() or launches
+         ACTION_REQUEST_SCHEDULE_EXACT_ALARM (verified by search;
+         see MorningBriefWorker's own doc comment for the honest
+         version: "the user must grant it manually on Android
+         14+; if they don't, WorkManager's PeriodicWorkRequest
+         still fires, just at a less precise time"). There is no
+         silent ask because there is no ask at all yet — the OS
+         alarms-and-reminders settings screen is the only place a
+         user can currently grant this. Building the in-app
+         request flow the old comment described is tracked as
+         follow-up work, not done here.
+
+         v2.1.2 also removed the neighboring USE_EXACT_ALARM
+         (nothing in the codebase referenced it — see git
+         history) and demoted the 522 MissingTranslation entries
+         that were burying real lint errors (see the `lint {}`
+         block in app/build.gradle.kts). That's what surfaced
+         this permission as a `ProtectedPermissions` finding.
+         It's a lint false positive for this specific permission:
+         SCHEDULE_EXACT_ALARM's real platform protectionLevel is
+         "appop" (Android 13+; "normal|appop" on 12), which is
+         why a regular third-party app can be granted it via the
+         Settings toggle at all — true signature/privileged
+         permissions are never user-grantable. tools:ignore below
+         is scoped to this one line; every other ProtectedPermissions
+         finding stays fatal. -->
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        tools:ignore="ProtectedPermissions" />
 
     <!-- v1.2: Android 11+ (API 30+) package visibility — declare
          which intents we resolve. Without this, resolveActivity

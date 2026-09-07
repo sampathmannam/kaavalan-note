@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -37,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -329,9 +331,27 @@ private fun GetStartedPage(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(8.dp))
+        // BUG FIX (found via adversarial QA audit): the row used
+        // to rely on the Switch itself as the only tap target,
+        // so tapping the label text -- the larger, more natural
+        // target -- silently did nothing. Modifier.toggleable on the
+        // Row makes the whole row (label included) a single tap
+        // target, mirroring the "full-row-tappable" pattern
+        // Settings' PrivacyRow uses. The Switch's own
+        // onCheckedChange is set to null (not onSampleToggled) so
+        // the Row's toggleable is the single source of truth for
+        // both the tap handling and the TalkBack "switch" role
+        // announcement -- keeping both wired would double-toggle on
+        // a direct tap of the Switch thumb.
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = loadSample,
+                    onValueChange = onSampleToggled,
+                    role = Role.Switch,
+                ),
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -339,7 +359,7 @@ private fun GetStartedPage(
                     style = MaterialTheme.typography.bodyLarge,
                 )
             }
-            Switch(checked = loadSample, onCheckedChange = onSampleToggled)
+            Switch(checked = loadSample, onCheckedChange = null)
         }
     }
 }

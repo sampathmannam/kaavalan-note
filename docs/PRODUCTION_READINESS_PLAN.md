@@ -116,6 +116,26 @@ Goal: a stranger can install from Play Store, pass a security audit, and use it 
 
 ## Status
 
+### 2026-09-04 — refresh: this document is historical, not current
+
+Everything below this entry (dated 2026-08-21/22, branch `m0/skeleton-v1.7.0`, package `com.baton.app`) describes the state of the app roughly 13 versions ago. Nobody kept it updated across v1.9.2 → v2.1.1; the project switched to a per-release `docs/vX.Y.Z_release_notes.md` file instead (see [`docs/v2.1.1_release_notes.md`](v2.1.1_release_notes.md) for what actually shipped most recently). This entry is a correction pass, not a full re-audit of all 67 line items above — see "what this refresh does NOT cover" below.
+
+**Facts that changed and make the rest of this doc read wrong at a glance:**
+- Package is `com.kaavalan.note`, not `com.baton.app` (renamed in v2.1.1, 2026-08-26). App name is "Kaavalan note" (formerly "Baton").
+- Current version is **v2.1.1** (versionCode 46), not v1.7.4/v1.9.1.
+- Unit test count is **595** across the current suite (the doc's "511 across 86 files" and "533 across 91 files" numbers are both stale snapshots from Aug 21-22).
+- Supabase/cloud sync is gone as of v2.0.0 — the app is local-only. `SyncEngine` and `SyncConflictListScreen` (Phase 2 P0 #2, marked ✅ DONE below) no longer exist in the codebase; they were superseded by the v2.1.1 "hierarchy" model (`MentionAndTagParser` / `RosterBuilder` / `AudienceResolver` / `DispatchComposerSheet`) — a different, device-local answer to "who should see this" that doesn't need conflict resolution because there's nothing to sync. Google Drive backup (`DriveBackupManager`, OAuth 2.0 + PKCE) replaced cloud storage as the backup destination.
+- The rest of Phase 2 P0 — multi-user key sharing, audit hash-chain, retention policy, role model, CCTNS bridge — **is still in the codebase** (`MultiUserKeySharing.kt`, `AuditChainWriter.kt`, `RetentionPolicy.kt`/`RetentionWorker.kt`, `Role.kt`, `CctnsBridge.kt`), verified present as of this refresh. It was never wired up to a real multi-officer deployment (still true — no deployment target, per this doc's own persona framing).
+- `docs/audit/`, `docs/verification/`, and one release-notes file per version (`v1.7.0` through `v2.1.1`) now exist and are more current than this file for "what happened in version X" questions.
+
+**This session's hardening + audit work (2026-09-02/03, not reflected anywhere above):** fixed a non-functional release-signing pipeline (fresh clone couldn't produce a release build), a Room migration bug that would have bricked v1.8.0-era upgrades on the `users.deviceOwner` unique index, main-thread blocking in `KaavalanApplication.onCreate` (`runBlocking`/`GlobalScope` → the app's own `@ApplicationScope`), a `NoSuchMethodError` crash in `VoiceCaptureService` on API <33, a neutered lint CI gate (`continue-on-error: true`), and — found via three rounds of adversarial on-device testing until two consecutive clean passes — a real UI bug where tapping the visible "Photo"/"Voice" caption text on the note bar silently opened the wrong sheet instead of the camera/mic, because the caption sat outside the `IconButton`'s actual click bounds ([`NoteBar.kt`](../app/src/main/java/com/kaavalan/note/features/capture/NoteBar.kt)). All fixed, all covered by new regression tests, all merged.
+
+**What is genuinely still open**, cross-checked against this doc's own Phase 3 list: everything Phase 3 marks `⏸ DEFERRED` is still deferred (Play Store submission path, crash reporting/analytics, security audit, tablet/Wear/iOS) — none of it applies without a deployment decision the user hasn't made. The debug APK's pre-existing ~40MB CI-budget overage (unrelated to this session's changes) was surfaced and the user chose to leave it. The dead `docs/PLAN.md` / `docs/superpowers/specs/2026-08-10-kaavalan-design.md` pointers at the top of `AGENTS.md` — cited as required reading for every future agent — pointed at files that don't exist; fixed alongside this refresh.
+
+**What this refresh does NOT cover:** the individual ✅/⏸/[~] statuses on the ~67 Phase 1/2/3 line items below were not re-verified one by one against current source — most are 2+ major versions old and several (anything under "Phase 2 P1/P2 multi-officer", "Phase 3" Play Store items) describe a deployment scenario ("2-5 officers in one station" / "a stranger installs from Play Store") that still isn't the current use case (private, single-officer, local-only), so re-verifying them item-by-item has low value until that changes. Treat everything from here down as a historical record of the v1.4 → v1.9.1 gap-closing work, not a live checklist.
+
+---
+
 ### 2026-08-22 — v1.9.1 honest deployability polish (SOTA, this branch is `m0/skeleton-v1.7.0`)
 
 The v1.9.0 release shipped a credible pre-release build that compiled to a signed APK and had the security/policy docs in place. The fresh-eyes honest deployability rating was 5.5/10 — "credible pre-release, not something I'd put in front of a real user today without 2-4 more weeks of polish". v1.9.1 is the polish pass that closes every P0 + P1 from that critique:

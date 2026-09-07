@@ -82,6 +82,10 @@ fun CaptureSheet(
     ),
     onDismiss: () -> Unit,
     onOpenAddPerson: () -> Unit = {},
+    // v2.x: the user accepted the audience-mention suggestion and
+    // wants to turn this note into a dispatch. Receives the note text
+    // typed so far so the composer opens seeded with it.
+    onOpenDispatch: (String) -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val hasPeople by viewModel.hasPeople.collectAsStateWithLifecycle()
@@ -151,6 +155,11 @@ fun CaptureSheet(
             onAddFreeTag = viewModel::onAddFreeTag,
             onSaveRaw = viewModel::onSaveRaw,
             onOpenAddPerson = onOpenAddPerson,
+            onOpenDispatch = {
+                val text = state.text
+                viewModel.dismissSheet()
+                onOpenDispatch(text)
+            },
         )
     }
 
@@ -195,6 +204,7 @@ private fun CaptureSheetContent(
     onAddFreeTag: (String) -> Unit = { },
     onSaveRaw: () -> Unit = { },
     onOpenAddPerson: () -> Unit = {},
+    onOpenDispatch: () -> Unit = {},
 ) {
     // v2.1.2 (P1-#2): the sheet content is split into a
     // scrollable body and a fixed bottom action bar. The
@@ -248,6 +258,16 @@ private fun CaptureSheetContent(
                 isSaving = state.isSaving,
                 onTextChanged = onTextChanged,
             )
+            // v2.x: the note mentions an audience (@si,
+            // @station:Subedari, @all). Offer -- never force -- the
+            // dispatch composer. Sits directly under the field so
+            // it reads as a response to what was just typed.
+            state.dispatchSuggestion?.let { suggestion ->
+                DispatchSuggestionCard(
+                    suggestion = suggestion,
+                    onOpenDispatch = onOpenDispatch,
+                )
+            }
             if (state.error != null) {
                 // v1.4 (PHONE-FINDING-7): the error is rendered
                 // in `onSurfaceVariant` (a neutral grey) -- NEVER
@@ -454,7 +474,6 @@ private fun PrimaryAction(
  */
 @Composable
 private fun NoPeopleCard(onOpenAddPerson: () -> Unit) {
-    val addPersonDesc = stringResource(R.string.home_add_person)
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -475,11 +494,58 @@ private fun NoPeopleCard(onOpenAddPerson: () -> Unit) {
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = addPersonDesc },
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(stringResource(R.string.home_add_person))
+            }
+        }
+    }
+}
+
+/**
+ * v2.x: the audience-mention suggestion. Shown when the typed note
+ * contains `@<designation>`, `@station:<name>`, or `@all` -- the
+ * decided entry point into the hierarchy dispatch flow, which shipped
+ * in v2.1.1 with no way to reach it.
+ *
+ * Styled exactly like [NoPeopleCard] (neutral `surfaceVariant`, never
+ * an alert colour) because this is an offer, not a problem. Declining
+ * it is silent: the user keeps typing and saves an ordinary note.
+ */
+@Composable
+private fun DispatchSuggestionCard(
+    suggestion: DispatchSuggestion,
+    onOpenDispatch: () -> Unit,
+) {
+    val actionLabel = stringResource(R.string.capture_dispatch_suggestion_action)
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(
+                    R.string.capture_dispatch_suggestion_message,
+                    suggestion.label,
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Button(
+                onClick = onOpenDispatch,
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = actionLabel },
+            ) {
+                Text(actionLabel)
             }
         }
     }

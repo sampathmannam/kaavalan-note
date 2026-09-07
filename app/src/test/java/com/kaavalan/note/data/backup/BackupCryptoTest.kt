@@ -1,5 +1,6 @@
 package com.kaavalan.note.data.backup
 
+import com.kaavalan.note.data.vault.IdentityCrypto
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -26,6 +27,109 @@ import org.junit.Test
 class BackupCryptoTest {
 
     private val crypto = BackupCrypto()
+
+    /**
+     * The property that matters for a backup: what the app wrote
+     * unattended, the user can open with what they typed.
+     *
+     * It did not hold before v2.2.1.
+     * `SettingsViewModel.googleDriveBackUpNow` encrypted with the
+     * raw phrase; [com.kaavalan.note.data.backup.DriveBackupWorker],
+     * which cannot prompt at 3am, encrypted with the SHA-256 hash
+     * `SecurePreferences` had stored. Different key material, so
+     * the daily automatic backup would not open with the phrase
+     * the restore dialog asks for — and the hash it *would* open
+     * with appeared nowhere in the app
+     * (`getBackupEncryptionKeyHash` had no reader outside the
+     * worker). Every automatic backup was unrecoverable, silently:
+     * the upload succeeded, the file listed, the size looked
+     * right. It would have surfaced on a new device, which is the
+     * one moment a backup exists for.
+     *
+     * No mocks. `DriveBackupWorkerTest` stubs the manager out
+     * entirely, so it could never see which key went in; this
+     * drives the real crypto in both directions.
+     */
+    @Test
+    fun `a worker-written backup opens with the recovery phrase the user types`() {
+        val phrase = "abandon ability able about above absent absorb abstract " +
+            "absurd abuse access accident"
+        val payload = """{"people":[],"instructions":[],"tags":[]}""".toByteArray()
+
+        // What DriveBackupWorker writes: the stored key material.
+        val storedKeyMaterial = BackupCrypto.keyMaterialFor(phrase.toCharArray())
+        val blob = crypto.encrypt(payload, storedKeyMaterial)
+
+        // What the restore dialog hands back: the phrase itself.
+        val recovered = crypto.decryptWithRecoveryPhrase(blob, phrase.toCharArray())
+
+        assertArrayEquals(
+            "a backup written with the stored key material must open with the phrase " +
+                "the user types, or every automatic backup is unrecoverable",
+            payload,
+            recovered,
+        )
+    }
+
+    /**
+     * The stored hash and the encryption key have to be the same
+     * value or they drift apart again. `SettingsViewModel` stores
+     * `IdentityCrypto.sha256Hex(phrase)` and the manager derives
+     * `keyMaterialFor(phrase)`; this pins that those agree.
+     */
+    @Test
+    fun `keyMaterialFor is the SHA-256 hex that SecurePreferences stores`() {
+        val phrase = "correct horse battery staple and eight more words here now"
+        val keyMaterial = String(BackupCrypto.keyMaterialFor(phrase.toCharArray()))
+
+        assertEquals(
+            "key material must be the same 64-char SHA-256 hex the app stores as the " +
+                "backup encryption key hash",
+            IdentityCrypto.sha256Hex(phrase),
+            keyMaterial,
+        )
+        assertEquals(64, keyMaterial.length)
+    }
+
+    /**
+     * Unifying the two write paths must not orphan blobs already
+     * in a user's `appDataFolder`. A manual backup taken before
+     * v2.2.1 was encrypted with the raw phrase; restore falls back
+     * to that derivation when the canonical one fails its tag
+     * check.
+     */
+    @Test
+    fun `a pre-v2 dot 2 dot 1 manual backup still opens with the same phrase`() {
+        val phrase = "legacy manual backup phrase from the older build here"
+        val payload = "some older backup json".toByteArray()
+
+        // The old googleDriveBackUpNow path: the raw phrase.
+        val legacyBlob = crypto.encrypt(payload, phrase.toCharArray())
+
+        assertArrayEquals(
+            "a backup written with the pre-v2.2.1 derivation must still restore, or " +
+                "fixing the worker would itself destroy existing backups",
+            payload,
+            crypto.decryptWithRecoveryPhrase(legacyBlob, phrase.toCharArray()),
+        )
+    }
+
+    /**
+     * The fallback must not soften into "any phrase works". A
+     * wrong phrase fails both derivations and still throws.
+     */
+    @Test
+    fun `decryptWithRecoveryPhrase still rejects the wrong phrase`() {
+        val right = "the right recovery phrase with enough words in it"
+        val wrong = "the wrong recovery phrase with enough words in it"
+        val blob = crypto.encrypt(
+            "secret".toByteArray(),
+            BackupCrypto.keyMaterialFor(right.toCharArray()),
+        )
+        assertThrows(Throwable::class.java) {
+            crypto.decryptWithRecoveryPhrase(blob, wrong.toCharArray())
+        }
+    }
 
     @Test
     fun `encrypt then decrypt returns the original plaintext`() {
@@ -69,14 +173,40 @@ class BackupCryptoTest {
         val passphrase = "a fixed passphrase".toCharArray()
         val a = crypto.encrypt(plaintext, passphrase)
         val b = crypto.encrypt(plaintext, passphrase)
-        // v2.1.1 (BTV2): magic(4) + salt(32) + nonce(12)
-        // are the variable header bytes that must differ
-        // across encryptions.
-        val headerLen = 4 // BTV2 magic
-        val variableLen = 32 + 12 // salt + nonce
-        for (i in headerLen until (headerLen + variableLen)) {
-            assertNotEquals("byte $i (salt or nonce) should differ across encryptions", a[i], b[i])
-        }
+        // v2.1.1 (BTV2): magic(4) + salt(32) + nonce(12).
+        //
+        // v2.1.2 (flaky-test fix): this used to assert that EVERY
+        // ONE of the 44 random header bytes differed between the two
+        // encryptions:
+        //
+        //     for (i in 4 until 48) assertNotEquals(a[i], b[i])
+        //
+        // Two independent random bytes are equal with probability
+        // 1/256, so the chance that at least one of the 44 positions
+        // collides is 1 - (255/256)^44 = 15.8%. The test therefore
+        // failed roughly one run in six, on correct crypto, in the
+        // suite that guards the backup format. A flaky test in a
+        // security-critical suite is worse than no test: the habit it
+        // trains is re-running until green.
+        //
+        // The property that actually matters is that the salt and the
+        // nonce are not reused — i.e. each REGION differs, not each
+        // byte. Two 32-byte salts collide with probability 256^-32,
+        // which will not happen.
+        val salt = 4 until 36
+        val nonce = 36 until 48
+        assertNotEquals(
+            "the 32-byte salt must be freshly generated per encryption; a repeated " +
+                "salt means the same KEK is derived twice from one passphrase",
+            a.slice(salt),
+            b.slice(salt),
+        )
+        assertNotEquals(
+            "the 12-byte GCM nonce must be freshly generated per encryption; nonce " +
+                "reuse under the same key is a catastrophic AES-GCM failure",
+            a.slice(nonce),
+            b.slice(nonce),
+        )
         // The blobs as a whole must differ.
         assertNotEquals(
             "two encryptions of the same plaintext with the same passphrase must produce different blobs",

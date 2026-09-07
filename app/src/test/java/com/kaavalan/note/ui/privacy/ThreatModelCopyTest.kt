@@ -127,4 +127,36 @@ class ThreatModelCopyTest {
             text.contains("behavioural"),
         )
     }
+
+    /**
+     * v2.2.1: the backup copy used to say "The passphrase is not stored
+     * on the device."
+     *
+     * That was true while the only backup was the manual one. The daily
+     * `DriveBackupWorker` runs unattended and cannot prompt for a
+     * phrase, so it encrypts with the key material `SecurePreferences`
+     * holds -- the SHA-256 of the phrase, which since v2.2.1 is exactly
+     * what `BackupCrypto` derives the key from on both paths. A copy of
+     * the backup key is therefore on the device, in
+     * EncryptedSharedPreferences, and the one screen that exists to tell
+     * the user what protects their data was telling them the opposite.
+     *
+     * A threat-model page that overstates the protection is worse than
+     * no page: it is what a user reads before deciding what is safe to
+     * keep in the app.
+     */
+    @Test
+    fun `backup copy does not claim the key is absent from the device`() {
+        val text = source()
+        assertFalse(
+            "the daily backup encrypts with key material held in " +
+                "EncryptedSharedPreferences, so the copy must not claim the " +
+                "passphrase is not stored on the device",
+            text.contains("passphrase is not stored on the device"),
+        )
+        assertTrue(
+            "the backup copy must say where the key is kept",
+            text.contains("kept in encrypted app storage on this device"),
+        )
+    }
 }

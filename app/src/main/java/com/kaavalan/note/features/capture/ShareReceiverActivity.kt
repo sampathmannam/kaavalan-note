@@ -1,7 +1,10 @@
 package com.kaavalan.note.features.capture
 
+import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
@@ -10,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.kaavalan.note.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -91,8 +95,7 @@ class ShareReceiverActivity : ComponentActivity() {
                 // empty string so the user lands somewhere.
                 val uri = payload.uri
                 val pending = CoroutineScope(Dispatchers.IO).launch {
-                    val text = PhotoCapture.recognize(applicationContext, uri)
-                    forwardText(text)
+                    forwardText(ocrTextOrEmpty(applicationContext, uri))
                 }
                 pending.invokeOnCompletion {
                     if (pending.isCancelled) forwardText("")
@@ -124,3 +127,47 @@ private fun ShareReceiverInvisible() {
     // [ShareReceiverActivity.handleIntent].
     Box(modifier = Modifier.fillMaxSize())
 }
+
+/**
+ * OCR a shared image, falling back to an empty pre-fill if it fails.
+ *
+ * [PhotoCapture.recognize] is documented to throw when the URI is
+ * unreachable or the bytes are not a decodable image, and to leave the
+ * empty-pre-fill fallback to its callers. This caller did not have one.
+ * The call sat bare inside `CoroutineScope(Dispatchers.IO).launch`, a
+ * scope with no parent and no `CoroutineExceptionHandler`, so the throw
+ * went to the thread's uncaught handler and took the process down. The
+ * `invokeOnCompletion` next to it does not help: it observes the failure
+ * but does not consume it.
+ *
+ * [ShareReceiverActivity] is an exported share target, so the URI that
+ * arrives belongs to the sender and not to us. Any installed app can
+ * send an image share carrying a URI it never granted. An ordinary
+ * share reaches the same throw by accident whenever the photo is
+ * cloud-only, in a format ML Kit cannot decode, or backed by a temp
+ * file the sender deletes before the OCR gets to it. Sharing a picture
+ * into a notes app should at worst open an empty capture sheet.
+ *
+ * Cancellation is rethrown so the caller's `invokeOnCompletion` still
+ * sees a cancelled job and forwards on its own.
+ *
+ * [recognize] is defaulted rather than called directly so the test can
+ * drive the failure without ML Kit: `PhotoCapture.recognize` reaches
+ * Play Services, which is not available to a JVM unit test, so a test
+ * against the real call could only assert that *something* went wrong
+ * on a path Robolectric decides.
+ */
+internal suspend fun ocrTextOrEmpty(
+    context: Context,
+    uri: Uri,
+    recognize: suspend (Context, Uri) -> String = PhotoCapture::recognize,
+): String = try {
+    recognize(context, uri)
+} catch (cancellation: CancellationException) {
+    throw cancellation
+} catch (failure: Throwable) {
+    Log.w(TAG, "OCR failed for a shared image; forwarding an empty pre-fill", failure)
+    ""
+}
+
+private const val TAG = "KaavalanNoteShareReceiver"

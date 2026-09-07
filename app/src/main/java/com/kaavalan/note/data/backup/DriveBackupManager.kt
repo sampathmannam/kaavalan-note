@@ -41,7 +41,7 @@ import javax.inject.Singleton
  *
  *  4. **Daily auto-backup.** [DriveBackupWorker] runs
  *     on a 24h WorkManager schedule and calls
- *     [backUpNow].
+ *     [backUpWithKeyMaterial].
  *
  * **Encryption is the key choice.** The bytes are
  * encrypted client-side before upload. Even Google
@@ -65,15 +65,46 @@ class DriveBackupManager @Inject constructor(
      * `appDataFolder`. Returns the new Drive file
      * [DriveRestApi.DriveFile].
      *
-     * @param passphrase the recovery phrase (12 words,
-     *   space-joined) used to derive the AES key. The
-     *   same phrase is required to restore on another
-     *   device.
+     * @param passphrase the user's recovery phrase, as typed.
+     *   Derivation to key material happens here rather than
+     *   at the call site — see [backUpWithKeyMaterial].
      */
     suspend fun backUpNow(
         passphrase: CharArray,
     ): DriveRestApi.DriveFile {
         require(passphrase.isNotEmpty()) { "passphrase must not be empty" }
+        return backUpWithKeyMaterial(BackupCrypto.keyMaterialFor(passphrase))
+    }
+
+    /**
+     * The same backup, for a caller that already holds key
+     * material rather than the phrase — i.e.
+     * [DriveBackupWorker], which runs at 3am and has only the
+     * value `SecurePreferences` stored.
+     *
+     * **Why the two entry points exist.** Until v2.2.1 there
+     * was one method taking "a passphrase", and the two callers
+     * disagreed about what that meant.
+     * `SettingsViewModel.googleDriveBackUpNow` handed it the raw
+     * phrase; the worker handed it the SHA-256 hash. PBKDF2 over
+     * a phrase and PBKDF2 over that phrase's hash are different
+     * keys, so every automatic backup was encrypted under a key
+     * the restore dialog never asks for — and the hash it would
+     * have opened with was displayed nowhere in the app. The
+     * backups uploaded, listed, and reported a plausible size,
+     * and were unrecoverable.
+     *
+     * Two names, each stating what it takes, is what stops that
+     * recurring. [backUpNow] derives; this one does not.
+     *
+     * @param keyMaterial the value [BackupCrypto.keyMaterialFor]
+     *   produces, which is also exactly what
+     *   `SecurePreferences.setBackupEncryptionKeyHash` stores.
+     */
+    suspend fun backUpWithKeyMaterial(
+        keyMaterial: CharArray,
+    ): DriveRestApi.DriveFile {
+        require(keyMaterial.isNotEmpty()) { "passphrase must not be empty" }
         // 1. Refresh the access token (silent sign-in).
         val accessToken = oauth.getAccessToken()
             ?: throw DriveBackupException.NotSignedIn()
@@ -83,7 +114,7 @@ class DriveBackupManager @Inject constructor(
         val json = plainExporter.toJson(snapshot).toByteArray(Charsets.UTF_8)
 
         // 3. Encrypt.
-        val blob = crypto.encrypt(json, passphrase)
+        val blob = crypto.encrypt(json, keyMaterial)
 
         // 4. Upload.
         val fileName = "kaavalan-note-backup-${ts()}.json.enc"
@@ -113,22 +144,28 @@ class DriveBackupManager @Inject constructor(
 
     /**
      * Restore from a specific Drive backup by ID. The
-     * downloaded bytes are decrypted with [passphrase]
-     * and imported into the local DB via [PlainImporter].
-     * Returns the [PlainImporter.ImportReport] so the
-     * caller can show inserted/updated counts in a
-     * snackbar.
+     * downloaded bytes are decrypted with
+     * [recoveryPhrase] and imported into the local DB via
+     * [PlainImporter]. Returns the
+     * [PlainImporter.ImportReport] so the caller can show
+     * inserted/updated counts in a snackbar.
+     *
+     * @param recoveryPhrase what the user typed into the
+     *   restore dialog — the phrase itself, not key
+     *   material. [BackupCrypto.decryptWithRecoveryPhrase]
+     *   derives from it, and falls back to the pre-v2.2.1
+     *   derivation for older blobs.
      */
     suspend fun restore(
         fileId: String,
-        passphrase: CharArray,
+        recoveryPhrase: CharArray,
     ): PlainImporter.ImportReport {
-        require(passphrase.isNotEmpty()) { "passphrase must not be empty" }
+        require(recoveryPhrase.isNotEmpty()) { "passphrase must not be empty" }
         val accessToken = oauth.getAccessToken()
             ?: throw DriveBackupException.NotSignedIn()
         val bytes = driveApi.downloadFile(accessToken, fileId)
         val json = try {
-            crypto.decrypt(bytes, passphrase)
+            crypto.decryptWithRecoveryPhrase(bytes, recoveryPhrase)
         } catch (e: Throwable) {
             throw DriveBackupException.WrongPassphrase(e)
         }

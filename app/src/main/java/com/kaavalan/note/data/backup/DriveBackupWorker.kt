@@ -59,14 +59,21 @@ class DriveBackupWorker @AssistedInject constructor(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
-        // The passphrase was set on first manual backup;
-        // it's stored in SecurePreferences as a SHA-256
-        // hash. We use the HASH as the encryption key
-        // source (a 32-byte secret is plenty for
-        // AES-256-GCM). The same hash is required to
-        // restore on another device — the user reads
-        // it from a "Backup settings" page that
-        // shows the hash (not the phrase).
+        // The key material was stored on the first manual
+        // backup: `BackupCrypto.keyMaterialFor(phrase)`, i.e.
+        // the SHA-256 hex of the recovery phrase.
+        //
+        // v2.2.1: that is now the *only* key source. Before it,
+        // `googleDriveBackUpNow` encrypted with the raw phrase
+        // while this worker used the hash, so an automatic
+        // backup could not be opened with the phrase the
+        // restore dialog asks for. The comment that stood here
+        // said the user could read the hash off "a 'Backup
+        // settings' page" — no such page existed, and
+        // `getBackupEncryptionKeyHash` had no reader anywhere
+        // outside this worker, so the key was genuinely
+        // unobtainable and every automatic backup was lost.
+        // Restore now derives the same value from the phrase.
         val passphraseHash = securePreferences.getBackupEncryptionKeyHash()
             ?: return Result.failure(
                 androidx.work.workDataOf(
@@ -74,8 +81,8 @@ class DriveBackupWorker @AssistedInject constructor(
                 ),
             )
         return try {
-            val file = driveBackupManager.backUpNow(
-                passphrase = passphraseHash.toCharArray(),
+            val file = driveBackupManager.backUpWithKeyMaterial(
+                keyMaterial = passphraseHash.toCharArray(),
             )
             if (file.sizeBytes > 0) Result.success() else Result.retry()
         } catch (e: DriveBackupManager.DriveBackupException.NotSignedIn) {

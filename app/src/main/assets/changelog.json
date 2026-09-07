@@ -1,6 +1,21 @@
 {
   "changelog": [
     {
+      "version": "2.2.0",
+      "code": 47,
+      "date": "2026-09-06",
+      "highlights": [
+        "Send to a group, from the note bar. Type an @mention for a rank, a station or everyone (for example “@si”, “@station:Subedari”, “@all”) and the note offers to send it to that group instead of just saving it. Mentioning one person by name, like “spoke to @ramesh”, stays an ordinary note.",
+        "Google Drive backup actually works. “Back up now” and “Restore from backup” previously did nothing at all when tapped — no dialog, no error, no backup. Both now prompt for your passphrase and run.",
+        "Sending no longer marks an instruction done. Dispatching a message only means it went out; you decide when the task is actually finished.",
+        "Your recovery phrase is protected from accidental replacement. Opening the recovery-phrase screen used to silently generate a new phrase, quietly invalidating whatever you had written down. It now warns you first.",
+        "Search handles hyphens correctly — badge numbers and case numbers like “QAP-7734” are found again.",
+        "Important dates: the delete control said “Cancel” and deleted immediately with no confirmation. It now says “Delete” and asks first.",
+        "Fixes for the audience picker (no way back once you drilled in, duplicate rows for the same rank spelled differently, missing screen-reader labels), the onboarding sample-data toggle (only the switch was tappable, not its label), a duplicated sentence on the onboarding screen, and a debug-only fixture reload that could overwrite a fresh first run.",
+        "21 defects found by an adversarial on-device audit, each fixed with a regression test. 661 unit tests."
+      ]
+    },
+    {
       "version": "2.1.1",
       "code": 46,
       "date": "2026-08-26",

@@ -21,6 +21,62 @@ val localProps = Properties().apply {
 // cloud sync, no auth, no server-side code. All data lives
 // in the on-device SQLCipher DB.
 
+// v2.1.2 (release-integrity): signing-material resolution.
+//
+// Both helpers use the same precedence — Gradle property
+// (`-P` or `~/.gradle/gradle.properties`, which lives outside
+// the repo) → `local.properties` (gitignored) → environment
+// variable (how CI injects secrets). Nothing is ever read from
+// a checked-in default, so no credential can be committed by
+// accident.
+fun resolveSigningSecret(
+    props: Properties,
+    propertyName: String,
+    envName: String,
+): String? = (
+    (project.findProperty(propertyName) as? String)
+        ?: props.getProperty(propertyName)
+        ?: System.getenv(envName)
+    )?.trim()?.takeIf { it.isNotEmpty() }
+
+// The keystore path resolves against the repository root when
+// it is relative, so `KAAVALAN_RELEASE_STORE_FILE=keys/release.jks`
+// in local.properties means the same thing regardless of which
+// directory Gradle was invoked from. `~` is expanded because
+// developers naturally write `~/keys/release.jks` and Java's
+// File() does not expand it.
+fun resolveSigningPath(
+    props: Properties,
+    propertyName: String,
+    envName: String,
+): File? {
+    val raw = resolveSigningSecret(props, propertyName, envName) ?: return null
+    val expanded = if (raw.startsWith("~/")) {
+        System.getProperty("user.home") + raw.removePrefix("~")
+    } else {
+        raw
+    }
+    val f = File(expanded)
+    return if (f.isAbsolute) f else rootProject.file(expanded)
+}
+
+// v2.1.2 (release-integrity): make `proguard-rules.pro` an input of
+// the unit-test task.
+//
+// `ProguardRulesTest` reads the rules file from disk to assert that
+// every fully-qualified keep rule still resolves. Gradle has no way
+// to know that, so editing only the rules file left
+// `testDebugUnitTest` UP-TO-DATE and the guard silently did not run
+// — a stale rule could be introduced and the very test written to
+// catch it would be skipped. Declaring the file as an input closes
+// that hole. Verified by editing only proguard-rules.pro and
+// observing the task re-execute.
+tasks.withType<Test>().configureEach {
+    inputs.file(rootProject.file("app/proguard-rules.pro"))
+        .withPropertyName("proguardRules")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
 android {
     namespace = "com.kaavalan.note"
     compileSdk = 35
@@ -277,9 +333,32 @@ android {
         // No DB schema changes; 16 new unit tests.
         //
         // versionCode 44 -> 45.
-        versionCode = 46
-        versionName = "2.1.1"
+        //
+        // v2.2.0: first release cut for the Obtainium channel, and the
+        // first release under the `com.kaavalan.note` applicationId
+        // (everything up to v1.9.8 on GitHub Releases was
+        // `com.baton.app` — a different app to Android, so those
+        // installs do not update into this line; see docs/RELEASING.md).
+        // Contents: 21 defects found by the adversarial on-device audit
+        // and fixed with regression tests, plus three product decisions
+        // — dispatch reachable via an @mention offer in the note bar
+        // (the whole hierarchy feature previously had no live entry
+        // point), dispatch no longer auto-marks an instruction done on
+        // send, and the recovery-phrase screen now warns before
+        // replacing an existing phrase.
+        // versionCode 46 -> 47.
+        versionCode = 47
+        versionName = "2.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // v2.2.2 (test-infra): wipe app state between instrumented
+        // tests. Without this the six device tests share one Room
+        // database and one DataStore, so each test's premise depends
+        // on which earlier tests happened to pass. Observed directly:
+        // the moment AddPersonFlowTest started passing it persisted
+        // "QA Person", and HomeEmptyStateTest -- which runs later and
+        // asserts on the EMPTY state -- stopped finding an empty Home
+        // at all. Only honoured with the orchestrator below.
+        testInstrumentationRunnerArguments["clearPackageData"] = "true"
         vectorDrawables { useSupportLibrary = true }
 
         // v2.0.0 (drop Supabase): removed SUPABASE_URL +
@@ -344,22 +423,87 @@ android {
         )
     }
 
+    // v2.1.2 (release-integrity): resolve the release signing
+    // material from the environment instead of hard-coding it.
+    //
+    // The v2.1.0 security pass scrubbed the keystore from git
+    // history and added `*.keystore` to .gitignore, but left
+    // `storeFile = file("kaavalan-note-release.keystore")` and a
+    // pair of hard-coded password fallbacks in place. Two
+    // consequences, both confirmed on a fresh clone of `main`:
+    //
+    //   1. `./gradlew :app:assembleRelease` fails at
+    //      `validateSigningRelease` ("Keystore file ... not
+    //      found") on every clean checkout and in CI. The
+    //      shippable artifact could not be built at all.
+    //   2. The `?: "kaavalan-note-release-2026"` fallbacks put
+    //      the intended keystore password in a public repo. Any
+    //      keystore later generated with that password — which
+    //      the .gitignore comment explicitly invites — is
+    //      protected by a published secret.
+    //
+    // The resolution order below is the standard Android one:
+    // Gradle property (`-P`, `~/.gradle/gradle.properties`) →
+    // `local.properties` (gitignored) → environment variable
+    // (CI secrets). If none of them name a keystore, the release
+    // build stays UNSIGNED rather than failing: R8/minify,
+    // resource shrinking and the per-ABI splits all still get
+    // exercised, which is what a CI `assembleRelease` gate is
+    // actually for. Signing then happens with the real key at
+    // release time. `signingReport` and the log line below make
+    // it unambiguous which mode a given build used.
+    val releaseStoreFile: File? = resolveSigningPath(
+        localProps,
+        propertyName = "KAAVALAN_RELEASE_STORE_FILE",
+        envName = "KAAVALAN_RELEASE_STORE_FILE",
+    )
+    val releaseStorePassword: String? = resolveSigningSecret(
+        localProps,
+        propertyName = "KAAVALAN_RELEASE_STORE_PASSWORD",
+        envName = "KAAVALAN_RELEASE_STORE_PASSWORD",
+    )
+    val releaseKeyAlias: String? = resolveSigningSecret(
+        localProps,
+        propertyName = "KAAVALAN_RELEASE_KEY_ALIAS",
+        envName = "KAAVALAN_RELEASE_KEY_ALIAS",
+    ) ?: "kaavalan-note-release"
+    val releaseKeyPassword: String? = resolveSigningSecret(
+        localProps,
+        propertyName = "KAAVALAN_RELEASE_KEY_PASSWORD",
+        envName = "KAAVALAN_RELEASE_KEY_PASSWORD",
+    ) ?: releaseStorePassword
+
+    // A signing config is only worth creating when every part of
+    // it resolved. A half-populated config fails later and more
+    // confusingly than not having one.
+    val releaseSigningReady: Boolean =
+        releaseStoreFile != null &&
+            releaseStoreFile.isFile &&
+            !releaseStorePassword.isNullOrEmpty() &&
+            !releaseKeyAlias.isNullOrEmpty() &&
+            !releaseKeyPassword.isNullOrEmpty()
+
+    if (releaseStoreFile != null && !releaseSigningReady) {
+        logger.warn(
+            "KaavalanNote: release keystore was named as '${releaseStoreFile}' but is unusable " +
+                "(missing file, password, alias or key password). The release build will be UNSIGNED.",
+        )
+    }
+
     signingConfigs {
-        // v1.3 (F-CRIT-03): proper production keystore. Generated
-        // 2026-08-13 with 10000-day validity (~27.4 years) so the
-        // key never expires mid-pilot. Passwords live in
-        // local.properties (gitignored); the fallback string is
-        // intentionally the same as the keystore password so a
-        // fresh clone + build works without an env-var step. For
-        // Play Store submission, rotate the passwords and re-sign
-        // outside the repo.
-        create("release") {
-            storeFile = file("kaavalan-note-release.keystore")
-            storePassword = providers.gradleProperty("KAAVALAN_RELEASE_STORE_PASSWORD").orNull
-                ?: "kaavalan-note-release-2026"
-            keyAlias = "kaavalan-note-release"
-            keyPassword = providers.gradleProperty("KAAVALAN_RELEASE_KEY_PASSWORD").orNull
-                ?: "kaavalan-note-release-2026"
+        if (releaseSigningReady) {
+            create("release") {
+                storeFile = releaseStoreFile
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                // Both signature schemes: v1 (JAR) for API 26-27,
+                // v2/v3 (APK Signature Scheme) for API 28+. Play
+                // requires v2+ for new uploads; v1 keeps the
+                // sideload path working on the minSdk 26 floor.
+                enableV1Signing = true
+                enableV2Signing = true
+            }
         }
     }
 
@@ -376,19 +520,32 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // v1.3 (F-CRIT-03): sign the release APK with the
-            // production keystore. The previous M5 config used
-            // the debug keystore as a placeholder; Play Store
-            // rejects that. The new keystore is committed (see
-            // .gitignore exception) so a fresh clone + build
-            // produces a Play-acceptable artifact.
-            signingConfig = signingConfigs.getByName("release")
+            // v2.1.2 (release-integrity): attach the release
+            // signing config only when the keystore actually
+            // resolved (see the `signingConfigs` block above).
+            // When it did not, the build type is left with no
+            // signing config and AGP emits an unsigned APK —
+            // `assembleRelease` still runs R8, resource
+            // shrinking and the ABI splits, so CI keeps its
+            // real release gate on a machine that holds no
+            // secrets. The previous unconditional
+            // `signingConfigs.getByName("release")` threw
+            // `UnknownDomainObjectException` in that case.
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    // v2.2.2 (test-infra): run each instrumented test in its own
+    // process via Android Test Orchestrator. This is what makes
+    // `clearPackageData` above take effect; it also stops one
+    // crashed test from taking the rest of the run down with it.
+    testOptions {
+        execution = "ANDROIDX_TEST_ORCHESTRATOR"
     }
 
     kotlinOptions { jvmTarget = "17" }
@@ -402,6 +559,42 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+    }
+
+    // v2.1.2 (release-integrity): make Android Lint a real gate again.
+    //
+    // Lint reported 525 errors on `main`. 522 of them were
+    // `MissingTranslation` — the known, deliberate state recorded in
+    // docs/PRODUCTION_READINESS_PLAN.md (P3-P0-#3): Tamil and Hindi
+    // cover the ~30 most user-facing strings and the remaining ~320
+    // fall back to English, which is Android's documented behaviour
+    // and not a defect. Because those 522 were fatal by default, the
+    // CI lint job was set to `continue-on-error: true` — which
+    // silenced lint entirely.
+    //
+    // What that hid: the single `NewApi` error in the project, a call
+    // to the API 33 `Intent#getParcelableExtra(String, Class)`
+    // overload from `VoiceCaptureService` against `minSdk 26`. It
+    // crashed voice capture with `NoSuchMethodError` on every device
+    // below Android 13. A gate that is always green catches nothing.
+    //
+    // So: demote the known-and-accepted `MissingTranslation` to a
+    // warning, keep everything else fatal, and let the build fail on
+    // a real error. `abortOnError` is left at its default (true).
+    // When the remaining strings are translated, delete the
+    // `informational` line rather than adding more entries to it.
+    lint {
+        // Documented partial-translation state; English fallback is
+        // correct behaviour, not a bug. Re-promote once ta/hi are complete.
+        informational += "MissingTranslation"
+        // Correctness issues that would ship a crash must never be
+        // downgraded, whatever else is in the report.
+        fatal += listOf("NewApi", "InlinedApi")
+        warningsAsErrors = false
+        checkReleaseBuilds = true
+        // A machine-readable report for CI to upload alongside the HTML.
+        xmlReport = true
+        htmlReport = true
     }
 
     // v1.9.1 (PROD-READINESS-P3-P1-#5 + honest
@@ -621,8 +814,30 @@ dependencies {
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.espresso.core)
+    // v2.1.2 (test-infra): GrantPermissionRule. `androidx.test:rules` was
+    // already present transitively (androidx.test:runner pulls it in at
+    // runtime) but not exposed on the compile classpath, so the six
+    // Compose UI smoke tests that now use GrantPermissionRule.grant(...)
+    // to pre-grant POST_NOTIFICATIONS could not compile against it.
+    androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(platform(libs.compose.bom))
-    androidTestImplementation(libs.mockk)
+    // v2.1.2 (release-integrity): androidTestImplementation(libs.mockk)
+    // removed. `libs.mockk` resolves to the plain JVM `io.mockk:mockk`
+    // artifact -- correct for `testImplementation` (used above), wrong
+    // for `androidTestImplementation`, which runs on-device and needs
+    // the separately published `io.mockk:mockk-android` artifact
+    // instead. Nothing in app/src/androidTest/ actually references
+    // MockK (verified by search), so this was a dead, wrong-variant
+    // declaration. Its transitive `org.junit.jupiter:*` dependencies
+    // collided on `META-INF/LICENSE.md` during resource merging and
+    // failed `assembleDebugAndroidTest` outright --
+    // `./gradlew :app:connectedDebugAndroidTest` could not even build,
+    // let alone run, on any device. This had never been caught because
+    // the CI androidTest job is optional and skips without a device
+    // (see the job's own doc comment below); running it against a real
+    // emulator for the first time is what surfaced this. If a future
+    // instrumented test needs mocking, add `io.mockk:mockk-android` as
+    // its own catalog entry rather than reusing this alias.
     // v1.8.0 (PROD-READINESS-P0-#7): the androidTest source
     // set needs the Compose UI test rule + the Hilt testing
     // annotation. The previous build was missing these — the
@@ -631,6 +846,11 @@ dependencies {
     // unblocks both the existing tests and the new
     // CaptureHappyPathTest.
     androidTestImplementation(libs.compose.ui.test.junit4)
+    // v2.2.2 (test-infra): the orchestrator APK itself. It is
+    // installed alongside the test APK rather than compiled
+    // against, hence androidTestUtil and not
+    // androidTestImplementation.
+    androidTestUtil(libs.androidx.test.orchestrator)
     androidTestImplementation(libs.hilt.android.testing)
     kspAndroidTest(libs.hilt.compiler)
 

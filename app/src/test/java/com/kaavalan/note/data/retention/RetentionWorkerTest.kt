@@ -14,6 +14,7 @@ import com.kaavalan.note.data.local.AuditChainEventDao
 import com.kaavalan.note.data.local.CaptureDao
 import com.kaavalan.note.data.local.ImportantDateDao
 import com.kaavalan.note.data.local.InstructionDao
+import com.kaavalan.note.data.local.SyncQueueDao
 import com.kaavalan.note.data.local.entities.AuditChainEventEntity
 import com.kaavalan.note.data.local.entities.CaptureEntity
 import com.kaavalan.note.data.local.entities.ImportantDateEntity
@@ -23,6 +24,7 @@ import com.kaavalan.note.data.audit.SigningKeyProvider
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -56,6 +58,7 @@ class RetentionWorkerTest {
     private lateinit var instructionDao: InstructionDao
     private lateinit var importantDateDao: ImportantDateDao
     private lateinit var auditDao: AuditChainEventDao
+    private lateinit var syncQueueDao: SyncQueueDao
     private lateinit var auditWriter: AuditChainWriter
     private lateinit var personDao: com.kaavalan.note.data.local.PersonDao
 
@@ -69,6 +72,7 @@ class RetentionWorkerTest {
         instructionDao = db.instructionDao()
         importantDateDao = db.importantDateDao()
         auditDao = db.auditChainEventDao()
+        syncQueueDao = db.syncQueueDao()
         personDao = db.personDao()
         auditWriter = AuditChainWriter(auditDao, signingKeyProvider = { "test-signing-key" })
     }
@@ -232,6 +236,54 @@ class RetentionWorkerTest {
         assertEquals(0, captures.size)
     }
 
+    /**
+     * The retention sweep has to reach the note text, not just
+     * the row it lives on.
+     *
+     * `captureDao.deleteOlderThan` is a plain
+     * `DELETE FROM captures`. Until v2.2.1 every capture also
+     * wrote its `rawText` into `sync_queue.payloadJson`, for a
+     * drain that v2.0.0 deleted along with Supabase -- so nothing
+     * read those payloads and nothing removed the rows. The
+     * capture went; the words stayed, indefinitely, in a table
+     * this worker did not touch. For an app whose retention
+     * window is a stated feature and whose rows are police
+     * instructions, a delete that leaves the text behind is not a
+     * delete.
+     *
+     * The row is left in place and emptied rather than removed,
+     * matching how the audit chain is redacted above.
+     */
+    @Test
+    fun `retention clears note text left behind in the outbox`() = runBlocking {
+        val secret = "the informant will meet me behind the temple at nine"
+        syncQueueDao.enqueue(
+            com.kaavalan.note.data.local.entities.SyncQueueEntity(
+                table = "captures",
+                rowId = "cap-gone",
+                op = com.kaavalan.note.data.local.entities.SyncQueueEntity.OP_INSERT,
+                // Exactly the shape a pre-v2.2.1 build wrote.
+                payloadJson = """{"id":"cap-gone","rawText":"$secret","mode":"TEXT"}""",
+                createdAt = 0L,
+            ),
+        )
+
+        val result = newWorker().doWork()
+        assertTrue("expected Result.success(), got $result", result is ListenableWorker.Result.Success)
+
+        val rows = syncQueueDao.snapshot().filter { it.table == "captures" }
+        assertEquals(1, rows.size)
+        assertEquals(
+            "the outbox payload must be emptied by the sweep",
+            "{}",
+            rows[0].payloadJson,
+        )
+        assertFalse(
+            "the note's text must not survive the retention sweep anywhere in the outbox",
+            syncQueueDao.snapshot().any { it.payloadJson.contains(secret) },
+        )
+    }
+
     private fun newWorker(): RetentionWorker {
         // TestListenableWorkerBuilder builds a Worker that
         // runs synchronously on the calling thread (since
@@ -252,6 +304,7 @@ class RetentionWorkerTest {
                 importantDateDao = importantDateDao,
                 auditDao = auditDao,
                 auditChainWriter = auditWriter,
+                syncQueueDao = syncQueueDao,
             )
         }
         return TestListenableWorkerBuilder

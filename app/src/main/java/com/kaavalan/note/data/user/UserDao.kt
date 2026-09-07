@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -56,4 +57,34 @@ interface UserDao {
      */
     @Query("UPDATE users SET displayName = displayName WHERE id = :id")
     suspend fun touch(id: String): Int
+
+    /** How many rows currently claim to be the device owner. */
+    @Query("SELECT COUNT(*) FROM users WHERE deviceOwner = 1")
+    suspend fun countDeviceOwners(): Int
+
+    /**
+     * v2.1.2 (data-integrity): the single write path that may set
+     * `deviceOwner = 1`.
+     *
+     * Until v2.1.2 the "exactly one device owner" invariant was
+     * enforced by a partial unique index created in
+     * `AppDatabase.MIGRATION_14_15`. That index did not match the
+     * plain index `UserEntity` declares, so Room's
+     * `validateMigration` rejected every v14 -> v15 upgrade and the
+     * app crashed on launch for anyone upgrading from a v1.8.0-era
+     * install. The index had to become a plain one to match the
+     * entity, which moved the invariant here.
+     *
+     * `@Transaction` makes the check-then-insert atomic: two
+     * concurrent callers cannot both observe zero owners and both
+     * insert. Returns true if this call created the row, false if an
+     * owner already existed.
+     */
+    @Transaction
+    suspend fun insertDeviceOwnerIfAbsent(user: UserEntity): Boolean {
+        require(user.deviceOwner) { "insertDeviceOwnerIfAbsent requires deviceOwner = true" }
+        if (countDeviceOwners() > 0) return false
+        upsert(user)
+        return true
+    }
 }

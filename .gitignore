@@ -29,18 +29,26 @@ local.properties
 *.jks
 *.keystore
 # v2.1.0 (security): the production release keystore
-# is NO LONGER committed. The Play-acceptable release
-# APK is now built by the user's CI with a new
-# keystore generated per environment. The previous
-# keystore was scrubbed from git history on
-# 2026-08-24 (see `git filter-repo --path
-# app/baton-release.keystore --invert-paths`). A
-# fresh clone + build needs the user to either:
-# (a) provide their own keystore via local.properties,
-# or (b) generate one locally with `keytool -genkey ...`
-# and reference it in local.properties. The
-# baton-debug.keystore stays ignored — it's
-# regenerated locally for ad-hoc device installs only.
+# is NO LONGER committed. The previous keystore was
+# scrubbed from git history on 2026-08-24 (see
+# `git filter-repo --path app/baton-release.keystore
+# --invert-paths`).
+#
+# v2.1.2: the `local.properties` escape hatch this
+# comment described was never actually implemented —
+# `app/build.gradle.kts` hard-coded
+# `storeFile = file("kaavalan-note-release.keystore")`
+# and read only the passwords from Gradle properties,
+# so `assembleRelease` failed at `validateSigningRelease`
+# on every clean checkout. It is implemented now; see
+# `local.properties.example` for the four
+# KAAVALAN_RELEASE_* keys and the keytool command.
+# Without them the release build succeeds and emits
+# UNSIGNED APKs (R8 and the splits still run), which is
+# the correct mode for CI.
+#
+# The debug keystore stays ignored — it's regenerated
+# locally for ad-hoc device installs only.
 
 # Logs
 *.log

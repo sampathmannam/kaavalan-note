@@ -3,7 +3,7 @@
     <string name="app_name">KaavalanNote</string>
     <string name="home_title">People</string>
     <string name="home_empty_title">No one yet</string>
-    <string name="home_empty_subtitle">Add the first person you coordinate with � your SP, your SHOs, anyone you give or take instructions from.</string>
+    <string name="home_empty_subtitle">Add the first person you coordinate with — your SP, your SHOs, anyone you give or take instructions from.</string>
     <string name="home_add_person">Add person</string>
     <string name="person_name">Name</string>
     <string name="person_designation">Designation (e.g. SP, DSP, SHO)</string>
@@ -58,7 +58,7 @@
          button is renamed to match. -->
     <string name="settings_subtitle">Erase all data on this phone: every person, every instruction, and every tag. This cannot be undone.</string>
     <string name="settings_sign_out">Erase all data</string>
-    <string name="settings_signing_out">Erasing�</string>
+    <string name="settings_signing_out">Erasing…</string>
     <!-- v1.5.1 (VAULT-007): the confirmation dialog.
          v1.7.2 (Debt-2): added a typed confirmation ("ERASE")
          so a single tap-tap-tap sequence can't wipe the data
@@ -82,7 +82,7 @@
     <string name="settings_dev_body">Loads the synthetic test fixture (55 people, 200 instructions, 50 captures, 16 tags in v1.6.4). Erases existing data first. Debug builds only.</string>
     <string name="settings_dev_load_fixture">Load test data</string>
     <string name="settings_dev_clear_reload">Clear &amp; reload</string>
-    <string name="settings_dev_loading">Loading\u2026</string>
+    <string name="settings_dev_loading">Loading…</string>
     <!-- v1.6.6 P1: the 4-count dev-load report is now built from
          per-segment plurals. settings_dev_loaded_prefix holds the
          static "Loaded " lead; the count list is appended
@@ -107,7 +107,7 @@
          properties. -->
     <string name="settings_brand_name">App name</string>
     <string name="settings_brand_department">Department</string>
-    <string name="settings_brand_department_none">�</string>
+    <string name="settings_brand_department_none">—</string>
     <string name="settings_app_version_value">%1$s (build %2$d)</string>
     <string name="settings_storage">On this phone</string>
     <string name="settings_storage_value">%1$d people, %2$d instructions, %3$d tags</string>
@@ -115,9 +115,9 @@
     <string name="settings_notifications">Notifications</string>
     <string name="settings_notifications_value">%1$s</string>
     <string name="settings_notifications_enabled">Allowed</string>
-    <string name="settings_notifications_disabled">Blocked � enable in system settings</string>
+    <string name="settings_notifications_disabled">Blocked — enable in system settings</string>
     <string name="settings_data_mode">Data mode</string>
-    <string name="settings_data_mode_vault">Vault � stays on this phone</string>
+    <string name="settings_data_mode_vault">Vault — stays on this phone</string>
 
     <!-- M3-T6: person detail screen -->
     <string name="person_detail_title">Person</string>
@@ -162,6 +162,8 @@
          enough to set up, not an attribution step. Updated copy says so
          plainly without the misleading "attach to" promise. -->
     <string name="capture_needs_person_message">Add a person first, then save your first note.</string>
+    <string name="capture_dispatch_suggestion_message">This note mentions %1$s. Send it to them instead of just saving it?</string>
+    <string name="capture_dispatch_suggestion_action">Send to a group…</string>
 
     <!-- Tier 1.1 (v2.0): Encrypted vault backup.
          The export dialog, import dialog, and Settings rows. The
@@ -175,7 +177,7 @@
     <string name="vault_export_confirm">Confirm passphrase</string>
     <string name="vault_export_button">Save vault file</string>
     <string name="vault_strength_label">Strength: %1$s</string>
-    <string name="vault_strength_0">Too weak � try a longer phrase</string>
+    <string name="vault_strength_0">Too weak — try a longer phrase</string>
     <string name="vault_strength_1">Weak</string>
     <string name="vault_strength_2">OK</string>
     <string name="vault_strength_3">Strong</string>
@@ -291,8 +293,8 @@
     <string name="status_getting_due">Getting due</string>
     <string name="status_on_track">On track</string>
     <plurals name="bulk_snooze_banner">
-        <item quantity="one">%1$d quiet contact � redistribute?</item>
-        <item quantity="other">%1$d quiet contacts � redistribute?</item>
+        <item quantity="one">%1$d quiet contact — redistribute?</item>
+        <item quantity="other">%1$d quiet contacts — redistribute?</item>
     </plurals>
     <string name="bulk_snooze_title">Reschedule the quiet pile?</string>
     <string name="bulk_snooze_body">We\'ll push the snooze to 2 weeks from now for the oldest half.</string>
@@ -303,7 +305,7 @@
     <string name="tier_active">Active</string>
     <string name="tier_periodic">Periodic</string>
     <string name="tier_dormant">Dormant</string>
-    <string name="tier_label_with_cadence">%1$s � %2$d d</string>
+    <string name="tier_label_with_cadence">%1$s · %2$d d</string>
     <string name="cadence_override_label">Override</string>
     <string name="cadence_clear">Use tier default</string>
     <string name="important_date_section">Important dates</string>
@@ -365,7 +367,7 @@
     <string name="meeting_brief_recent_instructions">Recent instructions</string>
     <string name="meeting_brief_recent_photos">Recent photos</string>
     <string name="meeting_brief_recent_notes">Recent notes</string>
-    <string name="meeting_brief_event_time">%1$s � %2$s</string>
+    <string name="meeting_brief_event_time">%1$s — %2$s</string>
     <string name="case_type_chip_label">Type: %1$s</string>
     <string name="case_type_case">Case</string>
     <string name="case_type_witness">Witness</string>
@@ -373,7 +375,7 @@
     <string name="case_type_other">Other</string>
     <string name="settings_show_type_chip">Show type chip on instructions</string>
     <string name="calendar_link_prompt_title">Attach to your next event with %1$s?</string>
-    <string name="calendar_link_prompt_body">%1$s � %2$s</string>
+    <string name="calendar_link_prompt_body">%1$s — %2$s</string>
     <string name="calendar_link_prompt_attach">Attach</string>
     <string name="calendar_link_prompt_skip">Skip</string>
     <string name="calendar_link_prompt_attach_done">Attached to event.</string>
@@ -414,9 +416,9 @@
     <string name="settings_vault_pin_set">Set</string>
     <string name="settings_vault_pin_change">Change</string>
     <string name="settings_vault_pin_unset">Not set</string>
-    <string name="settings_vault_pin_value_set">Set � 4 to 6 digits</string>
+    <string name="settings_vault_pin_value_set">Set — 4 to 6 digits</string>
     <string name="settings_vault_pin_dialog_title">Set vault PIN</string>
-    <string name="settings_vault_pin_dialog_body">Enter a 4 to 6 digit PIN. You\'ll need it to switch back from Hidden to Visible mode. The PIN is never stored � only its hash.</string>
+    <string name="settings_vault_pin_dialog_body">Enter a 4 to 6 digit PIN. You\'ll need it to switch back from Hidden to Visible mode. The PIN is never stored — only its hash.</string>
     <string name="settings_vault_pin_dialog_label">PIN</string>
     <string name="settings_vault_pin_dialog_save">Save PIN</string>
     <string name="settings_vault_pin_dialog_cancel">Cancel</string>
@@ -430,7 +432,7 @@
     <string name="settings_vault_switch_confirm">Switch</string>
     <string name="settings_recovery_phrase">Recovery phrase</string>
     <string name="settings_recovery_phrase_value_unset">Not generated</string>
-    <string name="settings_recovery_phrase_value_set">Set up � 12 words on paper</string>
+    <string name="settings_recovery_phrase_value_set">Set up — 12 words on paper</string>
     <string name="settings_recovery_phrase_explainer">Your recovery phrase is a 12-word master key. It\'s the only way to recover your data if this phone is lost. Write the words on paper. Do not screenshot.</string>
     <string name="settings_threat_model">Threat model</string>
     <string name="settings_threat_model_value">Read the threat model</string>
@@ -482,6 +484,9 @@
     <string name="settings_drive_signed_out">Signed in to Google.</string>
     <string name="recovery_phrase_title">Recovery phrase</string>
     <string name="recovery_phrase_back">Back</string>
+    <string name="recovery_phrase_regenerate_confirm_title">Replace your recovery phrase?</string>
+    <string name="recovery_phrase_regenerate_confirm_body">You already have a recovery phrase written down. Generating a new one replaces it — the old phrase stops working immediately, and there is no way to see it again. Only continue if you\'re ready to write down and verify a brand-new phrase right now.</string>
+    <string name="recovery_phrase_regenerate_confirm_action">Generate new phrase</string>
     <string name="recovery_phrase_subtitle">These 12 words are the master key for your data. Write them down on paper, in order. Do not screenshot. If this phone is lost, the phrase is the only way to recover.</string>
     <string name="recovery_phrase_step_1">1. Read and write down</string>
     <string name="recovery_phrase_step_2">2. Tap the words in order</string>
@@ -496,7 +501,7 @@
     <string name="recovery_phrase_picked_count">%1$d of %2$d words picked</string>
     <string name="recovery_phrase_retry">Try again</string>
     <string name="recovery_phrase_hold_to_reveal">Press and hold to reveal</string>
-    <string name="recovery_phrase_revealing">Showing � keep holding</string>
+    <string name="recovery_phrase_revealing">Showing — keep holding</string>
     <string name="recovery_phrase_confirmed_title">Recovery phrase set</string>
     <string name="recovery_phrase_confirmed_body">Keep the paper safe. The phrase is the only way to recover your data if this phone is lost. Anyone with the phrase can read your data.</string>
     <string name="recovery_phrase_trust_device">I trust this device</string>
@@ -511,7 +516,7 @@
     <string name="threat_model_section_unlocked">If the device is seized while unlocked</string>
     <string name="threat_model_section_unlocked_body">Treat the data as compromised. The running app can read the encrypted database. This is the same boundary every secure messaging app draws; there is no defence against an unlocked-device adversary.</string>
     <string name="threat_model_section_backup">Backup exports are AES-256-GCM encrypted</string>
-    <string name="threat_model_section_backup_body">Encrypted backup files are protected with a passphrase only you know. The passphrase is not stored on the device. Lose the passphrase, lose the backup.</string>
+    <string name="threat_model_section_backup_body">Backup files are encrypted with a key derived from your recovery phrase. So the daily backup can run without asking you every time, a copy of that key is kept in encrypted app storage on this device — the backups are not protected by your memory alone. Restoring on a new device still needs the phrase; lose it and you lose the backups.</string>
     <string name="threat_model_section_vault">The Hidden vault is a UI filter</string>
     <string name="threat_model_section_vault_body">Hidden mode hides selected items from the home list. A forensic adversary with access to the database file can still see that a hidden mode exists. This is behavioural concealment, not cryptographic deniability. For true deniability, the database itself would need to be encrypted twice with two different keys.</string>
     <string name="threat_model_closing">This is the threat model. If it does not match yours, do not put the data in this app.</string>
@@ -532,7 +537,7 @@
     <string name="a11y_capture_note_text">Capture note text</string>
     <string name="a11y_add_to_calendar">Add to calendar</string>
     <string name="a11y_add_note">Add note</string>
-    <string name="tier0_model_progress_label">Downloading� %1$d%%</string>
+    <string name="tier0_model_progress_label">Downloading… %1$d%%</string>
 
     <!-- v1.6.8: localised all hardcoded user-facing strings. -->
     <!-- Today screen -->
@@ -547,7 +552,7 @@
     <string name="today_review_action">Review</string>
     <string name="today_review_still_open">Still open:</string>
     <string name="today_review_nothing_carried">Nothing carried over. Nice.</string>
-    <string name="today_review_bullet_prefix">� %1$s</string>
+    <string name="today_review_bullet_prefix">• %1$s</string>
     <!-- Reusable actions -->
     <string name="action_mark_done">Mark done</string>
     <string name="action_draft_nudge">Draft nudge</string>
@@ -587,7 +592,7 @@
     <string name="nudge_action_copy">Copy</string>
     <string name="nudge_action_share">Share</string>
     <string name="nudge_share_chooser_title">Send nudge</string>
-    <string name="nudge_generating">Generating draft�</string>
+    <string name="nudge_generating">Generating draft…</string>
     <!-- Person links / relationships -->
     <string name="links_add_person_first">Add another person first.</string>
     <!-- Important dates row -->
@@ -597,6 +602,9 @@
     <string name="important_date_pick">Pick</string>
     <string name="important_date_today">Today</string>
     <string name="important_date_tomorrow">Tomorrow</string>
+    <string name="important_date_delete">Delete</string>
+    <string name="important_date_delete_title">Delete date</string>
+    <string name="important_date_delete_confirm_message">Delete \"%1$s\"? This cannot be undone.</string>
     <!-- Settings sheet -->
     <string name="settings_sync_error_retries">Failed to sync after multiple retries. Retry to put them back in the queue.</string>
     <string name="settings_section_tags">Tags</string>
@@ -616,11 +624,11 @@
     <string name="auth_sign_in">Sign in</string>
     <string name="auth_create_account">Create account</string>
     <string name="auth_continue_with_email">Continue with email</string>
-    <string name="auth_sending">Sending�</string>
+    <string name="auth_sending">Sending…</string>
     <string name="auth_otp_explainer">We\'ll email you a one-time code. No password needed.</string>
     <string name="auth_code_sent">We sent a code to</string>
     <string name="auth_verify">Verify</string>
-    <string name="auth_verifying">Verifying�</string>
+    <string name="auth_verifying">Verifying…</string>
     <string name="auth_hide_password">Hide password sign-in</string>
     <string name="auth_create">Create</string>
     <string name="auth_code_label">6-digit code</string>
@@ -680,8 +688,8 @@
     <string name="settings_rate">Rate Kaavalan note</string>
     <string name="settings_rate_cd">Open the Play Store listing for Kaavalan note</string>
     <string name="settings_share_app">Share Kaavalan note</string>
-    <string name="settings_share_app_chooser">Share with�</string>
-    <string name="settings_share_app_text">I am using Kaavalan note � a private instruction tracker . https://github.com/sampathmannam/kaavalan-note</string>
+    <string name="settings_share_app_chooser">Share with…</string>
+    <string name="settings_share_app_text">I am using Kaavalan note — a private instruction tracker . https://github.com/sampathmannam/kaavalan-note</string>
 
     <!-- v1.9.0 (PROD-READINESS-P3-P0-#9): onboarding explainer -->
     <string name="onboarding_title">Kaavalan note is not a notes app</string>
@@ -693,10 +701,10 @@
     <string name="onboarding_screen_3_title">Ad-friendly, deniable</string>
     <string name="onboarding_screen_3_body">A 6-digit vault PIN hides sensitive notes from the list. A 24-word recovery phrase is the only way back in if you forget the PIN. Write the recovery phrase on paper and store the paper somewhere physically safe.</string>
     <string name="onboarding_screen_4_title">Free, forever</string>
-    <string name="onboarding_screen_4_body">Kaavalan note is private, local-only software. No ads, no premium tier, no tracking. The full source is on GitHub if you want to read the threat model or audit the crypto.. No ads, no premium tier, no tracking. The full source is on GitHub if you want to read the threat model or audit the crypto.</string>
+    <string name="onboarding_screen_4_body">Kaavalan note is private, local-only software. No ads, no premium tier, no tracking. The full source is on GitHub if you want to read the threat model or audit the crypto.</string>
     <!-- v1.9.0 (PROD-READINESS-P3-P0-#8): update channel -->
     <string name="settings_check_for_updates">Check for updates</string>
-    <string name="settings_check_for_updates_working">Checking�</string>
+    <string name="settings_check_for_updates_working">Checking…</string>
     <string name="settings_check_for_updates_up_to_date">You are on the latest version</string>
     <string name="settings_check_for_updates_available">Kaavalan note %1$s is available. You are on %2$s.</string>
     <string name="settings_check_for_updates_failed">Could not reach the update server. Try again later.</string>
@@ -792,6 +800,7 @@
     <!-- v2.0 (Hierarchy): the audience + due chip + dispatch surface. -->
     <string name="hierarchy_audience_picker_title">Send to…</string>
     <string name="hierarchy_audience_picker_subtitle">Choose a station, designation, person, or broadcast</string>
+    <string name="hierarchy_audience_picker_back">Back</string>
     <string name="hierarchy_audience_by_person">Person</string>
     <string name="hierarchy_audience_by_designation">Designation</string>
     <string name="hierarchy_audience_by_station">Station</string>
@@ -802,12 +811,22 @@
     <string name="hierarchy_audience_summary_to_all">To everyone on the roster</string>
     <string name="hierarchy_audience_recipient_count_one">1 recipient</string>
     <string name="hierarchy_audience_recipient_count_other">%1$d recipients</string>
+    <!-- v2.1 (a11y regression, audit finding): AudiencePickerSheet's
+         Person/Designation/Station list rows are bare Modifier.clickable
+         with no onClickLabel, unlike InstructionRow / PersonRowSimple
+         elsewhere. These describe the actual action (immediately picks
+         the row as the dispatch audience) rather than "Open X", since
+         nothing opens; the sheet closes and returns the pick. -->
+    <string name="a11y_audience_person_select">Select person</string>
+    <string name="a11y_audience_designation_select">Select designation</string>
+    <string name="a11y_audience_station_select">Select station</string>
     <string name="hierarchy_dispatch_title">Send</string>
     <string name="hierarchy_dispatch_channel_sms">SMS</string>
     <string name="hierarchy_dispatch_channel_whatsapp">WhatsApp</string>
     <string name="hierarchy_dispatch_receipts_one">1 of 1 delivered</string>
     <string name="hierarchy_dispatch_receipts_other">%1$d of %2$d delivered</string>
     <string name="hierarchy_dispatch_receipts_none">0 of %1$d delivered (%2$d failed)</string>
+    <string name="hierarchy_dispatch_receipts_nobody">Nobody to send to — this reached no one.</string>
     <string name="hierarchy_due_chip_set">Due %1$s</string>
     <string name="hierarchy_due_chip_tap_to_set">Set due</string>
     <string name="hierarchy_due_chip_clear">Clear due</string>
@@ -824,6 +843,12 @@
     <string name="hierarchy_inbound_draft_save">Save as outgoing</string>
     <string name="hierarchy_inbound_draft_title_label">Title</string>
     <string name="hierarchy_inbound_draft_body_label">Body</string>
+    <!-- v2.1 (BUG FIX, found via adversarial QA audit): DispatchComposerSheet
+         (write the instruction + pick an audience) had reused
+         hierarchy_audience_picker_title, AudiencePickerSheet's own title
+         ("Send to…"), as its own title bar, a copy/paste bug. It needs
+         its own string. -->
+    <string name="hierarchy_composer_title">New instruction</string>
     <string name="hierarchy_instruction_label">Instruction</string>
     <string name="hierarchy_next_button">Next</string>
 
@@ -834,7 +859,7 @@
          clipboard preview; the PDF title is the H1 on
          the printable sheet). -->
     <string name="recovery_clipboard_label">Kaavalan note recovery phrase</string>
-    <string name="recovery_pdf_title">Kaavalan note \u2014 Recovery Sheet</string>
+    <string name="recovery_pdf_title">Kaavalan note — Recovery Sheet</string>
 </resources>
 
 

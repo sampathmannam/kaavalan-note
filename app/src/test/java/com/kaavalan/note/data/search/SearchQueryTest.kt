@@ -59,6 +59,31 @@ class SearchQueryTest {
     }
 
     @Test
+    fun `internal hyphen splits into separate tokens like the FTS4 tokenizer does`() {
+        // Regression for a data-loss bug: the FTS4 "porter"
+        // tokenizer splits indexed text on hyphens (same as
+        // whitespace), so a hyphenated query like "R4-5948-longtext"
+        // must split into "R4", "5948", "longtext" too. The old
+        // implementation only stripped the hyphen out of the
+        // whitespace token, merging it into the single search term
+        // "R45948longtext*" which can never match the index.
+        val expr = SearchQuery.build("R4-5948-longtext")
+        assertEquals("R4* 5948* longtext*", expr)
+    }
+
+    @Test
+    fun `hyphenated word with surrounding whitespace tokens still splits correctly`() {
+        val expr = SearchQuery.build("CASE-4521 needs follow-up")
+        assertEquals("CASE* 4521* needs* follow* up*", expr)
+    }
+
+    @Test
+    fun `standalone or repeated hyphens between words collapse like whitespace`() {
+        val expr = SearchQuery.build("ramesh--kumar")
+        assertEquals("ramesh* kumar*", expr)
+    }
+
+    @Test
     fun `multibyte unicode passes through (FTS4 handles it after the lowercase fold)`() {
         // Indian / Tamil / Hindi tokens are valid for FTS4
         // MATCH after the porter-stemmer lowercases them.

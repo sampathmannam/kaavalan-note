@@ -1,4 +1,4 @@
-# Baton ProGuard / R8 rules.
+# KaavalanNote ProGuard / R8 rules.
 #
 # v1.2 — release-hygiene pass. Without these keep rules, R8 will
 # strip or rename classes that Hilt / Room / kotlinx-serialization /
@@ -27,11 +27,11 @@
 -keep class <1>.<2> {
     static <1>.<2>$Companion Companion;
 }
--keep,includedescriptorclasses class com.baton.app.**$$serializer { *; }
--keepclassmembers class com.baton.app.** {
+-keep,includedescriptorclasses class com.kaavalan.note.**$$serializer { *; }
+-keepclassmembers class com.kaavalan.note.** {
     *** Companion;
 }
--keepclasseswithmembers class com.baton.app.** {
+-keepclasseswithmembers class com.kaavalan.note.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
 
@@ -49,7 +49,7 @@
 -keep class **_GeneratedInjector { *; }
 -keep class **_Factory { *; }
 -keep class **_MembersInjector { *; }
--keep class **DaggerBatonApplication_HiltComponents** { *; }
+-keep class **DaggerKaavalanApplication_HiltComponents** { *; }
 
 # WorkManager Hilt initializer
 -keep class * extends androidx.work.Worker
@@ -76,21 +76,23 @@
 }
 
 # ----- JNI -----
-# Native methods + bridge classes. If R8 renames native methods or
-# removes their holder class, System.loadLibrary("baton-llama") /
-# loadLibrary("baton-whisper") / loadLibrary("sqlcipher") will
-# NoSuchMethodError at first call.
+# Native methods and their holder classes must keep their names or
+# the JNI symbol lookup misses and loadLibrary("sqlcipher") fails
+# with NoSuchMethodError at first call.
+#
+# v2.1.2: the LlamaBridge / WhisperBridge keeps were dropped. The
+# llama.cpp + Whisper.cpp stack was removed in v1.6.1 (see
+# docs/architecture/ai-strategy.md); those classes have not existed
+# for eight releases, so the rules matched nothing.
 -keepclasseswithmembers class * {
     native <methods>;
 }
--keep class com.baton.app.ai.llama.LlamaBridge { *; }
--keep class com.baton.app.ai.whisper.WhisperBridge { *; }
 -keep class net.zetetic.database.** { *; }
 
 # ----- SQLCipher native -----
 -keep class net.zetetic.** { *; }
 -keep class sqlcipher.** { *; }
--keep class com.baton.app.data.local.AppDatabase { *; }
+-keep class com.kaavalan.note.data.local.AppDatabase { *; }
 
 # ----- supabase-kt + Ktor -----
 # supabase-kt uses kotlinx-serialization for wire format (see above
@@ -111,14 +113,24 @@
 }
 
 # ----- Keep our entry points -----
--keep class com.baton.app.MainActivity { *; }
--keep class com.baton.app.BatonApplication { *; }
--keep class com.baton.app.features.capture.ShareReceiverActivity { *; }
--keep class com.baton.app.features.capture.VoiceCaptureService { *; }
--keep class com.baton.app.features.capture.BatonTileService { *; }
--keep class com.baton.app.features.capture.BatonCaptureWidget { *; }
--keep class com.baton.app.data.work.SyncDrainWorker { *; }
--keep class com.baton.app.data.brief.BriefNotifier$* { *; }
+-keep class com.kaavalan.note.MainActivity { *; }
+-keep class com.kaavalan.note.KaavalanApplication { *; }
+-keep class com.kaavalan.note.features.capture.ShareReceiverActivity { *; }
+-keep class com.kaavalan.note.features.capture.VoiceCaptureService { *; }
+-keep class com.kaavalan.note.features.capture.KaavalanTileService { *; }
+-keep class com.kaavalan.note.features.capture.KaavalanCaptureWidget { *; }
+# v2.1.2: the old `-keep com.baton.app.data.work.SyncDrainWorker`
+# rule named a class that was deleted with the v2.0.0 Supabase
+# drop, and every other rule in this file still named the
+# pre-v2.1.1 `com.baton.app` package. Dead keep rules are silent
+# — R8 does not warn about a rule that matches nothing — so they
+# survived eight releases. Workers are now matched structurally
+# by the `extends CoroutineWorker` / `extends ListenableWorker`
+# rules in the Hilt section above, which cannot go stale when a
+# worker is renamed or moved between packages.
+# `ProguardRulesTest` fails the build if any fully-qualified
+# `com.kaavalan.note.*` name in this file stops resolving.
+-keep class com.kaavalan.note.data.brief.BriefNotifier$* { *; }
 
 # ----- Strip log statements in release -----
 -assumenosideeffects class android.util.Log {

@@ -60,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -128,6 +129,40 @@ fun SettingsSheet(
     // [LaunchedEffect] below.
     val updateCheckInProgress by viewModel.updateCheckInProgress.collectAsStateWithLifecycle()
     val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+    // v2.1.0 (PM rating): the Drive backup passphrase
+    // prompt + the restore list dialog. The user
+    // enters the 12-word recovery phrase; the VM
+    // derives the AES key and encrypts the backup
+    // blob. For restore, the user picks from a
+    // list of available Drive backups.
+    // v2.1.x (BUG FIX, data-loss): these must be declared
+    // before the driveBackupEvent LaunchedEffect below --
+    // that collector's `when` branches assign into all
+    // five of them, and Kotlin resolves a local `var`
+    // reference by textual position even inside a lambda
+    // defined earlier in the same function, so declaring
+    // them after the LaunchedEffect fails to compile
+    // ("Unresolved reference"). The two flags were
+    // previously declared later in this function (after
+    // this LaunchedEffect) and never read by any
+    // composable -- no dialog ever rendered, so "Back up
+    // now" / "Restore from backup" were dead no-ops even
+    // when signed in. The other three carry the state the
+    // dialogs further down need: the list of Drive backups
+    // (from the [SettingsViewModel.DriveBackupEvent.BackupsListed]
+    // event), which one the user picked to restore, and
+    // whether the last restore attempt's passphrase was
+    // wrong (so the dialog stays open for a retry,
+    // mirroring [PinDialog]'s `enterPinWrong`).
+    var showDriveBackupPassphrasePrompt by remember { mutableStateOf(false) }
+    var showDriveRestoreList by remember { mutableStateOf(false) }
+    var driveBackupFiles by remember {
+        mutableStateOf<List<com.kaavalan.note.data.backup.DriveRestApi.DriveFile>>(emptyList())
+    }
+    var driveRestoreTarget by remember {
+        mutableStateOf<com.kaavalan.note.data.backup.DriveRestApi.DriveFile?>(null)
+    }
+    var driveRestoreWrongPassphrase by remember { mutableStateOf(false) }
     androidx.compose.runtime.LaunchedEffect(viewModel) {
         viewModel.updateCheckResult.collect { info ->
             val msg = when (info) {
@@ -146,18 +181,53 @@ fun SettingsSheet(
     // outcomes from the [DriveBackupManager] round-trip.
     androidx.compose.runtime.LaunchedEffect(viewModel) {
         viewModel.driveBackupEvent.collect { event ->
+            // v2.1.x (BUG FIX, data-loss): this `when` used to end in
+            // `else -> null`, so BackupsListed / SignInRequired /
+            // PassphraseRequired were silently dropped -- on top of
+            // the fact that nothing ever called googleDriveBackUpNow
+            // or googleDriveRestore in the first place. Listing every
+            // DriveBackupEvent subtype (no `else`) makes the `when`
+            // exhaustive, so a future new event fails to compile
+            // here instead of silently vanishing again.
             val msg = when (event) {
-                is com.kaavalan.note.ui.settings.SettingsViewModel.DriveBackupEvent.BackUpSuccess ->
+                is com.kaavalan.note.ui.settings.SettingsViewModel.DriveBackupEvent.BackUpSuccess -> {
+                    showDriveBackupPassphrasePrompt = false
                     "Backed up to Google Drive."
-                is com.kaavalan.note.ui.settings.SettingsViewModel.DriveBackupEvent.BackUpFailed ->
+                }
+                is com.kaavalan.note.ui.settings.SettingsViewModel.DriveBackupEvent.BackUpFailed -> {
+                    showDriveBackupPassphrasePrompt = false
                     "Backup failed: ${event.reason}"
-                is com.kaavalan.note.ui.settings.SettingsViewModel.DriveBackupEvent.RestoreSucceeded ->
+                }
+                is com.kaavalan.note.ui.settings.SettingsViewModel.DriveBackupEvent.RestoreSucceeded -> {
+                    driveRestoreTarget = null
+                    showDriveRestoreList = false
+                    driveRestoreWrongPassphrase = false
                     "Restored ${event.rows} rows from Google Drive."
-                is com.kaavalan.note.ui.settings.SettingsViewModel.DriveBackupEvent.RestoreFailed ->
+                }
+                is com.kaavalan.note.ui.settings.SettingsViewModel.DriveBackupEvent.RestoreFailed -> {
+                    driveRestoreWrongPassphrase = false
                     "Restore failed: ${event.reason}"
-                is com.kaavalan.note.ui.settings.SettingsViewModel.DriveBackupEvent.WrongPassphrase ->
-                    "Wrong passphrase."
-                else -> null
+                }
+                is com.kaavalan.note.ui.settings.SettingsViewModel.DriveBackupEvent.WrongPassphrase -> {
+                    // Keep the restore passphrase dialog open so the
+                    // user can retype it, instead of just dropping
+                    // the event on the floor.
+                    driveRestoreWrongPassphrase = true
+                    null
+                }
+                is com.kaavalan.note.ui.settings.SettingsViewModel.DriveBackupEvent.BackupsListed -> {
+                    // Feeds the "Choose a backup to restore" dialog
+                    // below.
+                    driveBackupFiles = event.files
+                    null
+                }
+                is com.kaavalan.note.ui.settings.SettingsViewModel.DriveBackupEvent.SignInRequired -> {
+                    showDriveBackupPassphrasePrompt = false
+                    driveRestoreTarget = null
+                    "Please sign in to Google Drive first."
+                }
+                is com.kaavalan.note.ui.settings.SettingsViewModel.DriveBackupEvent.PassphraseRequired ->
+                    "Enter your recovery phrase to continue."
             }
             msg?.let { snackbarHostState.showSnackbar(it) }
         }
@@ -209,14 +279,6 @@ fun SettingsSheet(
     // importer branches on the first non-whitespace
     // character.
     var plainImportOk by remember { mutableStateOf<String?>(null) }
-    // v2.1.0 (PM rating): the Drive backup passphrase
-    // prompt + the restore list dialog. The user
-    // enters the 12-word recovery phrase; the VM
-    // derives the AES key and encrypts the backup
-    // blob. For restore, the user picks from a
-    // list of available Drive backups.
-    var showDriveBackupPassphrasePrompt by remember { mutableStateOf(false) }
-    var showDriveRestoreList by remember { mutableStateOf(false) }
     var plainImportError by remember { mutableStateOf<String?>(null) }
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -347,7 +409,18 @@ fun SettingsSheet(
                 Text(
                     text = stringResource(R.string.settings_title),
                     style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.weight(1f),
+                    // v2.1.2 (test-infra): the bottom nav's Settings tab
+                    // label is still composed underneath the modal sheet,
+                    // so `onNodeWithText("Settings")` matches two nodes
+                    // once the sheet is open (BottomNavTabSwitchTest hit
+                    // this: "Expected at most 1 node but found 2"). A
+                    // testTag has no runtime or a11y effect -- it exists
+                    // only for test targeting -- and uniquely identifies
+                    // this specific header regardless of what other UI
+                    // text happens to say "Settings".
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("settings_sheet_title"),
                 )
                 IconButton(
                     onClick = onDismiss,
@@ -501,7 +574,17 @@ fun SettingsSheet(
                 }
                 Spacer(Modifier.height(4.dp))
                 androidx.compose.material3.TextButton(
-                    onClick = { viewModel.googleDriveListBackups() },
+                    onClick = {
+                        // v2.1.x (BUG FIX, data-loss): this used to
+                        // only call googleDriveListBackups() -- the
+                        // BackupsListed result was dropped by the
+                        // collector's `else -> null` and no dialog
+                        // ever showed the list. Open the dialog and
+                        // clear any stale list from a previous open.
+                        driveBackupFiles = emptyList()
+                        showDriveRestoreList = true
+                        viewModel.googleDriveListBackups()
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(stringResource(R.string.settings_drive_restore))
@@ -1127,8 +1210,18 @@ fun SettingsSheet(
                 Button(
                     onClick = {
                         scope.launch {
-                            val r = viewModel.loadFixture()
-                            fixtureLoadReport = r
+                            fixtureLoading = true
+                            try {
+                                val r = runCatching { viewModel.loadFixture() }
+                                if (r.isSuccess) {
+                                    fixtureLoadReport = r.getOrThrow()
+                                    fixtureLoadError = null
+                                } else {
+                                    fixtureLoadError = r.exceptionOrNull()?.message
+                                }
+                            } finally {
+                                fixtureLoading = false
+                            }
                         }
                     },
                     enabled = !fixtureLoading,
@@ -1162,8 +1255,18 @@ fun SettingsSheet(
                 OutlinedButton(
                     onClick = {
                         scope.launch {
-                            val r = viewModel.clearAndReloadFixture()
-                            fixtureLoadReport = r
+                            fixtureLoading = true
+                            try {
+                                val r = runCatching { viewModel.clearAndReloadFixture() }
+                                if (r.isSuccess) {
+                                    fixtureLoadReport = r.getOrThrow()
+                                    fixtureLoadError = null
+                                } else {
+                                    fixtureLoadError = r.exceptionOrNull()?.message
+                                }
+                            } finally {
+                                fixtureLoading = false
+                            }
                         }
                     },
                     enabled = !fixtureLoading,
@@ -1375,6 +1478,104 @@ fun SettingsSheet(
             },
         )
     }
+
+    // v2.1.x (BUG FIX, data-loss): the Drive "Back up now" passphrase
+    // prompt. `showDriveBackupPassphrasePrompt` was set true on tap
+    // but no composable ever read it, so the row was a dead no-op --
+    // [SettingsViewModel.googleDriveBackUpNow] had zero call sites.
+    // Mirrors [PinDialog]'s AlertDialog + OutlinedTextField +
+    // PasswordVisualTransformation shape, for the free-form 12-word
+    // recovery phrase instead of a 4-6 digit PIN.
+    if (showDriveBackupPassphrasePrompt) {
+        DrivePassphraseDialog(
+            title = stringResource(R.string.settings_drive_title),
+            body = stringResource(R.string.settings_drive_passphrase_prompt),
+            hint = stringResource(R.string.settings_drive_passphrase_hint),
+            confirmLabel = stringResource(R.string.settings_drive_back_up_now),
+            onConfirm = { passphrase ->
+                viewModel.googleDriveBackUpNow(passphrase)
+                showDriveBackupPassphrasePrompt = false
+            },
+            onDismiss = { showDriveBackupPassphrasePrompt = false },
+        )
+    }
+
+    // v2.1.x (BUG FIX, data-loss): the "choose a backup to restore"
+    // list. `showDriveRestoreList` had the same problem as above --
+    // declared, set true on tap, never read. The list itself comes
+    // from the BackupsListed event, which the collector above used
+    // to drop via `else -> null`.
+    if (showDriveRestoreList) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showDriveRestoreList = false },
+            title = { Text(stringResource(R.string.settings_drive_restore_dialog_title)) },
+            text = {
+                if (driveBackupFiles.isEmpty()) {
+                    Text(stringResource(R.string.settings_drive_no_backups))
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        driveBackupFiles.forEach { file ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        // Picking a file swaps this
+                                        // dialog for the restore
+                                        // passphrase prompt below.
+                                        driveRestoreTarget = file
+                                        driveRestoreWrongPassphrase = false
+                                        showDriveRestoreList = false
+                                    }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = file.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDriveRestoreList = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
+    // v2.1.x (BUG FIX, data-loss): the restore passphrase prompt,
+    // shown once the user has picked a file from the list above.
+    // `SettingsViewModel.googleDriveRestore(fileId, passphrase)` had
+    // zero call sites before this -- this is the only call site.
+    if (driveRestoreTarget != null) {
+        val target = driveRestoreTarget!!
+        DrivePassphraseDialog(
+            title = target.name,
+            body = stringResource(R.string.settings_drive_restore_passphrase_prompt),
+            hint = stringResource(R.string.settings_drive_passphrase_hint),
+            confirmLabel = stringResource(R.string.settings_drive_restore),
+            invalidMessage = if (driveRestoreWrongPassphrase) {
+                stringResource(R.string.settings_drive_restore_failed)
+            } else {
+                null
+            },
+            onConfirm = { passphrase ->
+                // Deliberately does NOT close the dialog here -- a
+                // WrongPassphrase event keeps it open for a retry
+                // (see the collector above); RestoreSucceeded /
+                // RestoreFailed close it there.
+                viewModel.googleDriveRestore(target.id, passphrase)
+            },
+            onDismiss = {
+                driveRestoreTarget = null
+                driveRestoreWrongPassphrase = false
+            },
+        )
+    }
 }
 
 /**
@@ -1503,6 +1704,67 @@ private fun PinDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text(stringResource(R.string.settings_vault_pin_dialog_cancel))
+            }
+        },
+    )
+}
+
+/**
+ * v2.1.x (BUG FIX, data-loss): the Google Drive backup / restore
+ * passphrase entry dialog. Same AlertDialog + OutlinedTextField +
+ * PasswordVisualTransformation shape as [PinDialog] above, but for
+ * the free-form 12-word recovery phrase rather than a 4-6 digit
+ * PIN (no digit filter, no length cap). Used for both "Back up
+ * now" (encrypt) and "Restore from backup" (decrypt) -- the caller
+ * decides which [SettingsViewModel] method [onConfirm] calls.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DrivePassphraseDialog(
+    title: String,
+    body: String,
+    hint: String,
+    confirmLabel: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+    invalidMessage: String? = null,
+) {
+    var passphrase by remember { mutableStateOf("") }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(body, style = MaterialTheme.typography.bodyMedium)
+                OutlinedTextField(
+                    value = passphrase,
+                    onValueChange = { passphrase = it },
+                    label = { Text(hint) },
+                    singleLine = true,
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Password,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (invalidMessage != null) {
+                    Text(
+                        text = invalidMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(passphrase) },
+                enabled = passphrase.isNotBlank(),
+            ) { Text(confirmLabel) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
             }
         },
     )

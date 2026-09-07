@@ -38,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -116,6 +117,29 @@ fun RecoveryPhraseScreen(
             RecoveryPhraseState.Idle -> {
                 // Brief blank state between dismiss and the next
                 // start; nothing to render.
+            }
+            RecoveryPhraseState.ConfirmRegenerate -> {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = {
+                        viewModel.cancelRegenerate()
+                        onClose()
+                    },
+                    title = { Text(stringResource(R.string.recovery_phrase_regenerate_confirm_title)) },
+                    text = { Text(stringResource(R.string.recovery_phrase_regenerate_confirm_body)) },
+                    confirmButton = {
+                        TextButton(onClick = viewModel::confirmRegenerate) {
+                            Text(stringResource(R.string.recovery_phrase_regenerate_confirm_action))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = {
+                            viewModel.cancelRegenerate()
+                            onClose()
+                        }) {
+                            Text(stringResource(R.string.cancel))
+                        }
+                    },
+                )
             }
             is RecoveryPhraseState.Display -> {
                 DisplayStep(

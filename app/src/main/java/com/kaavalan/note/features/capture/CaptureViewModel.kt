@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.kaavalan.note.data.captures.CaptureMode
 import com.kaavalan.note.data.captures.CaptureRepository
 import com.kaavalan.note.data.instructions.InstructionRepository
+import com.kaavalan.note.data.instructions.MentionAndTagParser
 import com.kaavalan.note.data.instructions.Priority
 import com.kaavalan.note.data.instructions.Source
 import com.kaavalan.note.data.person.PersonRepository
@@ -249,7 +250,46 @@ class CaptureViewModel @Inject constructor(
     }
 
     fun onTextChanged(text: String) {
-        _state.update { it.copy(text = text, mode = CaptureMode.TEXT, error = null) }
+        _state.update {
+            it.copy(
+                text = text,
+                mode = CaptureMode.TEXT,
+                error = null,
+                dispatchSuggestion = detectDispatchSuggestion(text),
+            )
+        }
+    }
+
+    /**
+     * v2.x: scan the in-progress note for an audience-shaped
+     * `@mention` -- a designation (`@si`), a station
+     * (`@station:Subedari`), or the broadcast form (`@all`). Those
+     * are the three [com.kaavalan.note.data.instructions.MentionAndTagParser.Mention.Prefix]
+     * values that map onto a dispatch audience.
+     *
+     * `Prefix.NAME` is deliberately excluded: `@ramesh` in
+     * "spoke to @ramesh about the seizure case" is ordinary prose,
+     * and offering to broadcast every time someone types a
+     * colleague's name would be noise. A single named person is
+     * also already served by the existing per-person "Add
+     * instruction for X" flow on Person Detail.
+     *
+     * Runs on every keystroke, which is fine: `parse` is a single
+     * left-to-right scan over a short capture note.
+     */
+    private fun detectDispatchSuggestion(text: String): DispatchSuggestion? {
+        val mention = MentionAndTagParser.parse(text).mentions.firstOrNull { m ->
+            m.prefix == MentionAndTagParser.Mention.Prefix.DESIGNATION ||
+                m.prefix == MentionAndTagParser.Mention.Prefix.STATION ||
+                m.prefix == MentionAndTagParser.Mention.Prefix.ALL
+        } ?: return null
+        val label = when (mention.prefix) {
+            MentionAndTagParser.Mention.Prefix.ALL -> "everyone"
+            // `payload` for a STATION mention is the part after
+            // "station:", already lowercased by the parser.
+            else -> mention.payload
+        }
+        return DispatchSuggestion(label = label, rawMention = mention.raw)
     }
 
     fun onAddToCalendarChanged(checked: Boolean) {
