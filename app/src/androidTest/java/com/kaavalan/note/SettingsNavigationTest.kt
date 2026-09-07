@@ -1,6 +1,8 @@
 package com.kaavalan.note
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasNoClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -112,7 +114,16 @@ class SettingsNavigationTest {
         // so each one is scrolled into view before it is checked.
         composeRule.onNodeWithText("Privacy").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Data").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("About").performScrollTo().assertIsDisplayed()
+        // "About" is not unique in this sheet: the Privacy section
+        // has a tappable "About" row (settings_about, opening the
+        // About screen) as well as the "About" section header
+        // (settings_section_about) further down -- two different
+        // string resources with the same value, so a plain text
+        // match finds both. The header is a bare Text; the row is
+        // clickable, so requiring no click action picks the header.
+        composeRule.onNode(hasText("About") and hasNoClickAction())
+            .performScrollTo()
+            .assertIsDisplayed()
 
         // Step 3: close via the X icon (contentDescription
         // is R.string.settings_close = "Close settings").

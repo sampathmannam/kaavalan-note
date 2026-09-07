@@ -480,12 +480,17 @@ jobs:
       # "The component is not displayed!" and only one of them could
       # be pinned to a line. This prints the failure elements so the
       # log answers it directly. No backslashes, non-gating.
+      #
+      # Piped into `while read -r` rather than `for F in $(find ...)`:
+      # the report is named "TEST-kaavalan-test(AVD) - 14-_app-.xml"
+      # and the spaces made the word-split version look for a file
+      # called "14-_app-.xml" (run 34072117034).
       - name: Print androidTest failure details
         if: always() && steps.device_check.outputs.attached == 'true'
         continue-on-error: true
         run: |
           set +e
-          for F in $(find app/build/outputs/androidTest-results -name '*.xml'); do
+          find app/build/outputs/androidTest-results -name '*.xml' | while read -r F; do
             echo "===== $F ====="
             grep -B 2 -A 25 "<failure" "$F"
           done
