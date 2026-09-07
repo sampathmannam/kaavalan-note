@@ -458,6 +458,14 @@ jobs:
             adb -s "$S" shell dumpsys window | grep -iE "isKeyguardShowing"
             echo
           done
+          # Run 34070444647: both devices were present and Awake here,
+          # then gradle ran the suite on the emulator only -- the phone
+          # produced no test run at all and nothing in the log said
+          # why. This re-prints the device list at the last moment
+          # before gradle enumerates, which separates "the phone fell
+          # off USB" from "gradle saw it and declined to use it".
+          echo "-- adb devices immediately before gradle:"
+          adb devices -l
 
       - name: Run connectedAndroidTest
         if: steps.device_check.outputs.attached == 'true'
