@@ -438,7 +438,6 @@ private fun EmptyState(
     onAddPersonClick: () -> Unit,
     onImportFromContacts: () -> Unit,
 ) {
-    val addPersonDesc = stringResource(R.string.home_add_person)
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -481,8 +480,6 @@ private fun EmptyState(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 ),
-                modifier = Modifier
-                    .semantics { contentDescription = addPersonDesc },
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
@@ -649,7 +646,7 @@ fun HomeScreenSearchResults(
                         style = MaterialTheme.typography.bodyLarge,
                     )
                     val sub = listOfNotNull(person.designation, person.station)
-                        .joinToString(" \u00b7 ")
+                        .joinToString(" · ")
                     if (sub.isNotBlank()) {
                         // v1.7.4 (P1-A): maxLines=2 + Ellipsis. Same
                         // reason as PersonRow's subtitle — the
