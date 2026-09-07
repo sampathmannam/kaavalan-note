@@ -499,6 +499,15 @@ jobs:
       # the report is named "TEST-kaavalan-test(AVD) - 14-_app-.xml"
       # and the spaces made the word-split version look for a file
       # called "14-_app-.xml" (run 34072117034).
+      #
+      # The `||` branch is not cosmetic. grep exits 1 when it matches
+      # nothing, that is the loop's and so the step's exit status, and
+      # a green run therefore printed a red
+      # "##[error]Process completed with exit code 1" annotation --
+      # run 34080635244, where all six tests passed. The step is
+      # continue-on-error so the job stayed green, but an error
+      # annotation on a passing run is exactly the noise that stops
+      # people reading CI output.
       - name: Print androidTest failure details
         if: always() && steps.device_check.outputs.attached == 'true'
         continue-on-error: true
@@ -506,7 +515,7 @@ jobs:
           set +e
           find app/build/outputs/androidTest-results -name '*.xml' | while read -r F; do
             echo "===== $F ====="
-            grep -B 2 -A 250 "<failure" "$F"
+            grep -B 2 -A 250 "<failure" "$F" || echo "(no <failure> elements in this report)"
           done
 
       # If MainActivity crashed on launch rather than the screen being
