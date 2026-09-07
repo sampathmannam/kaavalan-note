@@ -124,13 +124,18 @@ class HomeEmptyStateTest {
         try {
             composeRule.onNodeWithText("Import from contacts").assertIsDisplayed()
         } catch (failure: AssertionError) {
-            val button = composeRule.onNodeWithText("Import from contacts").fetchSemanticsNode()
-            val root = composeRule.onRoot().fetchSemanticsNode()
-            throw AssertionError(
-                "${failure.message} | import button boundsInRoot=${button.boundsInRoot} " +
-                    "size=${button.size} | root boundsInRoot=${root.boundsInRoot} size=${root.size}",
-                failure,
-            )
+            // The fetch has to be guarded. In run 34075300005 this
+            // block threw its own "Failed: assertExists" because by
+            // then the node was gone, which replaced the original
+            // message instead of adding to it -- the diagnostic hid
+            // the very thing it was added to report.
+            val detail = runCatching {
+                val button = composeRule.onNodeWithText("Import from contacts").fetchSemanticsNode()
+                val root = composeRule.onRoot().fetchSemanticsNode()
+                "import button boundsInRoot=${button.boundsInRoot} size=${button.size} " +
+                    "| root boundsInRoot=${root.boundsInRoot} size=${root.size}"
+            }.getOrElse { "no node to measure (${it.message})" }
+            throw AssertionError("${failure.message} | $detail", failure)
         }
 
         // Open the capture sheet.

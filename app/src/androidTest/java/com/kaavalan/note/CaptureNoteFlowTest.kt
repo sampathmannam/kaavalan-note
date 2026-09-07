@@ -95,6 +95,19 @@ class CaptureNoteFlowTest {
         runCatching { composeRule.onNodeWithText("Skip").performClick() }
         composeRule.waitForIdle()
 
+        // v2.2.2 (test-infra): with `clearPackageData` every test now
+        // starts on a wiped app, so every test takes the onboarding
+        // path -- previously only the first one did. The wait above
+        // is satisfied by "Skip" OR the FAB, so it can return without
+        // Home having composed, and dismissing onboarding routes
+        // through a DataStore write whose emission waitForIdle() does
+        // not cover. AddPersonFlowTest lost exactly that race in run
+        // 34073735523. Wait for Home before touching it.
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithContentDescription("Add person")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+
         // Step 1: add a person so the capture sheet's Save
         // button is enabled (it is gated on hasPeople).
         composeRule.onNodeWithContentDescription("Add person").performClick()
