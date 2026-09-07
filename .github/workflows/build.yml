@@ -506,7 +506,7 @@ jobs:
           set +e
           find app/build/outputs/androidTest-results -name '*.xml' | while read -r F; do
             echo "===== $F ====="
-            grep -B 2 -A 25 "<failure" "$F"
+            grep -B 2 -A 250 "<failure" "$F"
           done
 
       # If MainActivity crashed on launch rather than the screen being
@@ -525,6 +525,19 @@ jobs:
             adb -s "$S" logcat -d -v time > "build/device-logs/logcat-$SAFE.txt" 2>&1
             echo "=== $S -> $(wc -l < "build/device-logs/logcat-$SAFE.txt") lines ==="
             grep -E "FATAL EXCEPTION|AndroidRuntime|kaavalan" "build/device-logs/logcat-$SAFE.txt" | tail -80
+            echo
+            # v2.2.3: whether the tests were actually isolated. The
+            # grep above is tail-limited and the per-test teardown
+            # happens long before the end of the buffer, so counts are
+            # the only way to see it from the job log. Under Android
+            # Test Orchestrator with clearPackageData the orchestrator
+            # runs `pm clear` around every test, which logs
+            # "user=0: clear data" once per package per test; without
+            # it the count is zero and all six tests share one Room
+            # database and one DataStore.
+            echo "-- isolation evidence --"
+            echo "orchestrator lines: $(grep -c androidx.test.orchestrator "build/device-logs/logcat-$SAFE.txt")"
+            echo "clear data lines:   $(grep -c "user=0: clear data" "build/device-logs/logcat-$SAFE.txt")"
             echo
           done
 

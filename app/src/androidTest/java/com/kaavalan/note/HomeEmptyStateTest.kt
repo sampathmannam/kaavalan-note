@@ -108,33 +108,44 @@ class HomeEmptyStateTest {
         // The Quick note bar is the persistent bottom-of-Home
         // Surface (R.string.note_bar_hint = "Quick note").
         composeRule.onNodeWithText("Quick note").assertIsDisplayed()
-        // Run 34073735523 failed on the next line specifically. The
-        // node EXISTS -- a miss reports "could not find any node"
-        // instead -- so Home is composed and the empty state is the
-        // rendered state; the button is simply laid out off screen.
-        // "Import from contacts" is rendered in exactly one place,
-        // the empty state's OutlinedButton (HomeScreen.kt:501), and
-        // that Column is centred inside a Box with no scrolling, so
-        // anything that overflows is clipped and genuinely
-        // unreachable -- an app defect, not a test problem, if that
-        // is what is happening. Telling the two apart needs the real
-        // geometry, which nothing reports today. The assertion is
+        // Runs 34073735523 and 34076793456 both failed on the next
+        // line. "Import from contacts" is rendered in exactly one
+        // place, the empty state's OutlinedButton (HomeScreen.kt:501),
+        // inside a Column centred in a Box with no scrolling -- so
+        // clipping was the first reading, but it does not survive the
+        // second run's evidence (see the catch block). The assertion is
         // left exactly as strong; the numbers are attached to the
         // failure rather than guessed at.
         try {
             composeRule.onNodeWithText("Import from contacts").assertIsDisplayed()
         } catch (failure: AssertionError) {
-            // The fetch has to be guarded. In run 34075300005 this
-            // block threw its own "Failed: assertExists" because by
-            // then the node was gone, which replaced the original
-            // message instead of adding to it -- the diagnostic hid
-            // the very thing it was added to report.
+            // Run 34076793456: assertIsDisplayed found exactly one node
+            // (a miss says "could not find any node") and the follow-up
+            // fetch, milliseconds later, found none -- the node was
+            // removed between the two reads. That rules out static
+            // geometry and points at the empty state being replaced
+            // while the assertion ran, i.e. rows arriving in Room after
+            // Home first composed. HomeUiState.Empty and
+            // HomeUiState.Loaded are mutually exclusive branches of one
+            // `when` (HomeScreen.kt:324), so R.string.home_empty_title
+            // ("No one yet") is present for exactly as long as the
+            // empty state is. Counting both tells the two apart:
+            //   title gone too  -> the state left Empty (data arrived)
+            //   title still up  -> the button alone is unreachable
+            // `onAllNodes...fetchSemanticsNodes()` returns a list and
+            // does not throw on zero matches, so this cannot replace
+            // the failure it is describing -- an unguarded
+            // `fetchSemanticsNode()` did exactly that in run
+            // 34075300005.
             val detail = runCatching {
-                val button = composeRule.onNodeWithText("Import from contacts").fetchSemanticsNode()
+                val buttons = composeRule.onAllNodesWithText("Import from contacts").fetchSemanticsNodes()
+                val titles = composeRule.onAllNodesWithText("No one yet").fetchSemanticsNodes()
                 val root = composeRule.onRoot().fetchSemanticsNode()
-                "import button boundsInRoot=${button.boundsInRoot} size=${button.size} " +
+                val each = buttons.joinToString(" ; ") { "boundsInRoot=${it.boundsInRoot} size=${it.size}" }
+                "import matches=${buttons.size} [$each] " +
+                    "| empty-title matches=${titles.size} " +
                     "| root boundsInRoot=${root.boundsInRoot} size=${root.size}"
-            }.getOrElse { "no node to measure (${it.message})" }
+            }.getOrElse { "could not measure (${it.message})" }
             throw AssertionError("${failure.message} | $detail", failure)
         }
 
