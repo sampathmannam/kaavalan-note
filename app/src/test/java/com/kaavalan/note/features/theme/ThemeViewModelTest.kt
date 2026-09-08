@@ -3,7 +3,6 @@ package com.kaavalan.note.features.theme
 import androidx.test.core.app.ApplicationProvider
 import com.kaavalan.note.data.preferences.KaavalanPreferences
 import com.kaavalan.note.data.preferences.ThemeMode
-import java.io.File
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.first
 import org.junit.After
@@ -40,29 +39,12 @@ class ThemeViewModelTest {
 
     @Before
     fun setUp() {
-        // The DataStore file persists across test runs in the
-        // same JVM (Robolectric uses a per-class sandbox, but
-        // the application context's `filesDir` is the same).
-        // Delete the file so each test starts with the
-        // default (System) value. Without this, the second
-        // test sees the value the first one wrote.
+        // DataStore is a process singleton. Deleting its backing file does not
+        // clear the value already cached in memory and can race an in-flight
+        // write from the preceding test. Reset through the public API instead.
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val file = File(ctx.filesDir, "datastore/kaavalan-note-prefs.preferences_pb")
-        if (file.exists()) file.delete()
-        // v2.0.0 (test isolation): the pre-v1.9.11 version of
-        // this test was flaky (1-in-8 failed with "expected
-        // System but was Light" because the DataStore read on
-        // the new test instance happened before the file-delete
-        // took effect on the shared DataStore singleton).
-        // The fix is a longer idle + a retry: if the first
-        // read returns the stale value, delete and idle again
-        // until the read returns the default.
-        ShadowLooper.idleMainLooper()
-        repeat(3) {
-            ShadowLooper.idleMainLooper()
-            if (!file.exists()) return@repeat
-            file.delete()
-        }
+        runBlocking { KaavalanPreferences(ctx).setThemeMode(ThemeMode.System) }
+        repeat(3) { ShadowLooper.idleMainLooper() }
     }
 
     @After

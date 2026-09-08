@@ -1,6 +1,19 @@
 {
   "changelog": [
     {
+      "version": "2.4.0",
+      "code": 49,
+      "date": "2026-09-08",
+      "highlights": [
+        "Set a reminder while saving a note with quick choices for one hour, tomorrow morning or next week, or choose an exact date and time.",
+        "Edit or clear a reminder later from the instruction detail sheet. Reminder time stays consistent across the local database, Today and Outbox.",
+        "Private Android notifications include Done and Snooze for one hour actions. Tapping the notification opens the matching instruction.",
+        "Each instruction has one durable WorkManager schedule, so edits replace the previous reminder and completed or dropped notes cannot produce stale alerts.",
+        "The optional calendar handoff now uses the chosen reminder time instead of creating an event at the current time.",
+        "The full 708-test unit suite, Android lint, debug build and two Android 14 end-to-end reminder tests pass."
+      ]
+    },
+    {
       "version": "2.3.0",
       "code": 48,
       "date": "2026-09-07",
