@@ -71,6 +71,8 @@ import com.kaavalan.note.ui.today.worry.WorryBoxSection
 fun TodayScreen(
     viewModel: TodayViewModel = hiltViewModel(),
     onOpenPerson: (String) -> Unit = {},
+    openInstructionId: String? = null,
+    onReminderInstructionOpened: () -> Unit = {},
 ) {
     val brief by viewModel.brief.collectAsStateWithLifecycle()
     var showReview by remember { mutableStateOf(false) }
@@ -78,6 +80,17 @@ fun TodayScreen(
     val searchViewModel: SearchViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     val query by searchViewModel.query.collectAsStateWithLifecycle()
     val results by searchViewModel.results.collectAsStateWithLifecycle()
+    LaunchedEffect(openInstructionId, brief) {
+        val instructionId = openInstructionId ?: return@LaunchedEffect
+        val match = (
+            brief.needsYouToday + brief.waitingOnOthers + brief.carriedOver
+            ).firstOrNull { it.id == instructionId }
+            ?: viewModel.findInstruction(instructionId)
+        if (match != null) {
+            selected = match
+        }
+        onReminderInstructionOpened()
+    }
     Scaffold(
         topBar = {
             Column {
@@ -271,6 +284,13 @@ fun TodayScreen(
                 viewModel.reopen(ins.id)
                 selected = null
             },
+            onReminderChanged = { reminderAtMs ->
+                viewModel.updateReminder(ins.id, reminderAtMs)
+                selected = ins.copy(
+                    dueAtMs = reminderAtMs,
+                    dueAt = reminderAtMs?.let { java.time.Instant.ofEpochMilli(it).toString() },
+                )
+            },
         )
     }
 }
@@ -415,8 +435,13 @@ private fun InstructionCard(ins: Instruction, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            val dueText = ins.dueAt?.let { dueAt ->
-                stringResource(R.string.today_due_at, formatTimeIso(dueAt))
+            val dueText = when {
+                ins.dueAtMs != null -> stringResource(
+                    R.string.today_due_at,
+                    com.kaavalan.note.features.reminder.formatReminderTime(ins.dueAtMs),
+                )
+                ins.dueAt != null -> stringResource(R.string.today_due_at, formatTimeIso(ins.dueAt))
+                else -> null
             }
             val capturedText = stringResource(R.string.today_captured_at, formatTimeIso(ins.capturedAt))
             Text(

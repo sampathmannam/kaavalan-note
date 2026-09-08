@@ -12,6 +12,7 @@ import com.kaavalan.note.data.instructions.Source
 import com.kaavalan.note.data.instructions.Status
 import com.kaavalan.note.data.person.Person
 import com.kaavalan.note.data.person.PersonRepository
+import com.kaavalan.note.data.reminder.ReminderScheduler
 import com.kaavalan.note.data.tags.RoomTagRepository
 import com.kaavalan.note.data.tags.Tag
 import com.kaavalan.note.data.tags.TagKind
@@ -247,6 +248,7 @@ class V156QaTest {
         personRepository = person,
         instructionRepository = ins,
         tagRepository = fakeTagRepo(),
+        reminderScheduler = io.mockk.mockk<ReminderScheduler>(relaxed = true),
     )
 
     // ============================================================================

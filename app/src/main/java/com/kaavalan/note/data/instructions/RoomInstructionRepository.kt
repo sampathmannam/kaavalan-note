@@ -354,6 +354,7 @@ open class RoomInstructionRepository @Inject constructor(
         val now = Instant.now().toString()
         dao.setDueChip(
             id = id,
+            dueAt = dueAtMs?.let { Instant.ofEpochMilli(it).toString() },
             dueAtMs = dueAtMs,
             now = now,
             syncStatus = SyncStatus.PENDING_UPDATE,

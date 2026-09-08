@@ -3,6 +3,8 @@ package com.kaavalan.note.di
 import com.kaavalan.note.data.captures.CaptureRepository
 import com.kaavalan.note.data.instructions.InstructionRepository
 import com.kaavalan.note.data.person.PersonRepository
+import com.kaavalan.note.data.reminder.ReminderScheduler
+import com.kaavalan.note.data.reminder.WorkManagerReminderScheduler
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -42,6 +44,12 @@ object AppModule {
     fun provideInstructionRepository(
         impl: com.kaavalan.note.data.instructions.RoomInstructionRepository,
     ): InstructionRepository = impl
+
+    @Provides
+    @Singleton
+    fun provideReminderScheduler(
+        impl: WorkManagerReminderScheduler,
+    ): ReminderScheduler = impl
 
     /**
      * v1.8.0 (PROD-READINESS-P2-#4): the audit-chain

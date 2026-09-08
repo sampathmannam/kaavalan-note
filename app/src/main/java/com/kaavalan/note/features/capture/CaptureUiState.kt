@@ -32,6 +32,7 @@ data class CaptureUiState(
     val mode: CaptureMode = CaptureMode.TEXT,
     val isSaving: Boolean = false,
     val addToCalendar: Boolean = false,
+    val reminderAtMs: Long? = null,
     val error: String? = null,
     val errorType: ErrorType = ErrorType.NONE,
     val availableTags: List<Tag> = emptyList(),

@@ -28,6 +28,24 @@
     <string name="capture_sheet_text_placeholder">Type a free-form note.</string>
     <string name="capture_sheet_save">Save</string>
     <string name="capture_sheet_add_to_calendar">Add to calendar</string>
+    <string name="reminder_picker_title">Reminder</string>
+    <string name="reminder_picker_supporting_text">Get a private notification when this note needs you.</string>
+    <string name="reminder_preset_one_hour">In 1 hour</string>
+    <string name="reminder_preset_tomorrow">Tomorrow at 9:00</string>
+    <string name="reminder_preset_next_week">Next week</string>
+    <string name="reminder_preset_custom">Pick date &amp; time</string>
+    <string name="reminder_picker_scheduled">Set for %1$s</string>
+    <string name="reminder_picker_clear">Clear reminder</string>
+    <string name="reminder_calendar_option">Also add to calendar</string>
+    <string name="reminder_past_time">That time has already passed — pick a future time.</string>
+    <string name="reminder_schedule_failed">The note was saved, but its reminder could not be scheduled.</string>
+    <string name="reminder_channel_name">Saved note reminders</string>
+    <string name="reminder_channel_description">Reminders you set for saved notes</string>
+    <string name="reminder_notification_title">Kaavalan reminder</string>
+    <string name="reminder_notification_public_title">Kaavalan reminder</string>
+    <string name="reminder_notification_public_body">Open Kaavalan note to review it.</string>
+    <string name="reminder_action_done">Done</string>
+    <string name="reminder_action_snooze">Snooze 1 hour</string>
 
     <!-- M1-T7: share-target ingest -->
     <string name="share_to_kaavalan">Save to KaavalanNote</string>
@@ -149,7 +167,7 @@
     <string name="offline_pill_a11y">You\'re offline. Local changes will sync when network returns.</string>
 
     <!-- v1.4 (PHONE-FINDING-10 / F-02): POST_NOTIFICATIONS rationale. -->
-    <string name="notifications_rationale">Allow notifications so Kaavalan can show your morning brief.</string>
+    <string name="notifications_rationale">Allow notifications so Kaavalan can deliver reminders and your morning brief.</string>
 
     <string name="capture_dispatch_suggestion_message">This note mentions %1$s. Send it to them instead of just saving it?</string>
     <string name="capture_dispatch_suggestion_action">Send to a group…</string>
@@ -349,7 +367,7 @@
     <string name="count_sensitive">%1$d sensitive</string>
     <string name="count_connector_comma">, </string>
     <string name="count_connector_period">. </string>
-    <string name="morning_brief_permission_rationale">Allow notifications so Kaavalan can show your morning brief.</string>
+    <string name="morning_brief_permission_rationale">Allow notifications so Kaavalan can deliver reminders and your morning brief.</string>
     <string name="meeting_brief_title">Brief me before a meeting</string>
     <string name="meeting_brief_no_events">No matching events in the next 15 minutes.</string>
     <string name="meeting_brief_calendar_unavailable">Grant calendar access in Settings to see a meeting brief.</string>
@@ -856,4 +874,3 @@
     <string name="recovery_clipboard_label">Kaavalan note recovery phrase</string>
     <string name="recovery_pdf_title">Kaavalan note — Recovery Sheet</string>
 </resources>
-

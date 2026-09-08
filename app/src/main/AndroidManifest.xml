@@ -147,6 +147,10 @@
             </intent-filter>
         </activity>
 
+        <receiver
+            android:name=".data.reminder.ReminderActionReceiver"
+            android:exported="false" />
+
         <!-- v2.1.0 (PM rating): the Google Drive OAuth
              callback. Google redirects to
              `kaavalan-note://oauth-callback?code=...` after the

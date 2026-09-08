@@ -13,6 +13,7 @@ import com.kaavalan.note.data.instructions.MentionAndTagParser
 import com.kaavalan.note.data.instructions.Priority
 import com.kaavalan.note.data.instructions.Source
 import com.kaavalan.note.data.person.PersonRepository
+import com.kaavalan.note.data.reminder.ReminderScheduler
 import com.kaavalan.note.data.tags.RoomTagRepository
 import com.kaavalan.note.ui.util.SafeError
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,6 +29,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import java.time.Instant
 
 /**
  * Drives the note bar + capture sheet.
@@ -55,6 +57,7 @@ class CaptureViewModel @Inject constructor(
     private val personRepository: PersonRepository,
     private val instructionRepository: InstructionRepository,
     private val tagRepository: RoomTagRepository,
+    private val reminderScheduler: ReminderScheduler,
 ) : ViewModel() {
 
     /**
@@ -74,6 +77,8 @@ class CaptureViewModel @Inject constructor(
                 savedStateHandle.get<ArrayList<String>>(KEY_SELECTED_TAG_IDS)
                     ?: arrayListOf()
                 ).toSet(),
+            reminderAtMs = savedStateHandle.get<Long>(KEY_REMINDER_AT_MS),
+            addToCalendar = savedStateHandle.get<Boolean>(KEY_ADD_TO_CALENDAR) ?: false,
         ),
     )
     val state: StateFlow<CaptureUiState> = _state.asStateFlow()
@@ -89,6 +94,8 @@ class CaptureViewModel @Inject constructor(
                 savedStateHandle[KEY_TEXT] = current.text
                 savedStateHandle[KEY_MODE] = current.mode.name
                 savedStateHandle[KEY_SELECTED_TAG_IDS] = ArrayList(current.selectedTagIds)
+                savedStateHandle[KEY_REMINDER_AT_MS] = current.reminderAtMs
+                savedStateHandle[KEY_ADD_TO_CALENDAR] = current.addToCalendar
             }
         }
     }
@@ -110,6 +117,8 @@ class CaptureViewModel @Inject constructor(
         savedStateHandle.remove<String>(KEY_TEXT)
         savedStateHandle.remove<String>(KEY_MODE)
         savedStateHandle.remove<ArrayList<String>>(KEY_SELECTED_TAG_IDS)
+        savedStateHandle.remove<Long>(KEY_REMINDER_AT_MS)
+        savedStateHandle.remove<Boolean>(KEY_ADD_TO_CALENDAR)
         _state.value = CaptureUiState()
     }
 
@@ -117,6 +126,8 @@ class CaptureViewModel @Inject constructor(
         const val KEY_TEXT = "capture.text"
         const val KEY_MODE = "capture.mode"
         const val KEY_SELECTED_TAG_IDS = "capture.selectedTagIds"
+        const val KEY_REMINDER_AT_MS = "capture.reminderAtMs"
+        const val KEY_ADD_TO_CALENDAR = "capture.addToCalendar"
         // v1.8.0 (PROD-READINESS-P0-#2): fingerprint of the last
         // successful save (sha1 of text|mode|sortedTagIds). On a
         // process death + relaunch, the VM compares the current
@@ -142,9 +153,11 @@ class CaptureViewModel @Inject constructor(
         text: String,
         mode: CaptureMode,
         selectedTagIds: Set<String>,
+        reminderAtMs: Long?,
+        addToCalendar: Boolean,
     ): String {
         val sortedTags = selectedTagIds.sorted().joinToString(",")
-        return "$text|$mode|$sortedTags".hashCode().toString()
+        return "$text|$mode|$sortedTags|$reminderAtMs|$addToCalendar".hashCode().toString()
     }
 
     /**
@@ -285,7 +298,22 @@ class CaptureViewModel @Inject constructor(
     }
 
     fun onAddToCalendarChanged(checked: Boolean) {
-        _state.update { it.copy(addToCalendar = checked) }
+        _state.update {
+            it.copy(addToCalendar = checked && it.reminderAtMs != null)
+        }
+    }
+
+    fun onReminderChanged(reminderAtMs: Long?) {
+        if (reminderAtMs != null && reminderAtMs <= System.currentTimeMillis()) {
+            infoChannel.trySend("That time has already passed — pick a future time.")
+            return
+        }
+        _state.update {
+            it.copy(
+                reminderAtMs = reminderAtMs,
+                addToCalendar = if (reminderAtMs == null) false else it.addToCalendar,
+            )
+        }
     }
 
     /**
@@ -375,15 +403,14 @@ class CaptureViewModel @Inject constructor(
      *   - `priority = NORMAL`.
      *   - `title = rawText.take(40)` with a trailing `…` if
      *     truncated.
-     *   - `dueAt = null` (the user can set a due date in the
-     *     instruction row's edit sheet, not the capture flow).
+     *   - `dueAt` and `dueAtMs` set together when the user
+     *     chooses a reminder, or both left null otherwise.
      *
      * If the user has selected tags in the tag picker, the
      * tag links are attached in the same success path.
      *
-     * The "Add to Calendar" toggle fires a calendar intent
-     * with the first 40 chars as the title and the full
-     * text as the description.
+     * The optional calendar handoff uses the chosen reminder
+     * time, while WorkManager delivers the private local alert.
      */
     fun onSaveRaw() {
         val current = _state.value
@@ -402,6 +429,8 @@ class CaptureViewModel @Inject constructor(
             text = current.text,
             mode = current.mode,
             selectedTagIds = current.selectedTagIds,
+            reminderAtMs = current.reminderAtMs,
+            addToCalendar = current.addToCalendar,
         )
         val lastFingerprint = savedStateHandle.get<String>(KEY_LAST_SAVED_FINGERPRINT)
         val lastSavedAtMs = savedStateHandle.get<Long>(KEY_LAST_SAVED_AT_MS) ?: 0L
@@ -419,14 +448,29 @@ class CaptureViewModel @Inject constructor(
             val truncated = rawText.take(40)
             val title = if (rawText.length > 40) "$truncated…" else rawText
             val result = runCatching {
-                instructionRepository.create(
-                    personId = null,
-                    source = modeToSource(current.mode),
-                    priority = Priority.NORMAL,
-                    title = title,
-                    rawText = rawText,
-                    dueAt = null,
-                )
+                val reminderAtMs = current.reminderAtMs
+                if (reminderAtMs == null) {
+                    instructionRepository.create(
+                        personId = null,
+                        source = modeToSource(current.mode),
+                        priority = Priority.NORMAL,
+                        title = title,
+                        rawText = rawText,
+                        dueAt = null,
+                    )
+                } else {
+                    instructionRepository.createWithAudience(
+                        personId = null,
+                        audience = null,
+                        source = modeToSource(current.mode),
+                        priority = Priority.NORMAL,
+                        title = title,
+                        rawText = rawText,
+                        dueAt = Instant.ofEpochMilli(reminderAtMs).toString(),
+                        dueAtMs = reminderAtMs,
+                        channel = null,
+                    )
+                }
             }
             result.onSuccess { created ->
                 // v1.6.1: insert a captures row so the audit
@@ -436,11 +480,20 @@ class CaptureViewModel @Inject constructor(
                 runCatching {
                     captureRepository.create(rawText = rawText, mode = current.mode)
                 }
-                if (current.addToCalendar) {
+                current.reminderAtMs?.let { reminderAtMs ->
+                    runCatching {
+                        reminderScheduler.schedule(created.id, reminderAtMs)
+                    }.onFailure {
+                        infoChannel.trySend(
+                            "The note was saved, but its reminder could not be scheduled.",
+                        )
+                    }
+                }
+                if (current.addToCalendar && current.reminderAtMs != null) {
                     val result = CalendarGate.buildEventData(
                         title = title,
                         description = rawText,
-                        dueAt = null,
+                        dueAt = Instant.ofEpochMilli(current.reminderAtMs).toString(),
                     )
                     when (result) {
                         is CalendarEventResult.Event -> {

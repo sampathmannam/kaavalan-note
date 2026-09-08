@@ -11,6 +11,7 @@ import com.kaavalan.note.data.local.InstructionDao
 import com.kaavalan.note.data.local.PersonDao
 import com.kaavalan.note.data.local.entities.PersonEntity
 import com.kaavalan.note.data.person.PersonRepository
+import com.kaavalan.note.data.reminder.ReminderManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,6 +51,7 @@ class PersonDetailViewModel @Inject constructor(
     private val instructionDao: InstructionDao,
     private val roomInstructionRepository: RoomInstructionRepository,
     private val personRepository: PersonRepository,
+    private val reminderManager: ReminderManager,
 ) : ViewModel() {
 
     /**
@@ -123,6 +125,7 @@ class PersonDetailViewModel @Inject constructor(
             isSensitive = isSensitive,
             completedAt = completedAt,
             droppedReason = droppedReason,
+            dueAtMs = dueAtMs,
         )
 
     /**
@@ -134,12 +137,14 @@ class PersonDetailViewModel @Inject constructor(
     fun markDone(instructionId: String) {
         viewModelScope.launch {
             runCatching { roomInstructionRepository.markDone(instructionId) }
+                .onSuccess { reminderManager.cancelDelivery(instructionId) }
         }
     }
 
     fun markDropped(instructionId: String, reason: String?) {
         viewModelScope.launch {
             runCatching { roomInstructionRepository.markDropped(instructionId, reason) }
+                .onSuccess { reminderManager.cancelDelivery(instructionId) }
         }
     }
 

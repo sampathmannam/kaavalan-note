@@ -33,6 +33,24 @@
     <string name="capture_sheet_text_placeholder">यहां मुफ्त-प्रपत्र नोट टाइप करें।</string>
     <string name="capture_sheet_save">सहेजें</string>
     <string name="capture_sheet_add_to_calendar">कैलेंडर में जोड़ें</string>
+    <string name="reminder_picker_title">रिमाइंडर</string>
+    <string name="reminder_picker_supporting_text">जब इस नोट पर ध्यान देना हो, निजी सूचना पाएं।</string>
+    <string name="reminder_preset_one_hour">1 घंटे में</string>
+    <string name="reminder_preset_tomorrow">कल 9:00 बजे</string>
+    <string name="reminder_preset_next_week">अगले सप्ताह</string>
+    <string name="reminder_preset_custom">तारीख और समय चुनें</string>
+    <string name="reminder_picker_scheduled">%1$s के लिए सेट</string>
+    <string name="reminder_picker_clear">रिमाइंडर हटाएं</string>
+    <string name="reminder_calendar_option">कैलेंडर में भी जोड़ें</string>
+    <string name="reminder_past_time">यह समय बीत चुका है — भविष्य का समय चुनें।</string>
+    <string name="reminder_schedule_failed">नोट सहेजा गया, लेकिन रिमाइंडर तय नहीं हो सका।</string>
+    <string name="reminder_channel_name">सहेजे गए नोट के रिमाइंडर</string>
+    <string name="reminder_channel_description">सहेजे गए नोट के लिए आपके तय किए रिमाइंडर</string>
+    <string name="reminder_notification_title">Kaavalan रिमाइंडर</string>
+    <string name="reminder_notification_public_title">Kaavalan रिमाइंडर</string>
+    <string name="reminder_notification_public_body">देखने के लिए Kaavalan note खोलें।</string>
+    <string name="reminder_action_done">पूरा</string>
+    <string name="reminder_action_snooze">1 घंटे के लिए टालें</string>
 
     <!-- Today -->
     <string name="today_count_open_short">खुले</string>

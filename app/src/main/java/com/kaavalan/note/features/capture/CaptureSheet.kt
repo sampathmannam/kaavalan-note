@@ -43,6 +43,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kaavalan.note.R
+import com.kaavalan.note.features.reminder.ReminderPicker
 import com.kaavalan.note.features.tags.TagPicker
 
 /**
@@ -147,6 +148,7 @@ fun CaptureSheet(
             onTextChanged = viewModel::onTextChanged,
             onClose = { viewModel.dismissSheet() },
             onAddToCalendarChange = viewModel::onAddToCalendarChanged,
+            onReminderChanged = viewModel::onReminderChanged,
             onTagToggled = viewModel::onTagToggled,
             onAddFreeTag = viewModel::onAddFreeTag,
             onSaveRaw = viewModel::onSaveRaw,
@@ -194,6 +196,7 @@ private fun CaptureSheetContent(
     onTextChanged: (String) -> Unit,
     onClose: () -> Unit,
     onAddToCalendarChange: (Boolean) -> Unit = { },
+    onReminderChanged: (Long?) -> Unit = { },
     onTagToggled: (String) -> Unit = { },
     onAddFreeTag: (String) -> Unit = { },
     onSaveRaw: () -> Unit = { },
@@ -284,15 +287,16 @@ private fun CaptureSheetContent(
                 onToggle = onTagToggled,
                 onAddFree = onAddFreeTag,
             )
-            // M1-T6: the "Add to calendar" toggle. Lives next
-            // to the primary action so the user sees it before
-            // tapping Save. Defaults to off. The intent fires
-            // on Save (not on extract) so the user can attach
-            // a calendar event to any free-form note.
-            AddToCalendarRow(
-                addToCalendar = state.addToCalendar,
-                onAddToCalendarChange = onAddToCalendarChange,
+            ReminderPicker(
+                reminderAtMs = state.reminderAtMs,
+                onSelected = onReminderChanged,
             )
+            if (state.reminderAtMs != null) {
+                AddToCalendarRow(
+                    addToCalendar = state.addToCalendar,
+                    onAddToCalendarChange = onAddToCalendarChange,
+                )
+            }
         }
         PrimaryAction(
             isSaving = state.isSaving,
@@ -362,7 +366,7 @@ private fun AddToCalendarRow(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(
-            text = stringResource(R.string.capture_sheet_add_to_calendar),
+            text = stringResource(R.string.reminder_calendar_option),
             style = MaterialTheme.typography.bodyMedium,
         )
         androidx.compose.material3.Switch(
