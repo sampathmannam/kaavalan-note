@@ -47,6 +47,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kaavalan.note.R
 import com.kaavalan.note.data.instructions.Instruction
 import com.kaavalan.note.data.instructions.Status
+import com.kaavalan.note.ui.workspace.WorkCard
+import com.kaavalan.note.ui.workspace.isClosed
+import com.kaavalan.note.ui.components.InstructionDetailSheet
+import androidx.compose.runtime.saveable.rememberSaveable
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -80,6 +84,7 @@ fun PersonDetailScreen(
     personId: String,
     onBack: () -> Unit,
     onOpenLinkedPerson: (String) -> Unit = {},
+    onCaptureForPerson: ((String) -> Unit)? = null,
     viewModel: PersonDetailViewModel = hiltViewModel(),
 ) {
     // Hilt's SavedStateHandle lets the VM pick up the `personId`
@@ -94,8 +99,14 @@ fun PersonDetailScreen(
     // to this person. Avoids making the user back out to the home
     // tab to capture an instruction for the person they're looking at.
     var showAddInstruction by remember { mutableStateOf(false) }
+    var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
+    val busy by viewModel.busy.collectAsStateWithLifecycle()
+    val snackbar = remember { androidx.compose.material3.SnackbarHostState() }
+    androidx.compose.runtime.LaunchedEffect(viewModel) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
 
     Scaffold(
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0),
+        snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) },
         topBar = {
             // v1.7.2 (P1-C): the TopAppBar used to render the
             // person's name, but the body's `PersonHeader` (line
@@ -107,7 +118,8 @@ fun PersonDetailScreen(
             // body's PersonHeader is the single source of truth
             // for the person's name + designation.
             TopAppBar(
-                title = {},
+                title = { Text("Contact", style = MaterialTheme.typography.titleLarge) },
+                windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -124,7 +136,13 @@ fun PersonDetailScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-            )
+                contentAlignment = Alignment.Center,
+            ) { androidx.compose.material3.CircularProgressIndicator() }
+            PersonDetailUiState.Unavailable -> Column(Modifier.fillMaxSize().padding(padding).padding(24.dp)) {
+                Text("Contact unavailable", style = MaterialTheme.typography.titleLarge)
+                Text("This contact is not available in the current workspace.", style = MaterialTheme.typography.bodyLarge)
+                TextButton(onClick = onBack) { Text("Back to workspace") }
+            }
             is PersonDetailUiState.Loaded -> PersonTimeline(
                 person = s.person,
                 instructions = s.instructions,
@@ -135,7 +153,8 @@ fun PersonDetailScreen(
                 onRequestDrop = { ins -> dropTarget = ins },
                 onRequestInstructionSensitive = { ins -> sensitiveToggleId = ins.id },
                 onOpenPersonSensitive = { showPersonSensitive = true },
-                onAddInstruction = { showAddInstruction = true },
+                onAddInstruction = { onCaptureForPerson?.invoke(personId) ?: run { showAddInstruction = true } },
+                onOpenInstruction = { selectedId = it },
                 onOpenLinkedPerson = onOpenLinkedPerson,
             )
         }
@@ -143,6 +162,18 @@ fun PersonDetailScreen(
 
     val target = nudgeTarget
     val loaded = (state as? PersonDetailUiState.Loaded)
+    loaded?.instructions?.firstOrNull { it.id == selectedId }?.let { item ->
+        InstructionDetailSheet(
+            instruction = item, contactName = loaded.person.name, busy = busy,
+            onDismiss = { selectedId = null },
+            onMarkDone = { viewModel.markDone(item.id) { selectedId = null } },
+            onDrop = { viewModel.markDropped(item.id, null) { selectedId = null } },
+            onReopen = { viewModel.reopen(item.id) { selectedId = null } },
+            onReminderChanged = { viewModel.updateReminder(item.id, it) },
+            onShare = { selectedId = null; nudgeTarget = item },
+            onPrivacy = { selectedId = null; sensitiveToggleId = item.id },
+        )
+    }
     if (target != null && loaded != null) {
         NudgeSheet(
             instruction = target,
@@ -284,7 +315,10 @@ private fun PersonTimeline(
     onOpenPersonSensitive: () -> Unit = {},
     onAddInstruction: () -> Unit = {},
     onOpenLinkedPerson: (String) -> Unit = {},
+    onOpenInstruction: (String) -> Unit = {},
 ) {
+    var showOptions by rememberSaveable { mutableStateOf(false) }
+    var showClosed by rememberSaveable { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -292,21 +326,32 @@ private fun PersonTimeline(
         // v1.6.3: 16dp horizontal contentPadding so the
         // cards no longer need their own horizontal padding
         // (full-width clickable hit targets).
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
             PersonHeader(
                 person = person,
-                openInstructionCount = instructions.count { it.status == com.kaavalan.note.data.instructions.Status.OPEN },
+                openInstructionCount = instructions.count { !it.isClosed },
                 onAddInstruction = onAddInstruction,
                 onOpenSensitive = onOpenPersonSensitive,
             )
         }
         // v2.0 Tier 2 (§2.12): person-to-person links.
+        item { TextButton(onClick = { showOptions = !showOptions }) { Text(if (showOptions) "Hide contact details" else "Relationships & important dates") } }
+        if (showOptions) {
         item { PersonLinksRow(onOpenPerson = onOpenLinkedPerson) }
         // v2.0 Tier 2 (§2.5): important dates per person.
         item { ImportantDatesRow() }
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                androidx.compose.material3.FilterChip(selected = !showClosed, onClick = { showClosed = false },
+                    label = { Text("Open instructions") })
+                androidx.compose.material3.FilterChip(selected = showClosed, onClick = { showClosed = true },
+                    label = { Text("Closed") })
+            }
+        }
         if (instructions.isEmpty()) {
             item {
                 Box(
@@ -323,15 +368,8 @@ private fun PersonTimeline(
                 }
             }
         } else {
-            items(items = instructions, key = { it.id }) { ins ->
-                InstructionRow(
-                    instruction = ins,
-                    onNudge = onNudge,
-                    onMarkDone = { onMarkDone(ins) },
-                    onReopen = { onReopen(ins) },
-                    onRequestDrop = { onRequestDrop(ins) },
-                    onRequestSensitive = { onRequestInstructionSensitive(ins) },
-                )
+            items(items = instructions.filter { it.isClosed == showClosed }, key = { it.id }) { ins ->
+                WorkCard(ins, listOf(person), java.time.LocalDate.now(), onClick = { onOpenInstruction(ins.id) })
             }
         }
         // v1.6.3: removed the trailing 80dp Spacer. The
@@ -374,6 +412,9 @@ private fun PersonHeader(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+        person.phone?.takeIf { it.isNotBlank() }?.let {
+            Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.height(8.dp))
         // v1.5.3 (VAULT-003): primary "Add instruction" button —

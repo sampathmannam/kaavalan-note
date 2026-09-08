@@ -102,6 +102,17 @@ class RoomPersonRepositoryTest {
     }
 
     @Test
+    fun `contact import retains phone and respects the selected vault`() = runTest {
+        val contact = repo.createContact("Imported officer", "SI", "North", "5550100", "hidden")
+        assertEquals("5550100", contact.phone)
+        val stored = personDao.snapshot().single()
+        assertEquals("5550100", stored.phone)
+        assertEquals("hidden", stored.vaultMode)
+        assertTrue(repo.observeAllInMode("visible").first().isEmpty())
+        assertEquals(listOf(contact), repo.observeAllInMode("hidden").first())
+    }
+
+    @Test
     fun `observeAllInMode filters by the vault mode (visible vs hidden)`() = runTest {
         personDao.upsert(
             PersonEntity(

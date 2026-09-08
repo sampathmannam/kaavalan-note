@@ -12,9 +12,13 @@ plugins {
 // local.properties is NOT auto-loaded into Gradle properties; AGP only
 // reads sdk.dir from it. Read keys ourselves so a clone + add-to-properties
 // + build works without editing gradle.properties (which is checked in).
+// Development builds must not inspect signing material. Release credentials
+// are resolved only with an explicit opt-in by the release operator / CI.
+val enableReleaseSigning = providers.gradleProperty("kaavalan.enableReleaseSigning")
+    .map(String::toBoolean).getOrElse(false)
 val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
-    if (f.exists()) f.inputStream().use { load(it) }
+    if (enableReleaseSigning && f.exists()) f.inputStream().use { load(it) }
 }
 // v2.0.0 (drop Supabase): removed BATON_SUPABASE_URL and
 // BATON_SUPABASE_ANON_KEY. The app is now local-only; no
@@ -33,7 +37,7 @@ fun resolveSigningSecret(
     props: Properties,
     propertyName: String,
     envName: String,
-): String? = (
+): String? = if (!enableReleaseSigning) null else (
     (project.findProperty(propertyName) as? String)
         ?: props.getProperty(propertyName)
         ?: System.getenv(envName)
@@ -527,7 +531,7 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix = ".debug"
+            applicationIdSuffix = providers.gradleProperty("kaavalan.debugApplicationIdSuffix").getOrElse(".debug")
             isDebuggable = true
         }
         release {
@@ -873,4 +877,5 @@ dependencies {
     kspAndroidTest(libs.hilt.compiler)
 
     debugImplementation(libs.compose.ui.tooling)
+    debugImplementation(libs.compose.ui.test.manifest)
 }

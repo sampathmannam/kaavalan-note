@@ -33,6 +33,10 @@ data class CaptureUiState(
     val isSaving: Boolean = false,
     val addToCalendar: Boolean = false,
     val reminderAtMs: Long? = null,
+    val direction: com.kaavalan.note.data.instructions.Direction = com.kaavalan.note.data.instructions.Direction.SELF,
+    val personId: String? = null,
+    val requiresContact: Boolean = false,
+    val workspaceReady: Boolean = true,
     val error: String? = null,
     val errorType: ErrorType = ErrorType.NONE,
     val availableTags: List<Tag> = emptyList(),
@@ -44,7 +48,7 @@ data class CaptureUiState(
     val dispatchSuggestion: DispatchSuggestion? = null,
 ) {
     val canSaveRaw: Boolean
-        get() = isVisible && text.isNotBlank() && !isSaving
+        get() = isVisible && text.isNotBlank() && !isSaving && workspaceReady && (!requiresContact || personId != null)
 }
 
 /**

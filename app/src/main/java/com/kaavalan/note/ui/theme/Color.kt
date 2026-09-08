@@ -18,15 +18,15 @@ import androidx.compose.ui.graphics.Color
  */
 object KaavalanColors {
     // Primary — calm, not aggressive
-    val Primary = Color(0xFF4A6FA5)
+    val Primary = Color(0xFF234F70)
     val OnPrimary = Color(0xFFFFFFFF)
 
     // Surfaces
-    val Background = Color(0xFFFAF8F4)   // warm off-white
+    val Background = Color(0xFFF3F5F7)   // warm off-white
     val Surface = Color(0xFFFFFFFF)
-    val SurfaceVariant = Color(0xFFEFEAE0)
-    val OnSurface = Color(0xFF1F1B16)
-    val OnSurfaceMuted = Color(0xFF6B6358)
+    val SurfaceVariant = Color(0xFFE7EDF1)
+    val OnSurface = Color(0xFF192630)
+    val OnSurfaceMuted = Color(0xFF4F606D)
 
     // Quiet / stale indicator — amber, NOT red. The legacy single
     // value is kept for callers that read it from a non-@Composable
@@ -36,12 +36,12 @@ object KaavalanColors {
     // Semantic
     val Done = Color(0xFF5A8A5A)        // muted green, not bright
     val PriorityHigh = Color(0xFF8B5A2B) // warm brown, not red
-    val PriorityNormal = Color(0xFF6B6358)
+    val PriorityNormal = Color(0xFF4F606D)
     val PriorityLow = Color(0xFFB8B0A4)
 
     // Outlines
-    val Outline = Color(0xFFD8D2C5)
-    val OutlineMuted = Color(0xFFEAE5D9)
+    val Outline = Color(0xFF748694)
+    val OutlineMuted = Color(0xFFD3DEE6)
 
     // v1.6.8: tag-kind color pairs (light/dark). Light values
     // are the v1.6.7 values (chosen to sit calmly on a warm

@@ -72,7 +72,7 @@ class DispatchViewModel @Inject constructor(
     // nobody.)
     init {
         viewModelScope.launch {
-            personRepository.observeAll().collect { people ->
+            personRepository.observeAllInMode("visible").collect { people ->
                 val roster = RosterBuilder.build(people)
                 _state.update {
                     it.copy(

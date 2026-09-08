@@ -19,7 +19,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -52,6 +54,7 @@ class PersonDetailViewModel @Inject constructor(
     private val roomInstructionRepository: RoomInstructionRepository,
     private val personRepository: PersonRepository,
     private val reminderManager: ReminderManager,
+    vaultModeHolder: com.kaavalan.note.data.vault.VaultModeHolder = com.kaavalan.note.data.vault.VaultModeHolder(),
 ) : ViewModel() {
 
     /**
@@ -63,7 +66,9 @@ class PersonDetailViewModel @Inject constructor(
     private val personId: String = savedStateHandle.get<String>(ARG_PERSON_ID)
         ?: error("$ARG_PERSON_ID missing from nav args")
 
-    private val _personState = personDao.observeById(personId)
+    private val _personState = personDao.observeById(personId).combine(vaultModeHolder.mode) { person, mode ->
+        person?.takeIf { it.vaultMode == mode.storageKey }
+    }
 
     /**
      * M3-T6: when the person is loaded, observe their instruction
@@ -74,7 +79,7 @@ class PersonDetailViewModel @Inject constructor(
     val state: StateFlow<PersonDetailUiState> = _personState
         .flatMapLatest { person ->
             if (person == null) {
-                flowOf(PersonDetailUiState.Loading)
+                flowOf(PersonDetailUiState.Unavailable)
             } else {
                 instructionDao.observeForPerson(person.id).combine(flowOf(person)) { ins, p ->
                     PersonDetailUiState.Loaded(
@@ -84,6 +89,7 @@ class PersonDetailViewModel @Inject constructor(
                 }
             }
         }
+        .catch { emit(PersonDetailUiState.Unavailable) }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
@@ -134,23 +140,40 @@ class PersonDetailViewModel @Inject constructor(
      * sync outbox) and Room re-emits the timeline Flow, so the UI
      * sees the change synchronously.
      */
-    fun markDone(instructionId: String) {
-        viewModelScope.launch {
-            runCatching { roomInstructionRepository.markDone(instructionId) }
-                .onSuccess { reminderManager.cancelDelivery(instructionId) }
-        }
+    private val eventChannel = kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.BUFFERED)
+    val messages = eventChannel.receiveAsFlow()
+    private val _busy = MutableStateFlow(false)
+    val busy = _busy.asStateFlow()
+
+    fun markDone(instructionId: String, onSuccess: () -> Unit = {}) = mutate(onSuccess) {
+        roomInstructionRepository.markDone(instructionId)
+        reminderManager.cancelDelivery(instructionId)
     }
 
-    fun markDropped(instructionId: String, reason: String?) {
-        viewModelScope.launch {
-            runCatching { roomInstructionRepository.markDropped(instructionId, reason) }
-                .onSuccess { reminderManager.cancelDelivery(instructionId) }
-        }
+    fun markDropped(instructionId: String, reason: String?, onSuccess: () -> Unit = {}) = mutate(onSuccess) {
+        roomInstructionRepository.markDropped(instructionId, reason)
+        reminderManager.cancelDelivery(instructionId)
     }
 
-    fun reopen(instructionId: String) {
+    fun reopen(instructionId: String, onSuccess: () -> Unit = {}) = mutate(onSuccess) {
+        roomInstructionRepository.reopen(instructionId)
+        val item = (state.value as? PersonDetailUiState.Loaded)?.instructions?.firstOrNull { it.id == instructionId }
+        item?.dueAtMs?.takeIf { it > System.currentTimeMillis() }?.let { reminderManager.update(instructionId, it) }
+    }
+
+    fun updateReminder(id: String, at: Long?) = mutate {
+        require(at == null || at > System.currentTimeMillis())
+        reminderManager.update(id, at)
+    }
+
+    private fun mutate(onSuccess: () -> Unit = {}, work: suspend () -> Unit) {
+        if (_busy.value) return
+        _busy.value = true
         viewModelScope.launch {
-            runCatching { roomInstructionRepository.reopen(instructionId) }
+            try { work(); onSuccess() }
+            catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { eventChannel.trySend("Could not save that change. Please try again.") }
+            finally { _busy.value = false }
         }
     }
 
@@ -203,6 +226,7 @@ class PersonDetailViewModel @Inject constructor(
 
 sealed interface PersonDetailUiState {
     data object Loading : PersonDetailUiState
+    data object Unavailable : PersonDetailUiState
     data class Loaded(
         val person: com.kaavalan.note.data.person.Person,
         val instructions: List<com.kaavalan.note.data.instructions.Instruction>,

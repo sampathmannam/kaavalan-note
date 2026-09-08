@@ -47,6 +47,16 @@ class RoomPersonRepository @Inject constructor(
         designation: String?,
         station: String?,
         clientId: String?,
+    ): Person = createContact(name, designation, station, clientId = clientId)
+
+    /** Contact import and manual entry share one durable write; phone numbers are retained. */
+    suspend fun createContact(
+        name: String,
+        designation: String?,
+        station: String?,
+        phone: String? = null,
+        vaultMode: String = "visible",
+        clientId: String? = null,
     ): Person {
         val nowIso = nowIso()
         val id = clientId ?: java.util.UUID.randomUUID().toString()
@@ -55,7 +65,8 @@ class RoomPersonRepository @Inject constructor(
             name = name,
             designation = designation,
             station = station,
-            phone = null,
+            phone = phone,
+            vaultMode = vaultMode,
             userId = "",
             createdAt = nowIso,
             updatedAt = nowIso,

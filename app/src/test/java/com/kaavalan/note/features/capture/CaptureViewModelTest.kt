@@ -235,6 +235,7 @@ class CaptureViewModelTest {
             dueAt: String?,
             dueAtMs: Long?,
             channel: String?,
+            direction: Direction,
         ): Instruction {
             nextId += 1
             val createdId = "ins-$nextId"
@@ -247,11 +248,12 @@ class CaptureViewModelTest {
                 rawText = rawText,
                 dueAt = dueAt,
                 dueAtMs = dueAtMs,
+                direction = direction,
             )
             return Instruction(
                 id = createdId,
                 personId = personId,
-                direction = Direction.OUTGOING,
+                direction = direction,
                 status = Status.OPEN,
                 source = source,
                 priority = priority,
@@ -285,6 +287,7 @@ class CaptureViewModelTest {
         val rawText: String,
         val dueAt: String?,
         val dueAtMs: Long?,
+        val direction: Direction = Direction.OUTGOING,
     )
 
     private class FakeReminderScheduler : ReminderScheduler {
@@ -304,6 +307,58 @@ class CaptureViewModelTest {
 
     private fun fakes(): Triple<FakeCaptureRepository, FakePersonRepository, FakeInstructionRepository> {
         return Triple(FakeCaptureRepository(), FakePersonRepository(), FakeInstructionRepository())
+    }
+
+    @Test fun `responsibility and contact survive recreation and are saved together`() = runTest(testDispatcher) {
+        val f = fakes()
+        val handle = androidx.lifecycle.SavedStateHandle()
+        val vm = makeVm(f.first, f.second, f.third, savedStateHandle = handle)
+        vm.openSheet()
+        vm.onTextChanged("Prepare route plan")
+        vm.onDirectionChanged(Direction.INCOMING)
+        vm.onPersonChanged("senior")
+        advanceUntilIdle()
+        val restored = makeVm(f.first, f.second, f.third, savedStateHandle = handle)
+        assertEquals(Direction.INCOMING, restored.state.value.direction)
+        assertEquals("senior", restored.state.value.personId)
+        restored.openSheet()
+        restored.onSaveRaw()
+        advanceUntilIdle()
+        assertEquals("senior", f.third.created.single().personId)
+        assertEquals(Direction.INCOMING, f.third.created.single().direction)
+    }
+
+    @Test fun `new unlinked notes default to for me and distinct responsibility is not deduplicated`() = runTest(testDispatcher) {
+        val f = fakes()
+        val vm = makeVm(f.first, f.second, f.third)
+        vm.openSheet(); vm.onTextChanged("Duty briefing"); vm.onSaveRaw(); advanceUntilIdle()
+        assertEquals(Direction.SELF, f.third.created.single().direction)
+        vm.openSheet(); vm.onTextChanged("Duty briefing"); vm.onDirectionChanged(Direction.OUTGOING)
+        vm.onSaveRaw(); advanceUntilIdle()
+        assertEquals(listOf(Direction.SELF, Direction.OUTGOING), f.third.created.map { it.direction })
+    }
+
+    @Test fun `private workspace requires a contact and a stale link cannot be saved`() = runTest(testDispatcher) {
+        val f = fakes()
+        val vm = makeVm(f.first, f.second, f.third)
+        vm.onWorkspaceChanged(setOf("private-contact"), true, true)
+        vm.openSheet(); vm.onTextChanged("Private instruction")
+        assertFalse(vm.state.value.canSaveRaw)
+        vm.onSaveRaw(); advanceUntilIdle()
+        assertTrue(f.third.created.isEmpty())
+        vm.onPersonChanged("removed-contact")
+        vm.onSaveRaw(); advanceUntilIdle()
+        assertTrue(f.third.created.isEmpty())
+        assertNotNull(vm.state.value.error)
+        assertEquals("Private instruction", vm.state.value.text)
+    }
+
+    @Test fun `voice results append to rather than replace an existing draft`() = runTest(testDispatcher) {
+        val f = fakes()
+        val vm = makeVm(f.first, f.second, f.third)
+        vm.onTextChanged("Existing detail")
+        vm.onVoiceTranscript("Spoken addition")
+        assertEquals("Existing detail\n\nSpoken addition", vm.state.value.text)
     }
 
     private fun makeVm(
@@ -810,7 +865,9 @@ class CaptureViewModelTest {
         )
         // No dedup info message was emitted.
         val msg = vm.infoChannel.tryReceive().getOrNull()
-        assertNull("a normal save must not emit a dedup info message", msg)
+        assertEquals("normal saves acknowledge success, not a dedup warning", "Note saved", msg)
+        assertEquals("Note saved", vm.infoChannel.tryReceive().getOrNull())
+        assertNull(vm.infoChannel.tryReceive().getOrNull())
     }
 
     // ---- v1.6.1: voice capture path (now via system

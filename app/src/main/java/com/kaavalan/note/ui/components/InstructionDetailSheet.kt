@@ -7,6 +7,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.runtime.*
+import com.kaavalan.note.ui.workspace.officerLabel
+import com.kaavalan.note.ui.workspace.reminderMillis
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -19,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.kaavalan.note.R
@@ -57,25 +66,35 @@ fun InstructionDetailSheet(
     onDrop: () -> Unit,
     onReopen: () -> Unit,
     onReminderChanged: (Long?) -> Unit,
+    busy: Boolean = false,
+    contactName: String? = null,
+    onShare: (() -> Unit)? = null,
+    onPrivacy: (() -> Unit)? = null,
 ) {
+    var confirmClose by remember { mutableStateOf(false) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
+        com.kaavalan.note.ui.theme.DialogSystemBars()
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                text = instruction.title,
+                text = "Instruction",
                 style = MaterialTheme.typography.headlineSmall,
             )
             StatusPill(instruction.status)
+            Text(listOfNotNull(instruction.direction.officerLabel(), contactName).joinToString(" · "),
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Text(
                 text = instruction.rawText,
+                modifier = Modifier.testTag("instruction_detail_text"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
@@ -101,7 +120,7 @@ fun InstructionDetailSheet(
             // The action row. Reopen-only for DONE / DROPPED.
             if (!isClosed) {
                 ReminderPicker(
-                    reminderAtMs = instruction.dueAtMs,
+                    reminderAtMs = instruction.reminderMillis,
                     onSelected = onReminderChanged,
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -109,7 +128,8 @@ fun InstructionDetailSheet(
             if (isClosed) {
                 Button(
                     onClick = onReopen,
-                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !busy,
+                    modifier = Modifier.fillMaxWidth().testTag("detail_reopen"),
                 ) {
                     Text(stringResource(R.string.action_reopen))
                 }
@@ -120,24 +140,37 @@ fun InstructionDetailSheet(
                 ) {
                     Button(
                         onClick = onMarkDone,
-                        modifier = Modifier.weight(1f),
+                        enabled = !busy,
+                        modifier = Modifier.weight(1f).testTag("detail_done"),
                     ) {
                         Text(stringResource(R.string.action_mark_done))
                     }
                     OutlinedButton(
-                        onClick = onDrop,
+                        onClick = { confirmClose = true },
+                        enabled = !busy,
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         ),
                     ) {
-                        Text(stringResource(R.string.action_drop))
+                        Text("Close")
                     }
                 }
             }
             Spacer(Modifier.height(16.dp))
+            if (onShare != null || onPrivacy != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                onShare?.let { TextButton(onClick = it) { Text("Share follow-up") } }
+                onPrivacy?.let { TextButton(onClick = it) { Text("Privacy") } }
+            }
         }
     }
+    if (confirmClose) AlertDialog(
+        onDismissRequest = { confirmClose = false },
+        title = { Text("Close without action?") },
+        text = { Text("This stays in Instructions → Closed. You can reopen it later.") },
+        confirmButton = { TextButton(onClick = { confirmClose = false; onDrop() }, enabled = !busy) { Text("Close instruction") } },
+        dismissButton = { TextButton(onClick = { confirmClose = false }) { Text("Keep open") } },
+    )
 }
 
 /**
@@ -153,7 +186,7 @@ private fun StatusPill(status: Status) {
         shape = MaterialTheme.shapes.small,
     ) {
         Text(
-            text = status.name.lowercase().replaceFirstChar { it.uppercase() },
+            text = status.officerLabel(),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),

@@ -4,9 +4,9 @@
     <string name="home_title">People</string>
     <string name="home_empty_title">No one yet</string>
     <string name="home_empty_subtitle">Add the first person you coordinate with — your SP, your SHOs, anyone you give or take instructions from.</string>
-    <string name="home_add_person">Add person</string>
+    <string name="home_add_person">Add contact</string>
     <string name="person_name">Name</string>
-    <string name="person_designation">Designation (e.g. SP, DSP, SHO)</string>
+    <string name="person_designation">Rank / role (optional)</string>
     <string name="person_station">Station (optional)</string>
     <string name="person_save">Save</string>
     <string name="cancel">Cancel</string>

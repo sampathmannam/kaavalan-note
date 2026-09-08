@@ -69,6 +69,7 @@ interface InstructionRepository {
         dueAt: String?,
         dueAtMs: Long?,
         channel: String?,
+        direction: Direction = Direction.OUTGOING,
     ): Instruction
 
     /** v2.0 (Hierarchy): replace the audience pointer. `null` clears. */

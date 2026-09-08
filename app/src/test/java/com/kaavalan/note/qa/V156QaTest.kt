@@ -185,7 +185,9 @@ class V156QaTest {
             dueAt: String?,
             dueAtMs: Long?,
             channel: String?,
-        ): Instruction = error("not used in tests")
+            direction: Direction,
+        ): Instruction = create(personId, source, priority, title, rawText, dueAt)
+            .copy(direction = direction, dueAtMs = dueAtMs)
         override suspend fun setAudience(id: String, audience: com.kaavalan.note.data.instructions.AudienceRef?) {
             // no-op
         }

@@ -1,6 +1,7 @@
 ﻿package com.kaavalan.note.features.capture
 
 import android.content.Intent
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,9 +35,27 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomSheetDefaults
+import com.kaavalan.note.data.person.Person
+import com.kaavalan.note.data.instructions.Direction
+import com.kaavalan.note.ui.workspace.officerLabel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -67,6 +86,8 @@ import com.kaavalan.note.features.tags.TagPicker
 @Composable
 fun CaptureSheet(
     viewModel: CaptureViewModel,
+    contacts: List<Person> = emptyList(),
+    eventsHandledByHost: Boolean = false,
     // v2.1.2 (P1-#2): skip the partially-expanded state so
     // the sheet has enough vertical room to keep the bottom
     // Save button above the IME. The previous default left
@@ -94,6 +115,7 @@ fun CaptureSheet(
     // state as tapping the notification's Stop action).
     val isVoiceRecording by VoiceCaptureState.isRecording.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     // v1.8.0 (PROD-READINESS-P0-#4): one-shot info Snackbar
     // host. Distinct from the inline `state.error` Row because
@@ -107,7 +129,8 @@ fun CaptureSheet(
     // them via the Activity context. The Channel is buffered
     // so a config change between save + launch doesn't drop
     // the event.
-    LaunchedEffect(viewModel) {
+    LaunchedEffect(viewModel, eventsHandledByHost) {
+        if (eventsHandledByHost) return@LaunchedEffect
         viewModel.calendarIntents.collect { event ->
             context.startActivity(CalendarGate.toIntent(event))
         }
@@ -119,7 +142,8 @@ fun CaptureSheet(
     // the Snackbar. The Channel is buffered so a config
     // change between save + showSnackbar doesn't drop the
     // message.
-    LaunchedEffect(viewModel) {
+    LaunchedEffect(viewModel, eventsHandledByHost) {
+        if (eventsHandledByHost) return@LaunchedEffect
         viewModel.infoMessages.collect { message ->
             snackbarHostState.showSnackbar(message)
         }
@@ -135,9 +159,15 @@ fun CaptureSheet(
             onDismiss()
         },
         sheetState = sheetState,
+        // In a short window the handle consumes space needed for the editor.
+        dragHandle = if (landscape) null else ({ BottomSheetDefaults.DragHandle() }),
     ) {
+        com.kaavalan.note.ui.theme.DialogSystemBars()
         CaptureSheetContent(
             state = state,
+            contacts = contacts,
+            onDirectionChanged = viewModel::onDirectionChanged,
+            onPersonChanged = viewModel::onPersonChanged,
             isVoiceRecording = isVoiceRecording,
             onStopVoice = {
                 val svc = Intent(context, VoiceCaptureService::class.java).apply {
@@ -186,9 +216,13 @@ fun CaptureSheet(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CaptureSheetContent(
     state: CaptureUiState,
+    contacts: List<Person> = emptyList(),
+    onDirectionChanged: (Direction) -> Unit = {},
+    onPersonChanged: (String?) -> Unit = {},
     // Tier 0.4: the in-app voice stop button. Rendered
     // above the Save button when `isVoiceRecording == true`.
     isVoiceRecording: Boolean = false,
@@ -202,6 +236,10 @@ private fun CaptureSheetContent(
     onSaveRaw: () -> Unit = { },
     onOpenDispatch: () -> Unit = {},
 ) {
+    var showContacts by remember { mutableStateOf(false) }
+    var showTags by remember { mutableStateOf(false) }
+    val compactTyping = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE &&
+        WindowInsets.isImeVisible
     // v2.1.2 (P1-#2): the sheet content is split into a
     // scrollable body and a fixed bottom action bar. The
     // previous single-Column-with-verticalScroll design put
@@ -231,20 +269,41 @@ private fun CaptureSheetContent(
                 .fillMaxWidth()
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                .padding(horizontal = 20.dp, vertical = if (compactTyping) 4.dp else 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SheetHeader(onClose = onClose)
+            // Keep the editor at the same composition position as the IME opens:
+            // removing/recreating it would lose focus and the current selection.
+            // Android Back dismisses the keyboard and restores the full header.
+            if (!compactTyping) SheetHeader(onClose = onClose)
             CaptureTextField(
                 text = state.text,
                 isSaving = state.isSaving,
                 onTextChanged = onTextChanged,
             )
+            Text("Who will act on this?", style = MaterialTheme.typography.titleSmall)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(Direction.SELF, Direction.OUTGOING, Direction.INCOMING).forEach { direction ->
+                    FilterChip(selected = state.direction == direction, enabled = !state.isSaving,
+                        onClick = { onDirectionChanged(direction) }, label = { Text(direction.officerLabel()) })
+                }
+            }
+            Text(when (state.direction) {
+                Direction.SELF -> "A task or decision for you."
+                Direction.OUTGOING -> "An instruction you gave. Keep it here to follow up."
+                Direction.INCOMING -> "An instruction you received and need to act on."
+            }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = { showContacts = true }, enabled = !state.isSaving) {
+                Text(contacts.firstOrNull { it.id == state.personId }?.let { "Linked to ${it.name} · Change" }
+                    ?: "Link a contact (optional)")
+            }
+            if (state.requiresContact) Text("Link a private contact to keep this note in the private workspace.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             // v2.x: the note mentions an audience (@si,
             // @station:Subedari, @all). Offer -- never force -- the
             // dispatch composer. Sits directly under the field so
             // it reads as a response to what was just typed.
-            state.dispatchSuggestion?.let { suggestion ->
+            state.dispatchSuggestion?.takeUnless { state.requiresContact }?.let { suggestion ->
                 DispatchSuggestionCard(
                     suggestion = suggestion,
                     onOpenDispatch = onOpenDispatch,
@@ -281,12 +340,6 @@ private fun CaptureSheetContent(
             // free-form `#tag` on the fly. The state
             // `availableTags` is observed from the VM's collect;
             // `selectedTagIds` is the user's pre-save selection.
-            TagPicker(
-                available = state.availableTags,
-                selected = state.selectedTagIds,
-                onToggle = onTagToggled,
-                onAddFree = onAddFreeTag,
-            )
             ReminderPicker(
                 reminderAtMs = state.reminderAtMs,
                 onSelected = onReminderChanged,
@@ -297,6 +350,13 @@ private fun CaptureSheetContent(
                     onAddToCalendarChange = onAddToCalendarChange,
                 )
             }
+            TextButton(onClick = { showTags = !showTags }) {
+                Text(if (showTags) "Hide labels" else if (state.selectedTagIds.isEmpty()) "Add labels (optional)" else "Labels (${state.selectedTagIds.size})")
+            }
+            if (showTags) TagPicker(
+                available = state.availableTags, selected = state.selectedTagIds,
+                onToggle = onTagToggled, onAddFree = onAddFreeTag,
+            )
         }
         PrimaryAction(
             isSaving = state.isSaving,
@@ -306,7 +366,34 @@ private fun CaptureSheetContent(
             onSaveRaw = onSaveRaw,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                .padding(horizontal = 20.dp, vertical = if (compactTyping) 4.dp else 12.dp),
+        )
+    }
+    if (showContacts) {
+        var query by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showContacts = false },
+            title = { Text("Link a work contact") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Choose who gave or is handling this instruction.")
+                    OutlinedTextField(value = query, onValueChange = { query = it }, singleLine = true,
+                        label = { Text("Name, rank or station") })
+                    LazyColumn(Modifier.heightIn(max = 280.dp)) {
+                        item { TextButton(onClick = { onPersonChanged(null); showContacts = false }) { Text("No contact") } }
+                        items(contacts.filter { listOfNotNull(it.name, it.designation, it.station).joinToString(" ").contains(query, true) }, key = { it.id }) { person ->
+                            TextButton(onClick = { onPersonChanged(person.id); showContacts = false }, modifier = Modifier.fillMaxWidth().testTag("capture_contact_${person.name}")) {
+                                Column(Modifier.fillMaxWidth()) {
+                                    Text(person.name)
+                                    Text(listOfNotNull(person.designation, person.station).joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                    }
+                    if (contacts.isEmpty()) Text("Add colleagues in Contacts when you are ready. You can save this note now.")
+                }
+            },
+            confirmButton = { TextButton(onClick = { showContacts = false }) { Text("Back to note") } },
         )
     }
 }
@@ -344,6 +431,7 @@ private fun CaptureTextField(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 96.dp, max = 200.dp)
+            .testTag("capture_editor")
             .semantics { contentDescription = captureNoteTextDesc },
         label = { Text(stringResource(R.string.capture_sheet_text_label)) },
         placeholder = { Text(stringResource(R.string.capture_sheet_text_placeholder)) },
