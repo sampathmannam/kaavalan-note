@@ -12,6 +12,7 @@ import com.kaavalan.note.data.instructions.Source
 import com.kaavalan.note.data.instructions.Status
 import com.kaavalan.note.data.person.Person
 import com.kaavalan.note.data.person.PersonRepository
+import com.kaavalan.note.data.reminder.ReminderScheduler
 import com.kaavalan.note.data.tags.RoomTagRepository
 import com.kaavalan.note.data.tags.Tag
 import com.kaavalan.note.data.tags.TagKind
@@ -189,6 +190,7 @@ class CaptureViewModelTest {
                 title = title,
                 rawText = rawText,
                 dueAt = dueAt,
+                dueAtMs = null,
             )
             return Instruction(
                 id = id,
@@ -215,6 +217,7 @@ class CaptureViewModelTest {
             droppedReason: String?,
             isSensitive: Boolean,
         ): Instruction = error("not used in tests")
+
         override suspend fun markDone(id: String, completedAt: String) {
             // no-op
         }
@@ -232,7 +235,35 @@ class CaptureViewModelTest {
             dueAt: String?,
             dueAtMs: Long?,
             channel: String?,
-        ): Instruction = error("not used in tests")
+        ): Instruction {
+            nextId += 1
+            val createdId = "ins-$nextId"
+            created += CreatedInstruction(
+                id = createdId,
+                personId = personId,
+                source = source,
+                priority = priority,
+                title = title,
+                rawText = rawText,
+                dueAt = dueAt,
+                dueAtMs = dueAtMs,
+            )
+            return Instruction(
+                id = createdId,
+                personId = personId,
+                direction = Direction.OUTGOING,
+                status = Status.OPEN,
+                source = source,
+                priority = priority,
+                title = title,
+                rawText = rawText,
+                dueAt = dueAt,
+                dueAtMs = dueAtMs,
+                capturedAt = "2026-08-11T00:00:00+00:00",
+                createdAt = "2026-08-11T00:00:00+00:00",
+                updatedAt = "2026-08-11T00:00:00+00:00",
+            )
+        }
         override suspend fun setAudience(id: String, audience: com.kaavalan.note.data.instructions.AudienceRef?) {
             // no-op
         }
@@ -253,7 +284,23 @@ class CaptureViewModelTest {
         val title: String,
         val rawText: String,
         val dueAt: String?,
+        val dueAtMs: Long?,
     )
+
+    private class FakeReminderScheduler : ReminderScheduler {
+        val scheduled = mutableListOf<Pair<String, Long>>()
+        val cancelled = mutableListOf<String>()
+        var failure: Throwable? = null
+
+        override fun schedule(instructionId: String, reminderAtMs: Long) {
+            failure?.let { throw it }
+            scheduled += instructionId to reminderAtMs
+        }
+
+        override fun cancel(instructionId: String) {
+            cancelled += instructionId
+        }
+    }
 
     private fun fakes(): Triple<FakeCaptureRepository, FakePersonRepository, FakeInstructionRepository> {
         return Triple(FakeCaptureRepository(), FakePersonRepository(), FakeInstructionRepository())
@@ -265,12 +312,14 @@ class CaptureViewModelTest {
         ins: FakeInstructionRepository,
         tags: RoomTagRepository = fakeTagRepo(),
         savedStateHandle: androidx.lifecycle.SavedStateHandle = androidx.lifecycle.SavedStateHandle(),
+        reminderScheduler: ReminderScheduler = FakeReminderScheduler(),
     ): CaptureViewModel = CaptureViewModel(
         savedStateHandle = savedStateHandle,
         captureRepository = repo,
         personRepository = person,
         instructionRepository = ins,
         tagRepository = tags,
+        reminderScheduler = reminderScheduler,
     )
 
     @Test
@@ -511,6 +560,7 @@ class CaptureViewModelTest {
         advanceUntilIdle()
 
         vm.openSheet()
+        vm.onReminderChanged(System.currentTimeMillis() + 3_600_000L)
         vm.onAddToCalendarChanged(true)
         val note = "Send FIR 47 to SP by Friday"
         vm.onTextChanged(note)
@@ -522,6 +572,90 @@ class CaptureViewModelTest {
         assertNotNull("calendar event must be emitted when addToCalendar is on", event)
         assertEquals(note.take(40), event!!.title)
         assertEquals(note, event.description)
+    }
+
+    @Test
+    fun `saving with a reminder persists its time and schedules durable work`() = runTest(testDispatcher) {
+        val f = fakes()
+        val scheduler = FakeReminderScheduler()
+        val vm = makeVm(f.first, f.second, f.third, reminderScheduler = scheduler)
+        val reminderAtMs = System.currentTimeMillis() + 3_600_000L
+
+        vm.openSheet()
+        vm.onTextChanged("Review the station diary")
+        vm.onReminderChanged(reminderAtMs)
+        vm.onSaveRaw()
+        advanceUntilIdle()
+
+        val created = f.third.created.single()
+        assertEquals(reminderAtMs, created.dueAtMs)
+        assertEquals(java.time.Instant.ofEpochMilli(reminderAtMs).toString(), created.dueAt)
+        assertEquals(listOf(created.id to reminderAtMs), scheduler.scheduled)
+    }
+
+    @Test
+    fun `a past reminder is refused without changing the draft`() = runTest(testDispatcher) {
+        val f = fakes()
+        val vm = makeVm(f.first, f.second, f.third)
+        vm.openSheet()
+
+        vm.onReminderChanged(System.currentTimeMillis() - 1_000L)
+
+        assertNull(vm.state.value.reminderAtMs)
+        assertTrue(vm.infoChannel.tryReceive().getOrNull()!!.contains("already passed"))
+    }
+
+    @Test
+    fun `clearing a reminder also clears calendar export`() = runTest(testDispatcher) {
+        val f = fakes()
+        val vm = makeVm(f.first, f.second, f.third)
+        vm.openSheet()
+        vm.onReminderChanged(System.currentTimeMillis() + 3_600_000L)
+        vm.onAddToCalendarChanged(true)
+        assertTrue(vm.state.value.addToCalendar)
+
+        vm.onReminderChanged(null)
+
+        assertNull(vm.state.value.reminderAtMs)
+        assertFalse(vm.state.value.addToCalendar)
+    }
+
+    @Test
+    fun `draft restoration includes reminder and calendar choice`() = runTest(testDispatcher) {
+        val f = fakes()
+        val reminderAtMs = System.currentTimeMillis() + 3_600_000L
+        val handle = androidx.lifecycle.SavedStateHandle(
+            mapOf(
+                "capture.reminderAtMs" to reminderAtMs,
+                "capture.addToCalendar" to true,
+            ),
+        )
+
+        val vm = makeVm(f.first, f.second, f.third, savedStateHandle = handle)
+
+        assertEquals(reminderAtMs, vm.state.value.reminderAtMs)
+        assertTrue(vm.state.value.addToCalendar)
+    }
+
+    @Test
+    fun `a scheduling failure keeps the saved note and explains the reminder failure`() = runTest(testDispatcher) {
+        val f = fakes()
+        val scheduler = FakeReminderScheduler().apply {
+            failure = IllegalStateException("work manager unavailable")
+        }
+        val vm = makeVm(f.first, f.second, f.third, reminderScheduler = scheduler)
+        vm.openSheet()
+        vm.onTextChanged("Review the station diary")
+        vm.onReminderChanged(System.currentTimeMillis() + 3_600_000L)
+
+        vm.onSaveRaw()
+        advanceUntilIdle()
+
+        assertEquals(1, f.third.created.size)
+        assertFalse(vm.state.value.isVisible)
+        assertTrue(
+            vm.infoChannel.tryReceive().getOrNull()!!.contains("could not be scheduled"),
+        )
     }
 
     @Test

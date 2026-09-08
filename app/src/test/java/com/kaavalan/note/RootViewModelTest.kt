@@ -35,4 +35,15 @@ class RootViewModelTest {
         viewModel.consumeQuickCapture()
         assertFalse(viewModel.quickCapture.value)
     }
+
+    @Test
+    fun reminderInstruction_isAvailableUntilTodayConsumesIt() {
+        val viewModel = RootViewModel()
+
+        viewModel.onOpenReminder("instruction-7")
+        assertEquals("instruction-7", viewModel.pendingReminderInstructionId.value)
+
+        viewModel.consumeReminderInstruction()
+        assertNull(viewModel.pendingReminderInstructionId.value)
+    }
 }

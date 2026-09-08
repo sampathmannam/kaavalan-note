@@ -9,6 +9,7 @@ import com.kaavalan.note.data.instructions.Instruction
 import com.kaavalan.note.data.instructions.RoomInstructionRepository
 import com.kaavalan.note.data.person.Person
 import com.kaavalan.note.data.person.PersonRepository
+import com.kaavalan.note.data.reminder.ReminderManager
 import com.kaavalan.note.data.vault.VaultModeHolder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -45,6 +46,7 @@ class TodayViewModel @Inject constructor(
     private val roomInstructionRepository: RoomInstructionRepository,
     private val personRepository: PersonRepository,
     private val vaultModeHolder: VaultModeHolder,
+    private val reminderManager: ReminderManager,
 ) : ViewModel() {
 
     val brief: StateFlow<DailyBrief> = briefGenerator
@@ -106,12 +108,14 @@ class TodayViewModel @Inject constructor(
     fun markDone(instructionId: String) {
         viewModelScope.launch {
             runCatching { roomInstructionRepository.markDone(instructionId) }
+                .onSuccess { reminderManager.cancelDelivery(instructionId) }
         }
     }
 
     fun markDropped(instructionId: String, reason: String? = null) {
         viewModelScope.launch {
             runCatching { roomInstructionRepository.markDropped(instructionId, reason) }
+                .onSuccess { reminderManager.cancelDelivery(instructionId) }
         }
     }
 
@@ -120,6 +124,16 @@ class TodayViewModel @Inject constructor(
             runCatching { roomInstructionRepository.reopen(instructionId) }
         }
     }
+
+    fun updateReminder(instructionId: String, reminderAtMs: Long?) {
+        if (reminderAtMs != null && reminderAtMs <= System.currentTimeMillis()) return
+        viewModelScope.launch {
+            runCatching { reminderManager.update(instructionId, reminderAtMs) }
+        }
+    }
+
+    suspend fun findInstruction(instructionId: String): Instruction? =
+        roomInstructionRepository.fetchAll().firstOrNull { it.id == instructionId }
 }
 
 data class EveningReview(

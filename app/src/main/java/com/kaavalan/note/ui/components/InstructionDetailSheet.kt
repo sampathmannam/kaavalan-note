@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import com.kaavalan.note.R
 import com.kaavalan.note.data.instructions.Instruction
 import com.kaavalan.note.data.instructions.Status
+import com.kaavalan.note.features.reminder.ReminderPicker
+import com.kaavalan.note.features.reminder.formatReminderTime
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -54,6 +56,7 @@ fun InstructionDetailSheet(
     onMarkDone: () -> Unit,
     onDrop: () -> Unit,
     onReopen: () -> Unit,
+    onReminderChanged: (Long?) -> Unit,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -76,9 +79,15 @@ fun InstructionDetailSheet(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            if (instruction.dueAt != null) {
+            val isClosed = instruction.status == Status.DONE ||
+                instruction.status == Status.DROPPED
+            if (isClosed && (instruction.dueAtMs != null || instruction.dueAt != null)) {
                 Text(
-                    text = stringResource(R.string.today_due_at, formatTimeIso(instruction.dueAt)),
+                    text = stringResource(
+                        R.string.today_due_at,
+                        instruction.dueAtMs?.let { formatReminderTime(it) }
+                            ?: formatTimeIso(checkNotNull(instruction.dueAt)),
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -90,8 +99,13 @@ fun InstructionDetailSheet(
             )
             Spacer(Modifier.height(8.dp))
             // The action row. Reopen-only for DONE / DROPPED.
-            val isClosed = instruction.status == Status.DONE ||
-                instruction.status == Status.DROPPED
+            if (!isClosed) {
+                ReminderPicker(
+                    reminderAtMs = instruction.dueAtMs,
+                    onSelected = onReminderChanged,
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
             if (isClosed) {
                 Button(
                     onClick = onReopen,

@@ -129,6 +129,7 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) {
             consumeSharedText(intent)
             consumeQuickCapture(intent)
+            consumeReminderIntent(intent)
         }
         briefNotifier.schedule()
         setContent {
@@ -163,6 +164,7 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         consumeSharedText(intent)
         consumeQuickCapture(intent)
+        consumeReminderIntent(intent)
     }
 
     private fun consumeQuickCapture(intent: Intent?) {
@@ -208,6 +210,12 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun consumeReminderIntent(intent: Intent?) {
+        if (intent?.action != ACTION_OPEN_REMINDER) return
+        intent.getStringExtra(EXTRA_REMINDER_INSTRUCTION_ID)
+            ?.let(rootViewModel::onOpenReminder)
     }
 
     /**
@@ -260,6 +268,11 @@ class MainActivity : ComponentActivity() {
      * can fire it.
      */
     internal var notifLauncher: androidx.activity.result.ActivityResultLauncher<String>? = null
+
+    companion object {
+        const val ACTION_OPEN_REMINDER = "com.kaavalan.note.action.OPEN_REMINDER"
+        const val EXTRA_REMINDER_INSTRUCTION_ID = "reminder_instruction_id"
+    }
 }
 
 /**
@@ -296,6 +309,8 @@ private fun MainScaffold(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val lastUndo by undoController.last.collectAsStateWithLifecycle()
+    val pendingReminderInstructionId by rootViewModel.pendingReminderInstructionId
+        .collectAsStateWithLifecycle()
     val undoLabel = stringResource(R.string.undo)
 
     // v2.0: a single SnackbarHostState listens to the UndoController
@@ -326,6 +341,14 @@ private fun MainScaffold(
             }
             SnackbarResult.Dismissed -> {
                 undoController.clear()
+            }
+        }
+    }
+
+    LaunchedEffect(pendingReminderInstructionId) {
+        if (pendingReminderInstructionId != null) {
+            navController.navigate(Routes.TODAY) {
+                launchSingleTop = true
             }
         }
     }
@@ -385,6 +408,8 @@ private fun MainScaffold(
                 composable(Routes.TODAY) {
                     TodayScreen(
                         onOpenPerson = { id -> navController.navigate("person/$id") },
+                        openInstructionId = pendingReminderInstructionId,
+                        onReminderInstructionOpened = rootViewModel::consumeReminderInstruction,
                     )
                 }
                 composable(Routes.PERSON) { entry ->
@@ -777,5 +802,17 @@ class RootViewModel @Inject constructor() : ViewModel() {
 
     fun consumeQuickCapture() {
         _quickCapture.value = false
+    }
+
+    private val _pendingReminderInstructionId = MutableStateFlow<String?>(null)
+    val pendingReminderInstructionId: StateFlow<String?> =
+        _pendingReminderInstructionId.asStateFlow()
+
+    fun onOpenReminder(instructionId: String) {
+        _pendingReminderInstructionId.value = instructionId
+    }
+
+    fun consumeReminderInstruction() {
+        _pendingReminderInstructionId.value = null
     }
 }

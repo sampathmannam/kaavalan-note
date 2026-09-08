@@ -218,10 +218,11 @@ interface InstructionDao {
     )
 
     @Query(
-        """UPDATE instructions SET dueAtMs = :dueAtMs, updatedAt = :now, syncStatus = :syncStatus WHERE id = :id"""
+        """UPDATE instructions SET dueAt = :dueAt, dueAtMs = :dueAtMs, updatedAt = :now, syncStatus = :syncStatus WHERE id = :id"""
     )
     suspend fun setDueChip(
         id: String,
+        dueAt: String?,
         dueAtMs: Long?,
         now: String,
         syncStatus: String,

@@ -36,6 +36,24 @@
     <string name="capture_sheet_text_placeholder">தன்னிச்சையான குறிப்பை இங்கே தட்டச்சு செய்க.</string>
     <string name="capture_sheet_save">சேமி</string>
     <string name="capture_sheet_add_to_calendar">நாட்காட்டியில் சேர்</string>
+    <string name="reminder_picker_title">நினைவூட்டல்</string>
+    <string name="reminder_picker_supporting_text">இந்தக் குறிப்பைக் கவனிக்க வேண்டிய நேரத்தில் தனிப்பட்ட அறிவிப்பைப் பெறுங்கள்.</string>
+    <string name="reminder_preset_one_hour">1 மணி நேரத்தில்</string>
+    <string name="reminder_preset_tomorrow">நாளை 9:00 மணிக்கு</string>
+    <string name="reminder_preset_next_week">அடுத்த வாரம்</string>
+    <string name="reminder_preset_custom">தேதி மற்றும் நேரத்தைத் தேர்ந்தெடு</string>
+    <string name="reminder_picker_scheduled">%1$sக்கு அமைக்கப்பட்டது</string>
+    <string name="reminder_picker_clear">நினைவூட்டலை நீக்கு</string>
+    <string name="reminder_calendar_option">நாட்காட்டியிலும் சேர்</string>
+    <string name="reminder_past_time">அந்த நேரம் கடந்துவிட்டது — எதிர்கால நேரத்தைத் தேர்ந்தெடுக்கவும்.</string>
+    <string name="reminder_schedule_failed">குறிப்பு சேமிக்கப்பட்டது, ஆனால் நினைவூட்டலை அமைக்க முடியவில்லை.</string>
+    <string name="reminder_channel_name">சேமித்த குறிப்புகளின் நினைவூட்டல்கள்</string>
+    <string name="reminder_channel_description">சேமித்த குறிப்புகளுக்காக நீங்கள் அமைத்த நினைவூட்டல்கள்</string>
+    <string name="reminder_notification_title">Kaavalan நினைவூட்டல்</string>
+    <string name="reminder_notification_public_title">Kaavalan நினைவூட்டல்</string>
+    <string name="reminder_notification_public_body">பார்க்க Kaavalan note-ஐத் திறக்கவும்.</string>
+    <string name="reminder_action_done">முடிந்தது</string>
+    <string name="reminder_action_snooze">1 மணி நேரம் ஒத்திவை</string>
 
     <!-- Today -->
     <string name="today_count_open_short">திறந்தவை</string>

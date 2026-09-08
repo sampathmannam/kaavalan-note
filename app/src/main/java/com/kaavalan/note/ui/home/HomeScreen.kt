@@ -420,6 +420,10 @@ fun HomeScreen(
                 searchDetailViewModel.reopen(ins)
                 selectedInstructionEntity = null
             },
+            onReminderChanged = { reminderAtMs ->
+                searchDetailViewModel.updateReminder(ins, reminderAtMs)
+                selectedInstructionEntity = entity.copy(dueAtMs = reminderAtMs)
+            },
         )
     }
 }

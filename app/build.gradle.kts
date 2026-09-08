@@ -358,8 +358,15 @@ android {
         // into main (release build/device CI, capture ingress, backup,
         // retention, migration, and startup hardening).
         // versionCode 47 -> 48.
-        versionCode = 48
-        versionName = "2.3.0"
+        //
+        // v2.4.0: complete reminder workflow. Notes can be saved with
+        // quick or custom reminder times, edited later, and delivered as
+        // private local notifications with Done and Snooze actions.
+        // Notification taps open the matching instruction, and unique
+        // WorkManager work survives app restarts without duplicate alerts.
+        // versionCode 48 -> 49.
+        versionCode = 49
+        versionName = "2.4.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // v2.2.2 (test-infra): wipe app state between instrumented
         // tests. Without this the six device tests share one Room

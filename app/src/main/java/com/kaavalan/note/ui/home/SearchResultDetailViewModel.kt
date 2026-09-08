@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kaavalan.note.data.instructions.Instruction
 import com.kaavalan.note.data.instructions.RoomInstructionRepository
+import com.kaavalan.note.data.reminder.ReminderManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -37,23 +38,33 @@ import javax.inject.Inject
 @HiltViewModel
 class SearchResultDetailViewModel @Inject constructor(
     private val roomInstructionRepository: RoomInstructionRepository,
+    private val reminderManager: ReminderManager,
 ) : ViewModel() {
 
     fun markDone(instruction: Instruction) {
         viewModelScope.launch {
             runCatching { roomInstructionRepository.markDone(instruction.id) }
+                .onSuccess { reminderManager.cancelDelivery(instruction.id) }
         }
     }
 
     fun markDropped(instruction: Instruction) {
         viewModelScope.launch {
             runCatching { roomInstructionRepository.markDropped(instruction.id, reason = null) }
+                .onSuccess { reminderManager.cancelDelivery(instruction.id) }
         }
     }
 
     fun reopen(instruction: Instruction) {
         viewModelScope.launch {
             runCatching { roomInstructionRepository.reopen(instruction.id) }
+        }
+    }
+
+    fun updateReminder(instruction: Instruction, reminderAtMs: Long?) {
+        if (reminderAtMs != null && reminderAtMs <= System.currentTimeMillis()) return
+        viewModelScope.launch {
+            runCatching { reminderManager.update(instruction.id, reminderAtMs) }
         }
     }
 }
