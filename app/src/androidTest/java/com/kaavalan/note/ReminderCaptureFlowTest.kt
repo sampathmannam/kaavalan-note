@@ -49,6 +49,8 @@ class ReminderCaptureFlowTest {
             composeRule.onAllNodesWithText(note).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText(note).assertIsDisplayed()
-        composeRule.onNodeWithText("Tomorrow").assertIsDisplayed()
+        composeRule.onNodeWithText("Tomorrow")
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 }
