@@ -105,7 +105,11 @@ jobs:
   lint:
     name: Kotlin lint (ktlint + detekt if present)
     runs-on: [self-hosted, macOS, ARM64, baton]
-    timeout-minutes: 15
+    # v2.4.0: the Kotlin FIR-backed Android-test and unit-test lint
+    # models can take more than 15 minutes on the shared ARM64 runner.
+    # A single worker also avoids the analyzer race reproduced locally
+    # when those two models resolve test hierarchies in parallel.
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -140,7 +144,7 @@ jobs:
       # actionable and lint can gate again. It was hiding a real
       # `NewApi` crash (voice capture on every pre-Android-13 device).
       - name: Run Android lint
-        run: ./gradlew :app:lintDebug --no-daemon -PBATON_SUPABASE_URL=https://placeholder.supabase.co -PBATON_SUPABASE_ANON_KEY=placeholder-anon-key-for-ci-only
+        run: ./gradlew :app:lintDebug --no-daemon --max-workers=1 -PBATON_SUPABASE_URL=https://placeholder.supabase.co -PBATON_SUPABASE_ANON_KEY=placeholder-anon-key-for-ci-only
 
       - name: Upload lint report
         if: always()
