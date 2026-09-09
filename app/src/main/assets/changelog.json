@@ -1,6 +1,17 @@
 {
   "changelog": [
     {
+      "version": "2.4.1",
+      "code": 50,
+      "date": "2026-09-09",
+      "highlights": [
+        "Find all your phone contacts: the old 50-entry limit is removed, with search by name or phone number.",
+        "Contacts without phone numbers can be imported. People sharing a station number stay separate, and you can choose between a contact's different numbers.",
+        "Clear contact-access guidance, retry and refresh controls help you recover when permission is off or the phone directory cannot be read.",
+        "Only the contact you select is imported. Your phone address book is not changed, and your existing KaavalanNote data stays in the same app."
+      ]
+    },
+    {
       "version": "2.4.0",
       "code": 49,
       "date": "2026-09-08",

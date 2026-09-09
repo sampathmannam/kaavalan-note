@@ -81,6 +81,58 @@ class WorkspaceViewModelTest {
         }
     }
 
+    @Test fun `import retains the selected phone and stores name-only contacts without an empty phone`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        var model: WorkspaceViewModel? = null
+        try {
+            val dao = mockk<InstructionDao> { every { observeAll() } returns flowOf(emptyList()) }
+            val people = mockk<RoomPersonRepository>(relaxed = true) {
+                every { observeAllInMode(any()) } returns flowOf(emptyList())
+            }
+            val vault = VaultModeHolder().apply { setMode(VaultMode.Hidden) }
+            val vm = WorkspaceViewModel(dao, people, mockk(), mockk(), vault, mockk(), users()).also { model = it }
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect() }
+            advanceUntilIdle()
+            var successes = 0
+            vm.importContact(" Officer ", " +91 5550100 ") { successes++ }
+            advanceUntilIdle()
+            vm.importContact("Name only", "") { successes++ }
+            advanceUntilIdle()
+            coVerify(exactly = 1) { people.createContact("Officer", null, null, "+91 5550100", "hidden") }
+            coVerify(exactly = 1) { people.createContact("Name only", null, null, null, "hidden") }
+            assertEquals(2, successes)
+        } finally {
+            backgroundScope.cancel()
+            model?.viewModelScope?.cancel()
+            advanceUntilIdle()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test fun `failed import keeps picker open and allows retry`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        var model: WorkspaceViewModel? = null
+        try {
+            val dao = mockk<InstructionDao> { every { observeAll() } returns flowOf(emptyList()) }
+            val people = mockk<RoomPersonRepository>(relaxed = true) {
+                every { observeAllInMode(any()) } returns flowOf(emptyList())
+            }
+            coEvery { people.createContact(any(), any(), any(), any(), any(), any()) } throws IllegalStateException()
+            val vm = WorkspaceViewModel(dao, people, mockk(), mockk(), VaultModeHolder(), mockk(), users()).also { model = it }
+            var dismissed = false
+            vm.importContact("Officer", "5550100") { dismissed = true }
+            advanceUntilIdle()
+            assertFalse(dismissed)
+            assertFalse(vm.busy.value)
+            assertTrue(vm.messages.first().contains("try again"))
+        } finally {
+            backgroundScope.cancel()
+            model?.viewModelScope?.cancel()
+            advanceUntilIdle()
+            Dispatchers.resetMain()
+        }
+    }
+
     private fun users() = mockk<com.kaavalan.note.data.user.UserDao> {
         every { observeDeviceOwner() } returns flowOf(null)
     }

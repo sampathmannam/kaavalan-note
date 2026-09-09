@@ -96,7 +96,7 @@ class WorkspaceViewModel @Inject constructor(
     }
 
     fun importContact(name: String, phone: String, onSuccess: () -> Unit) = mutate("Contact imported", onSuccess) {
-        people.createContact(name, null, null, phone, if (state.value.hidden) "hidden" else "visible")
+        people.createContact(name.trim(), null, null, phone.trim().ifBlank { null }, if (state.value.hidden) "hidden" else "visible")
     }
 
     private fun requireVisible(id: String): Instruction = state.value.instructions.first { it.id == id }
