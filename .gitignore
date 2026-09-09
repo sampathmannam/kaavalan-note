@@ -174,3 +174,5 @@ tmp/
 *.bak
 test_summary.txt
 .sdd/
+.gradle-user-home/
+.android-dev/

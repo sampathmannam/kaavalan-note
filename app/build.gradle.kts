@@ -12,9 +12,13 @@ plugins {
 // local.properties is NOT auto-loaded into Gradle properties; AGP only
 // reads sdk.dir from it. Read keys ourselves so a clone + add-to-properties
 // + build works without editing gradle.properties (which is checked in).
+// Development builds must not inspect signing material. Release credentials
+// are resolved only with an explicit opt-in by the release operator / CI.
+val enableReleaseSigning = providers.gradleProperty("kaavalan.enableReleaseSigning")
+    .map(String::toBoolean).getOrElse(false)
 val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
-    if (f.exists()) f.inputStream().use { load(it) }
+    if (enableReleaseSigning && f.exists()) f.inputStream().use { load(it) }
 }
 // v2.0.0 (drop Supabase): removed BATON_SUPABASE_URL and
 // BATON_SUPABASE_ANON_KEY. The app is now local-only; no
@@ -33,7 +37,7 @@ fun resolveSigningSecret(
     props: Properties,
     propertyName: String,
     envName: String,
-): String? = (
+): String? = if (!enableReleaseSigning) null else (
     (project.findProperty(propertyName) as? String)
         ?: props.getProperty(propertyName)
         ?: System.getenv(envName)
@@ -74,6 +78,9 @@ fun resolveSigningPath(
 tasks.withType<Test>().configureEach {
     inputs.file(rootProject.file("app/proguard-rules.pro"))
         .withPropertyName("proguardRules")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.files(rootProject.file("app/build.gradle.kts"), rootProject.file("release.sh"))
+        .withPropertyName("releaseSigningContract")
         .withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
@@ -463,13 +470,13 @@ android {
     // The resolution order below is the standard Android one:
     // Gradle property (`-P`, `~/.gradle/gradle.properties`) →
     // `local.properties` (gitignored) → environment variable
-    // (CI secrets). If none of them name a keystore, the release
-    // build stays UNSIGNED rather than failing: R8/minify,
+    // (CI secrets). Without the explicit signing opt-in, the release
+    // build stays UNSIGNED: R8/minify,
     // resource shrinking and the per-ABI splits all still get
     // exercised, which is what a CI `assembleRelease` gate is
     // actually for. Signing then happens with the real key at
-    // release time. `signingReport` and the log line below make
-    // it unambiguous which mode a given build used.
+    // release time. With the signing opt-in, incomplete configuration
+    // is fatal before any build tasks run; never silently fall back.
     val releaseStoreFile: File? = resolveSigningPath(
         localProps,
         propertyName = "KAAVALAN_RELEASE_STORE_FILE",
@@ -501,10 +508,16 @@ android {
             !releaseKeyAlias.isNullOrEmpty() &&
             !releaseKeyPassword.isNullOrEmpty()
 
-    if (releaseStoreFile != null && !releaseSigningReady) {
-        logger.warn(
-            "KaavalanNote: release keystore was named as '${releaseStoreFile}' but is unusable " +
-                "(missing file, password, alias or key password). The release build will be UNSIGNED.",
+    // An unsigned R8 build is useful in CI, but an explicit request to sign
+    // must never report success while silently producing an unsigned APK.
+    // Do not include resolved paths or credential values in the failure.
+    if (enableReleaseSigning && !releaseSigningReady) {
+        throw GradleException(
+            "KaavalanNote: release signing was requested, but the existing signing " +
+                "configuration is unavailable or incomplete. No signed APK can be produced. " +
+                "The release operator must configure the original signing key privately. " +
+                "For unsigned development/CI validation, omit kaavalan.enableReleaseSigning " +
+                "or set it to false. Never install or publish the unsigned validation APK.",
         )
     }
 
@@ -527,7 +540,7 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix = ".debug"
+            applicationIdSuffix = providers.gradleProperty("kaavalan.debugApplicationIdSuffix").getOrElse(".debug")
             isDebuggable = true
         }
         release {
@@ -541,7 +554,7 @@ android {
             // v2.1.2 (release-integrity): attach the release
             // signing config only when the keystore actually
             // resolved (see the `signingConfigs` block above).
-            // When it did not, the build type is left with no
+            // When signing is not requested, the build type has no
             // signing config and AGP emits an unsigned APK —
             // `assembleRelease` still runs R8, resource
             // shrinking and the ABI splits, so CI keeps its
@@ -873,4 +886,5 @@ dependencies {
     kspAndroidTest(libs.hilt.compiler)
 
     debugImplementation(libs.compose.ui.tooling)
+    debugImplementation(libs.compose.ui.test.manifest)
 }

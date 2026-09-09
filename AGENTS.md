@@ -71,7 +71,7 @@ The split is **deferred to v2.0.0-pre1** so we ship v1.9.7 / v1.9.8 / v1.9.9 as 
 - **No API calls to third-party AI for inference.** The only AI in v1.9.6 is on-device ML Kit OCR (see `docs/architecture/ai-strategy.md` for the full story). **Voice capture is the exception:** it uses `android.speech.SpeechRecognizer`, which is a *system* service and **may use Google cloud depending on the device and the user's Google account settings.** This is documented in `docs/threat-model.md` §8.2 as a v1.x privacy trade-off. If a future v2.x ships a fully on-device speech path, the rule tightens; until then, the rule is "no third-party AI for inference *except the system speech recogniser*".
 - **No analytics, no telemetry, no crash reporting that sends data off-device.** Local logs only.
 - **The single note bar is the primary input.** Don't add a separate "New task" form.
-- **Tabs = 3.** Home (people), Today (brief), Settings. No more.
+- **Tabs = 3.** Today, Instructions, Contacts. Settings is a top-bar action. This officer-workspace redesign supersedes the old Home/Today/Settings navigation. Read PRODUCT.md, DESIGN.md and docs/architecture/officer-workspace.md before changing the UX.
 - **Capture must complete in < 5 seconds.** Measure it; the CI fails if it regresses.
 - **Conflict resolution is last-write-wins on `updatedAt`, logged in `SyncConflict` table.** No silent data loss.
 

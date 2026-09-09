@@ -43,16 +43,12 @@ val KaavalanNoteTypography = Typography(
         letterSpacing = (-0.5).sp,
     ),
     headlineMedium = TextStyle(
-        fontFamily = DefaultFont,
-        fontWeight = FontWeight.Medium,
-        fontSize = 22.sp,
-        lineHeight = 30.sp,
+        fontFamily = DefaultFont, fontWeight = FontWeight.SemiBold,
+        fontSize = 28.sp, lineHeight = 36.sp, letterSpacing = (-0.5).sp,
     ),
     headlineSmall = TextStyle(
-        fontFamily = DefaultFont,
-        fontWeight = FontWeight.Medium,
-        fontSize = 20.sp,
-        lineHeight = 28.sp,
+        fontFamily = DefaultFont, fontWeight = FontWeight.Medium,
+        fontSize = 24.sp, lineHeight = 32.sp,
     ),
     titleLarge = TextStyle(
         fontFamily = DefaultFont,
@@ -105,7 +101,7 @@ val KaavalanNoteTypography = Typography(
     labelSmall = TextStyle(
         fontFamily = DefaultFont,
         fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
+        fontSize = 12.sp,
         lineHeight = 16.sp,
     ),
 )

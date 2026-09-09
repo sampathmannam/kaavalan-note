@@ -59,12 +59,19 @@ class OnboardingViewModel @Inject constructor(
      */
     fun finish(onDone: () -> Unit) {
         val s = _state.value
+        if (s.working) return
         _state.value = s.copy(working = true)
         viewModelScope.launch {
-            if (s.loadSample) seedSampleData()
-            preferences.setOnboardingSeen()
-            _state.value = _state.value.copy(working = false, finished = true)
-            onDone()
+            try {
+                if (s.loadSample) seedSampleData()
+                preferences.setOnboardingSeen()
+                _state.value = _state.value.copy(working = false, finished = true, error = null)
+                onDone()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _state.value = _state.value.copy(working = false, error = "Could not open the workspace. Please try again.")
+            }
         }
     }
 
@@ -194,4 +201,5 @@ data class OnboardingUiState(
     val loadSample: Boolean = false,
     val working: Boolean = false,
     val finished: Boolean = false,
+    val error: String? = null,
 )

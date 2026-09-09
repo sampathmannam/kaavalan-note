@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.kaavalan.note.data.captures.CaptureMode
 import com.kaavalan.note.data.captures.CaptureRepository
 import com.kaavalan.note.data.instructions.InstructionRepository
+import com.kaavalan.note.data.instructions.Direction
 import com.kaavalan.note.data.instructions.MentionAndTagParser
 import com.kaavalan.note.data.instructions.Priority
 import com.kaavalan.note.data.instructions.Source
@@ -79,9 +80,18 @@ class CaptureViewModel @Inject constructor(
                 ).toSet(),
             reminderAtMs = savedStateHandle.get<Long>(KEY_REMINDER_AT_MS),
             addToCalendar = savedStateHandle.get<Boolean>(KEY_ADD_TO_CALENDAR) ?: false,
+            direction = savedStateHandle.get<String>(KEY_DIRECTION)
+                ?.let { runCatching { Direction.valueOf(it) }.getOrNull() } ?: Direction.SELF,
+            personId = savedStateHandle.get<String>(KEY_PERSON_ID),
         ),
     )
     val state: StateFlow<CaptureUiState> = _state.asStateFlow()
+    private var allowedContactIds: Set<String>? = null
+
+    fun onWorkspaceChanged(contactIds: Set<String>, privateMode: Boolean, ready: Boolean) {
+        allowedContactIds = contactIds
+        _state.update { it.copy(requiresContact = privateMode, workspaceReady = ready) }
+    }
 
     init {
         // v1.4 (F-09): auto-persist on every state change. This
@@ -96,6 +106,8 @@ class CaptureViewModel @Inject constructor(
                 savedStateHandle[KEY_SELECTED_TAG_IDS] = ArrayList(current.selectedTagIds)
                 savedStateHandle[KEY_REMINDER_AT_MS] = current.reminderAtMs
                 savedStateHandle[KEY_ADD_TO_CALENDAR] = current.addToCalendar
+                savedStateHandle[KEY_DIRECTION] = current.direction.name
+                savedStateHandle[KEY_PERSON_ID] = current.personId
             }
         }
     }
@@ -119,7 +131,10 @@ class CaptureViewModel @Inject constructor(
         savedStateHandle.remove<ArrayList<String>>(KEY_SELECTED_TAG_IDS)
         savedStateHandle.remove<Long>(KEY_REMINDER_AT_MS)
         savedStateHandle.remove<Boolean>(KEY_ADD_TO_CALENDAR)
-        _state.value = CaptureUiState()
+        savedStateHandle.remove<String>(KEY_DIRECTION)
+        savedStateHandle.remove<String>(KEY_PERSON_ID)
+        _state.value = CaptureUiState(availableTags = _state.value.availableTags,
+            requiresContact = _state.value.requiresContact, workspaceReady = _state.value.workspaceReady)
     }
 
     private companion object {
@@ -128,6 +143,8 @@ class CaptureViewModel @Inject constructor(
         const val KEY_SELECTED_TAG_IDS = "capture.selectedTagIds"
         const val KEY_REMINDER_AT_MS = "capture.reminderAtMs"
         const val KEY_ADD_TO_CALENDAR = "capture.addToCalendar"
+        const val KEY_DIRECTION = "capture.direction"
+        const val KEY_PERSON_ID = "capture.personId"
         // v1.8.0 (PROD-READINESS-P0-#2): fingerprint of the last
         // successful save (sha1 of text|mode|sortedTagIds). On a
         // process death + relaunch, the VM compares the current
@@ -155,9 +172,11 @@ class CaptureViewModel @Inject constructor(
         selectedTagIds: Set<String>,
         reminderAtMs: Long?,
         addToCalendar: Boolean,
+        direction: Direction,
+        personId: String?,
     ): String {
         val sortedTags = selectedTagIds.sorted().joinToString(",")
-        return "$text|$mode|$sortedTags|$reminderAtMs|$addToCalendar".hashCode().toString()
+        return "$text|$mode|$sortedTags|$reminderAtMs|$addToCalendar|$direction|$personId".hashCode().toString()
     }
 
     /**
@@ -263,6 +282,21 @@ class CaptureViewModel @Inject constructor(
                 dispatchSuggestion = detectDispatchSuggestion(text),
             )
         }
+    }
+
+    fun onDirectionChanged(direction: Direction) {
+        if (!_state.value.isSaving) _state.update { it.copy(direction = direction) }
+    }
+
+    fun onPersonChanged(id: String?) {
+        if (!_state.value.isSaving) _state.update { it.copy(personId = id) }
+    }
+
+    fun openForContact(id: String) {
+        val draft = _state.value
+        if (draft.text.isBlank() || draft.personId == id) onPersonChanged(id)
+        else infoChannel.trySend("Your existing draft is still here. Check its linked contact before saving.")
+        openSheet()
     }
 
     /**
@@ -382,7 +416,8 @@ class CaptureViewModel @Inject constructor(
      */
     fun onVoiceTranscript(text: String) {
         if (text.isBlank()) return
-        _state.update { it.copy(text = text, mode = CaptureMode.VOICE, error = null, isVisible = true) }
+        _state.update { it.copy(text = listOf(it.text, text).filter(String::isNotBlank).joinToString("\n\n"),
+            mode = CaptureMode.VOICE, error = null, isVisible = true) }
     }
 
     /**
@@ -390,7 +425,7 @@ class CaptureViewModel @Inject constructor(
      * inline on the capture sheet.
      */
     fun onVoiceError(message: String) {
-        _state.update { it.copy(error = "Voice capture failed: $message") }
+        _state.update { it.copy(error = "Voice capture failed: $message", isVisible = true) }
     }
 
     /**
@@ -415,6 +450,10 @@ class CaptureViewModel @Inject constructor(
     fun onSaveRaw() {
         val current = _state.value
         if (!current.canSaveRaw) return
+        if (current.personId != null && allowedContactIds?.contains(current.personId) == false) {
+            _state.update { it.copy(error = "That contact is not in this workspace. Choose another contact before saving.") }
+            return
+        }
         // Free-floating capture is intentional. A person link is
         // optional context, not a prerequisite for retaining an
         // instruction that might otherwise be lost.
@@ -431,6 +470,8 @@ class CaptureViewModel @Inject constructor(
             selectedTagIds = current.selectedTagIds,
             reminderAtMs = current.reminderAtMs,
             addToCalendar = current.addToCalendar,
+            direction = current.direction,
+            personId = current.personId,
         )
         val lastFingerprint = savedStateHandle.get<String>(KEY_LAST_SAVED_FINGERPRINT)
         val lastSavedAtMs = savedStateHandle.get<Long>(KEY_LAST_SAVED_AT_MS) ?: 0L
@@ -449,28 +490,18 @@ class CaptureViewModel @Inject constructor(
             val title = if (rawText.length > 40) "$truncated…" else rawText
             val result = runCatching {
                 val reminderAtMs = current.reminderAtMs
-                if (reminderAtMs == null) {
-                    instructionRepository.create(
-                        personId = null,
-                        source = modeToSource(current.mode),
-                        priority = Priority.NORMAL,
-                        title = title,
-                        rawText = rawText,
-                        dueAt = null,
-                    )
-                } else {
                     instructionRepository.createWithAudience(
-                        personId = null,
+                        personId = current.personId,
                         audience = null,
                         source = modeToSource(current.mode),
                         priority = Priority.NORMAL,
                         title = title,
                         rawText = rawText,
-                        dueAt = Instant.ofEpochMilli(reminderAtMs).toString(),
+                        dueAt = reminderAtMs?.let { Instant.ofEpochMilli(it).toString() },
                         dueAtMs = reminderAtMs,
                         channel = null,
+                        direction = current.direction,
                     )
-                }
             }
             result.onSuccess { created ->
                 // v1.6.1: insert a captures row so the audit
@@ -540,6 +571,7 @@ class CaptureViewModel @Inject constructor(
                 savedStateHandle[KEY_LAST_SAVED_AT_MS] = System.currentTimeMillis()
                 // v1.4 (F-09): success path wipes the in-flight draft.
                 clearDraft()
+                infoChannel.trySend("Note saved")
             }.onFailure { e ->
                 _state.update {
                     it.copy(

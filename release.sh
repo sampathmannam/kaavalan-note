@@ -58,7 +58,8 @@ ok "tree clean, $TAG is new"
 
 # --- gate 2: signing config resolves ---------------------------------------
 step "Gate 2/6 — signing config"
-SIGNING_REPORT="$(./gradlew -q :app:signingReport 2>/dev/null || true)"
+SIGNING_REPORT="$(./gradlew -q :app:signingReport -Pkaavalan.enableReleaseSigning=true 2>/dev/null)" \
+  || die "release signing configuration is unavailable or incomplete. Configure the original signing key privately before releasing."
 # AGP prints an unconfigured variant as `Config: null` / `Store: null`
 # (NOT "none" -- an earlier version of this gate checked for "none" and
 # therefore waved an unsigned build straight through, which is the exact
@@ -74,7 +75,7 @@ ok "release keystore resolves"
 
 # --- gate 3: tests --------------------------------------------------------
 step "Gate 3/6 — unit tests"
-./gradlew --console=plain :app:testDebugUnitTest >/dev/null || die "unit tests failed. Not shipping."
+./gradlew --console=plain :app:testDebugUnitTest -Pkaavalan.enableReleaseSigning=false >/dev/null || die "unit tests failed. Not shipping."
 ok "unit test suite green"
 
 # --- gate 4: versionCode strictly increases -------------------------------
@@ -100,7 +101,7 @@ fi
 
 # --- build ----------------------------------------------------------------
 step "Building signed release (universal)"
-./gradlew --console=plain :app:assembleRelease >/dev/null || die "assembleRelease failed"
+./gradlew --console=plain :app:assembleRelease -Pkaavalan.enableReleaseSigning=true >/dev/null || die "assembleRelease failed"
 [ -f "$APK_BUILT" ] || die "expected APK not found at $APK_BUILT"
 ok "built $(du -h "$APK_BUILT" | cut -f1) universal APK"
 

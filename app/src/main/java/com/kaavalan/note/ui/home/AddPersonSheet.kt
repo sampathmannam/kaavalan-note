@@ -7,6 +7,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
@@ -77,6 +81,7 @@ import com.kaavalan.note.R
 fun AddPersonSheet(
     onSave: (name: String, designation: String?, station: String?) -> Unit,
     onDismiss: () -> Unit,
+    isSaving: Boolean = false,
 ) {
     val sheetState = rememberModalBottomSheetState(
         // v1.9.7 (UX-001): skip the partial-expanded state so the
@@ -85,9 +90,9 @@ fun AddPersonSheet(
         // Save below the keyboard on 480 dpi Android 14+ devices.
         skipPartiallyExpanded = true,
     )
-    var name by remember { mutableStateOf("") }
-    var designation by remember { mutableStateOf("") }
-    var station by remember { mutableStateOf("") }
+    var name by rememberSaveable { mutableStateOf("") }
+    var designation by rememberSaveable { mutableStateOf("") }
+    var station by rememberSaveable { mutableStateOf("") }
     val keyboard = LocalSoftwareKeyboardController.current
 
     // v2.1.2 (P1-#3): stable focus targets. The IME's Next
@@ -118,9 +123,11 @@ fun AddPersonSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
     ) {
+        com.kaavalan.note.ui.theme.DialogSystemBars()
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .imePadding()
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -128,6 +135,8 @@ fun AddPersonSheet(
                 text = stringResource(R.string.home_add_person),
                 style = MaterialTheme.typography.titleLarge,
             )
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)) {
             // v2.1.2 (P1-#3): each TextField owns a
             // `focusRequester` and a `KeyboardActions` onNext
             // hook so the keyboard's Next button deterministically
@@ -193,6 +202,7 @@ fun AddPersonSheet(
                     onDone = { keyboard?.hide() },
                 ),
             )
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Button(
                 onClick = {
@@ -202,10 +212,10 @@ fun AddPersonSheet(
                         station.trim().ifEmpty { null },
                     )
                 },
-                enabled = name.isNotBlank(),
+                enabled = name.isNotBlank() && !isSaving,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(stringResource(R.string.person_save))
+                Text(if (isSaving) "Saving…" else "Save contact")
             }
             TextButton(
                 onClick = onDismiss,

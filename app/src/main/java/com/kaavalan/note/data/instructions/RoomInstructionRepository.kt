@@ -293,13 +293,14 @@ open class RoomInstructionRepository @Inject constructor(
         dueAt: String?,
         dueAtMs: Long?,
         channel: String?,
+        direction: Direction,
     ): Instruction {
         val now = Instant.now().toString()
         val id = UUID.randomUUID().toString()
         val entity = InstructionEntity(
             id = id,
             personId = personId,
-            direction = Direction.OUTGOING.name,
+            direction = direction.name,
             status = Status.OPEN.name,
             source = source.name,
             priority = priority.name,
@@ -514,7 +515,8 @@ internal fun InstructionEntity.toDomain(): Instruction = Instruction(
     personId = personId,
     direction = Direction.valueOf(direction),
     status = Status.valueOf(status),
-    source = Source.valueOf(source),
+    // Older photo-extraction fixtures/records used OCR before PHOTO became the wire value.
+    source = if (source == "OCR") Source.PHOTO else Source.valueOf(source),
     priority = Priority.valueOf(priority),
     title = title,
     rawText = rawText,

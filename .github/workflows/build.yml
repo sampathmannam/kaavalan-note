@@ -22,12 +22,8 @@ on:
   pull_request:
     branches: [main, master, 'm0/**']
 
-env:
-  GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8
-  # macOS runners don't set ANDROID_HOME / JAVA_HOME the way the
-  # developer's local shell does. The setup-android + setup-java
-  # steps below write to $GITHUB_ENV; we source them via the gradle
-  # invocation rather than re-exporting here.
+# JVM memory and code-cache settings come from gradle.properties so
+# local verification and CI do not silently use different compiler limits.
 
 jobs:
   unit-test:

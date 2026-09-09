@@ -79,7 +79,7 @@ class DispatchViewModelTest {
     private fun makeVm(): DispatchViewModel {
         val instructionRepository = mockk<InstructionRepository>(relaxed = true)
         val personRepository = mockk<PersonRepository>(relaxed = true)
-        every { personRepository.observeAll() } returns MutableStateFlow(emptyList<Person>()).asStateFlow()
+        every { personRepository.observeAllInMode("visible") } returns MutableStateFlow(emptyList<Person>()).asStateFlow()
         val deliveryService = mockk<DeliveryService>(relaxed = true)
         return DispatchViewModel(
             instructionRepository = instructionRepository,
@@ -292,7 +292,7 @@ class DispatchViewModelTest {
     fun `submit does not mark the instruction done even when the dispatch send fully succeeds`() = runTest(testDispatcher) {
         val instructionRepository = mockk<InstructionRepository>(relaxed = true)
         val personRepository = mockk<PersonRepository>(relaxed = true)
-        every { personRepository.observeAll() } returns MutableStateFlow(emptyList<Person>()).asStateFlow()
+        every { personRepository.observeAllInMode("visible") } returns MutableStateFlow(emptyList<Person>()).asStateFlow()
         val deliveryService = mockk<DeliveryService>(relaxed = true)
         val vm = DispatchViewModel(instructionRepository, personRepository, deliveryService)
         advanceUntilIdle()
@@ -339,7 +339,7 @@ class DispatchViewModelTest {
         val instructionRepository = mockk<InstructionRepository>(relaxed = true)
         val personRepository = mockk<PersonRepository>(relaxed = true)
         val people = MutableStateFlow(emptyList<Person>())
-        every { personRepository.observeAll() } returns people.asStateFlow()
+        every { personRepository.observeAllInMode("visible") } returns people.asStateFlow()
         val vm = DispatchViewModel(instructionRepository, personRepository, mockk(relaxed = true))
         advanceUntilIdle()
 
@@ -370,7 +370,7 @@ class DispatchViewModelTest {
             station = "Subedari", phone = "+919000000001",
         )
         val people = MutableStateFlow(listOf(ramesh))
-        every { personRepository.observeAll() } returns people.asStateFlow()
+        every { personRepository.observeAllInMode("visible") } returns people.asStateFlow()
         val vm = DispatchViewModel(mockk(relaxed = true), personRepository, mockk(relaxed = true))
         advanceUntilIdle()
 

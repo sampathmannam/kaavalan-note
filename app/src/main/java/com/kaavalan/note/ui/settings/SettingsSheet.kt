@@ -365,10 +365,16 @@ fun SettingsSheet(
     val vaultMode by viewModel.vaultMode.collectAsStateWithLifecycle()
     val hasVaultPin by viewModel.hasVaultPin.collectAsStateWithLifecycle()
 
+    var settingsSection by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    val settingsScroll = rememberScrollState()
+    androidx.compose.runtime.LaunchedEffect(settingsSection) { settingsScroll.scrollTo(0) }
+    androidx.activity.compose.BackHandler(enabled = settingsSection != null) { settingsSection = null }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
     ) {
+        com.kaavalan.note.ui.theme.DialogSystemBars()
         // v1.9.0 (PROD-READINESS-P3-P1-#3): the
         // snackbar host for the update-check
         // result. The host is rendered at the
@@ -391,7 +397,7 @@ fun SettingsSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 8.dp)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(settingsScroll),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             // v1.7.1 (P1 St1): a visible Close button in the
@@ -433,11 +439,14 @@ fun SettingsSheet(
                 }
             }
 
+            SettingsCategory("Labels", "Organise notes with optional labels", settingsSection, { settingsSection = it }) {
             TagsSection(
                 tags = tags,
                 onAdd = viewModel::addFreeTag,
             )
 
+            }
+            SettingsCategory("Privacy & security", "Private contacts, PIN and recovery", settingsSection, { settingsSection = it }) {
             // v2.0 T3-1 + T3-2 + T3-3: the Privacy section.
             // Four rows: vault mode, vault PIN, recovery
             // phrase, threat model. Each row is a tappable
@@ -515,12 +524,7 @@ fun SettingsSheet(
             // "What's new in this build?" surface (the v1.6.0
             // design rule forbids auto-showing it at first
             // launch as a modal).
-            PrivacyRow(
-                label = stringResource(R.string.settings_changelog),
-                value = "v${viewModel.appVersion.name} (build ${viewModel.appVersion.code})",
-                explainer = stringResource(R.string.settings_changelog_explainer),
-                onClick = onOpenChangelog,
-            )
+
             // v2.0 (PM rating): the audit-log viewer is
             // reachable from Settings. The chain has been
             // writing rows since v1.8.0; v2.0 surfaces them
@@ -536,13 +540,10 @@ fun SettingsSheet(
             // version is already in the storage card;
             // this is the canonical build-info + privacy-
             // posture surface.
-            PrivacyRow(
-                label = stringResource(R.string.settings_about),
-                value = "v${viewModel.appVersion.name}",
-                explainer = stringResource(R.string.settings_about_explainer),
-                onClick = onOpenAbout,
-            )
 
+
+            }
+            SettingsCategory("Google Drive backup", "Optional encrypted off-device backup", settingsSection, { settingsSection = it }) {
             // v2.1.0 (PM rating): the Google Drive backup
             // surface. The "WhatsApp-style" daily auto-backup
             // + cross-device restore. The user signs in to
@@ -605,14 +606,6 @@ fun SettingsSheet(
                 }
             }
 
-            val stuckCount by viewModel.stuckOutboxCount.collectAsStateWithLifecycle()
-            if (stuckCount > 0) {
-                StuckOutboxCard(
-                    count = stuckCount,
-                    onRetry = viewModel::retryStuckOutbox,
-                )
-            }
-
             // v2.0.2 (PM rating): the database-error banner.
             // Renders only when the preflight detected a
             // runtime DB open failure. The CTA is the
@@ -647,6 +640,8 @@ fun SettingsSheet(
                 modifier = Modifier.padding(vertical = 4.dp),
             )
 
+            }
+            SettingsCategory("Display theme", "Follow your phone, light or dark", settingsSection, { settingsSection = it }) {
             // v2.0 (Tier 1.4): the theme switcher. A segmented
             // button row that maps `ThemeMode` to the user's
             // choice (System / Light / Dark). The selection
@@ -668,6 +663,8 @@ fun SettingsSheet(
                 modifier = Modifier.padding(vertical = 4.dp),
             )
 
+            }
+            SettingsCategory("Export & restore", "Save a copy or move to another phone", settingsSection, { settingsSection = it }) {
             // v2.0 (Tier 1.1 + 1.7): the Data section. Three
             // rows: Export encrypted vault (opens a sheet that
             // collects a passphrase), Import encrypted vault
@@ -844,6 +841,20 @@ fun SettingsSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            }
+            SettingsCategory("About & support", "Updates, app information and help", settingsSection, { settingsSection = it }) {
+            PrivacyRow(
+                label = stringResource(R.string.settings_changelog),
+                value = "v${viewModel.appVersion.name} (build ${viewModel.appVersion.code})",
+                explainer = stringResource(R.string.settings_changelog_explainer),
+                onClick = onOpenChangelog,
+            )
+            PrivacyRow(
+                label = stringResource(R.string.settings_about),
+                value = "v${viewModel.appVersion.name}",
+                explainer = stringResource(R.string.settings_about_explainer),
+                onClick = onOpenAbout,
+            )
             // v1.9.0 (PROD-READINESS-P3-P1-#3): the
             // "Check for updates" row. The tap
             // calls [viewModel.checkForUpdates]
@@ -1178,6 +1189,9 @@ fun SettingsSheet(
             )
             Spacer(Modifier.height(8.dp))
 
+            }
+            if (com.kaavalan.note.BuildConfig.DEBUG) {
+            SettingsCategory("Development tools", "Sample records for testing — debug builds only", settingsSection, { settingsSection = it }) {
             // v1.6.2: developer section. Only shown in debug
             // builds. The "Load test data" button calls
             // [SettingsViewModel.loadFixture], which delegates to
@@ -1320,6 +1334,9 @@ fun SettingsSheet(
                 modifier = Modifier.padding(vertical = 4.dp),
             )
 
+            }
+            }
+            SettingsCategory("Erase local data", "Remove all records from this phone", settingsSection, { settingsSection = it }) {
             Text(
                 text = stringResource(R.string.settings_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
@@ -1354,6 +1371,7 @@ fun SettingsSheet(
                         stringResource(R.string.settings_sign_out)
                     },
                 )
+            }
             }
             Spacer(Modifier.height(24.dp))
         }
