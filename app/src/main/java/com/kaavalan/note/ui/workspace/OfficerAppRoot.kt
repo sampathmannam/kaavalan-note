@@ -318,6 +318,7 @@ internal fun OfficerAppRoot(
             contactSyncService = workspace.contactSyncService,
             onPicked = { name, phone -> workspace.importContact(name, phone) { showImportContact = false } },
             onDismiss = { showImportContact = false },
+            isSaving = workspaceBusy,
         )
     }
     if (showSettings) {

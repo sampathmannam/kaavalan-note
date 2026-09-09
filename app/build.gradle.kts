@@ -372,8 +372,10 @@ android {
         // Notification taps open the matching instruction, and unique
         // WorkManager work survives app restarts without duplicate alerts.
         // versionCode 48 -> 49.
-        versionCode = 49
-        versionName = "2.4.0"
+        // v2.4.1: complete, searchable phone-contact import and permission recovery.
+        // Same application ID and database schema; versionCode 49 -> 50.
+        versionCode = 50
+        versionName = "2.4.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // v2.2.2 (test-infra): wipe app state between instrumented
         // tests. Without this the six device tests share one Room

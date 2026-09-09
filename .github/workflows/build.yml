@@ -385,16 +385,25 @@ jobs:
 
       - name: Check for the test emulator
         id: device_check
+        env:
+          EXPECTED_AVD: ${{ vars.KAAVALAN_CI_AVD_NAME || 'kaavalan-test' }}
         run: |
-          set +e
+          set -euo pipefail
           adb devices -l
-          SERIAL=$(adb devices | awk '$1 ~ /^emulator-/ && $2 == "device" { print $1; exit }')
+          SERIAL=""
+          while read -r CANDIDATE; do
+            AVD_NAME=$(adb -s "$CANDIDATE" shell getprop ro.boot.qemu.avd_name | tr -d '\r')
+            if [ "$AVD_NAME" = "$EXPECTED_AVD" ]; then
+              SERIAL="$CANDIDATE"
+              break
+            fi
+          done < <(adb devices | awk '$1 ~ /^emulator-/ && $2 == "device" { print $1 }')
           if [ -n "$SERIAL" ]; then
             echo "Selected test emulator: $SERIAL"
             echo "attached=true" >> "$GITHUB_OUTPUT"
             echo "serial=$SERIAL" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::No Android emulator connected to the self-hosted runner. "\
+            echo "::warning::The designated AVD ($EXPECTED_AVD) is not connected. "\
                   "Skipping the connectedAndroidTest job. The androidTest classes "\
                   "still compile in CI; start the dedicated AVD to drive-verify."
             echo "attached=false" >> "$GITHUB_OUTPUT"
@@ -439,7 +448,8 @@ jobs:
         if: steps.device_check.outputs.attached == 'true'
         env:
           ANDROID_SERIAL: ${{ steps.device_check.outputs.serial }}
-        run: ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace -PBATON_SUPABASE_URL=https://placeholder.supabase.co -PBATON_SUPABASE_ANON_KEY=placeholder-anon-key-for-ci-only
+        # Synthetic contact tests must use the same isolated package as local QA.
+        run: ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace -Pkaavalan.enableReleaseSigning=false -Pkaavalan.debugApplicationIdSuffix=.debug.officer -PBATON_SUPABASE_URL=https://placeholder.supabase.co -PBATON_SUPABASE_ANON_KEY=placeholder-anon-key-for-ci-only
 
       # Gradle's console prints only the assertion message and one
       # library frame for a failed instrumented test -- not the frame
