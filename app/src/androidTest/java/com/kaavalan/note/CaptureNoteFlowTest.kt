@@ -23,15 +23,15 @@ class CaptureNoteFlowTest {
         android.util.Log.d("OfficerAcceptance", "Personal note saved")
         composeRule.waitUntil(15_000) { composeRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithText(text).performClick()
-        composeRule.onNodeWithTag("detail_done").performScrollTo().performClick()
+        composeRule.onNodeWithTag("detail_done").assertIsDisplayed().performClick()
         composeRule.waitUntil(15_000) { composeRule.onAllNodesWithText("Instruction").fetchSemanticsNodes().isEmpty() }
         composeRule.onNodeWithTag("nav_home").performClick()
-        composeRule.onNodeWithText("Closed").performScrollTo().performClick()
+        composeRule.onNodeWithText("Closed").assertIsDisplayed().performClick()
         composeRule.waitUntil(15_000) { composeRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithText(text).performClick()
-        composeRule.onNodeWithTag("detail_reopen").performScrollTo().performClick()
+        composeRule.onNodeWithTag("detail_reopen").assertIsDisplayed().performClick()
         composeRule.waitUntil(15_000) { composeRule.onAllNodesWithText("Instruction").fetchSemanticsNodes().isEmpty() }
-        composeRule.onNodeWithText("All open").performScrollTo().performClick()
+        composeRule.onNodeWithText("All open").assertIsDisplayed().performClick()
         composeRule.waitUntil(15_000) { composeRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithText(text).assertIsDisplayed()
         } catch (failure: Throwable) {

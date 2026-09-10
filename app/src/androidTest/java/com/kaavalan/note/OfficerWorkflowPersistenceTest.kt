@@ -46,9 +46,10 @@ class OfficerWorkflowPersistenceTest {
         compose.activityRule.scenario.recreate()
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("workspace_title").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("nav_home").performClick()
-        compose.onNodeWithTag("filter_RECEIVED").performScrollTo().performClick()
+        compose.onNodeWithText("All responsibilities").performClick()
+        compose.onNodeWithTag("filter_INCOMING").performClick()
         compose.onNodeWithText(text).performClick()
-        compose.onNodeWithTag("detail_done").performScrollTo().performClick()
+        compose.onNodeWithTag("detail_done").assertIsDisplayed().performClick()
         compose.waitUntil(15_000) {
             runBlocking { graph.instructions().getById(item.id)?.status == "DONE" } &&
                 work.getWorkInfosForUniqueWork(workName).get().all { it.state.isFinished }

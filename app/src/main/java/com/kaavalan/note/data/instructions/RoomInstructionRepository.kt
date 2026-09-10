@@ -120,6 +120,8 @@ open class RoomInstructionRepository @Inject constructor(
         audienceIsBroadcast = audience?.isBroadcast ?: false,
         dueAtMs = dueAtMs,
         channel = channel,
+        deadlineAtMs = deadlineAtMs,
+        updatesJson = InstructionJournal.encode(updates),
     )
 
     /**
@@ -531,4 +533,6 @@ internal fun InstructionEntity.toDomain(): Instruction = Instruction(
     audience = audienceFromColumns(audienceKind, audienceTarget, audienceLabel),
     dueAtMs = dueAtMs,
     channel = channel,
+    deadlineAtMs = deadlineAtMs,
+    updates = InstructionJournal.decode(updatesJson),
 )

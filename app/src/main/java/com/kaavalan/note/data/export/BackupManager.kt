@@ -97,7 +97,7 @@ class BackupManager @Inject constructor(
             // v1.8.0: schema version. Bump on any non-backwards-
             // compatible change. Restore reads each top-level
             // key defensively so older backups still restore.
-            put("schema_version", 2)
+            put("schema_version", 3)
             put("created_at", System.currentTimeMillis())
             put("people", snap.people.toPersonJsonArray())
             put("instructions", snap.instructions.toInstructionJsonArray())
@@ -218,6 +218,10 @@ private fun List<InstructionEntity>.toInstructionJsonArray(): JSONArray = JSONAr
             put("case_type", i.caseType)
             put("urgency", i.urgency)
             put("review_at_epoch_day", i.reviewAtEpochDay)
+            put("audience_kind", i.audienceKind); put("audience_target", i.audienceTarget)
+            put("audience_label", i.audienceLabel); put("audience_is_broadcast", i.audienceIsBroadcast)
+            put("due_at_ms", i.dueAtMs); put("channel", i.channel)
+            put("deadline_at_ms", i.deadlineAtMs); put("updates_json", i.updatesJson)
         })
     }
 }
@@ -319,6 +323,14 @@ private fun JSONObject.toInstructionEntity(): InstructionEntity = InstructionEnt
     caseType = optStringOrNull("case_type"),
     urgency = optString("urgency", "normal"),
     reviewAtEpochDay = optLongOrNull("review_at_epoch_day"),
+    audienceKind = optStringOrNull("audience_kind"),
+    audienceTarget = optStringOrNull("audience_target"),
+    audienceLabel = optStringOrNull("audience_label"),
+    audienceIsBroadcast = optBoolean("audience_is_broadcast", false),
+    dueAtMs = optLongOrNull("due_at_ms"),
+    channel = optStringOrNull("channel"),
+    deadlineAtMs = optLongOrNull("deadline_at_ms"),
+    updatesJson = optString("updates_json", "[]").also { com.kaavalan.note.data.instructions.InstructionJournal.decode(it) },
 )
 
 private fun JSONObject.toTagEntity(): TagEntity = TagEntity(

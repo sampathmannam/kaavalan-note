@@ -85,6 +85,8 @@ fun PersonDetailScreen(
     onBack: () -> Unit,
     onOpenLinkedPerson: (String) -> Unit = {},
     onCaptureForPerson: ((String) -> Unit)? = null,
+    onOpenInstruction: ((String) -> Unit)? = null,
+    onEditContact: (() -> Unit)? = null,
     viewModel: PersonDetailViewModel = hiltViewModel(),
 ) {
     // Hilt's SavedStateHandle lets the VM pick up the `personId`
@@ -128,6 +130,7 @@ fun PersonDetailScreen(
                         )
                     }
                 },
+                actions = { if (onEditContact != null) TextButton(onClick = onEditContact, enabled = !busy) { Text("Edit contact") } },
             )
         },
     ) { padding ->
@@ -154,7 +157,11 @@ fun PersonDetailScreen(
                 onRequestInstructionSensitive = { ins -> sensitiveToggleId = ins.id },
                 onOpenPersonSensitive = { showPersonSensitive = true },
                 onAddInstruction = { onCaptureForPerson?.invoke(personId) ?: run { showAddInstruction = true } },
-                onOpenInstruction = { selectedId = it },
+                onOpenInstruction = { id ->
+                    // Legacy sensitive records remain explicitly accessible from their own contact.
+                    if (s.instructions.firstOrNull { it.id == id }?.isSensitive == true || onOpenInstruction == null) selectedId = id
+                    else onOpenInstruction(id)
+                },
                 onOpenLinkedPerson = onOpenLinkedPerson,
             )
         }
@@ -352,7 +359,7 @@ private fun PersonTimeline(
                     label = { Text("Closed") })
             }
         }
-        if (instructions.isEmpty()) {
+        if (instructions.none { it.isClosed == showClosed }) {
             item {
                 Box(
                     modifier = Modifier
@@ -361,7 +368,7 @@ private fun PersonTimeline(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = stringResource(R.string.person_detail_empty),
+                        text = if (showClosed) "No closed instructions for this contact. Completed work will stay here." else "No open instructions for this contact.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -724,7 +731,7 @@ private fun PersonSensitiveDialog(
 @Composable
 private fun StatusChip(status: Status) {
     val (bg, fg) = when (status) {
-        Status.OPEN, Status.IN_PROGRESS, Status.ACK_PENDING, Status.WAITING_ON_OTHER ->
+        Status.OPEN, Status.IN_PROGRESS, Status.ACK_PENDING, Status.WAITING_ON_OTHER, Status.REPORTED_DONE ->
             MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
         Status.DONE ->
             MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant

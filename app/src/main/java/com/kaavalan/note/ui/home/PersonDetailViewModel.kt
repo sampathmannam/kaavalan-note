@@ -132,6 +132,9 @@ class PersonDetailViewModel @Inject constructor(
             completedAt = completedAt,
             droppedReason = droppedReason,
             dueAtMs = dueAtMs,
+            deadlineAtMs = deadlineAtMs,
+            updates = com.kaavalan.note.data.instructions.InstructionJournal.decode(updatesJson),
+            audience = com.kaavalan.note.data.instructions.audienceFromColumns(audienceKind, audienceTarget, audienceLabel),
         )
 
     /**

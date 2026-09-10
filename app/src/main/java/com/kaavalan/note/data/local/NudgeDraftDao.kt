@@ -28,6 +28,10 @@ interface NudgeDraftDao {
     @Query("UPDATE nudge_drafts SET status = 'SENT', sentVia = :sentVia, sentAt = :sentAt WHERE id = :id")
     suspend fun markSent(id: String, sentVia: String, sentAt: String)
 
+    // Legacy column names retained; for COPIED / SHARE_OPENED this is the preparation timestamp, not delivery.
+    @Query("UPDATE nudge_drafts SET status = :status, sentVia = :action, sentAt = :at WHERE id = :id")
+    suspend fun recordPreparation(id: String, status: String, action: String, at: String)
+
     @Query("UPDATE nudge_drafts SET status = 'CANCELLED' WHERE id = :id")
     suspend fun cancel(id: String)
 }

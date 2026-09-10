@@ -33,7 +33,7 @@ class WorkspaceViewModelTest {
             every { people.observeAllInMode("visible") } returns flowOf(listOf(visible))
             every { people.observeAllInMode("hidden") } returns flowOf(listOf(hidden))
             every { dao.observeAll() } returns flowOf(listOf(entity("v", "visible"), entity("h", "hidden")))
-            val vm = WorkspaceViewModel(dao, people, mockk(), mockk(), vault, mockk(), users()).also { model = it }
+            val vm = WorkspaceViewModel(dao, people, mockk(), mockk(), vault, mockk(), users(), mockk()).also { model = it }
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect() }
             advanceUntilIdle()
             assertEquals(listOf("v"), vm.state.value.instructions.map { it.id })
@@ -59,9 +59,10 @@ class WorkspaceViewModelTest {
             val people = mockk<RoomPersonRepository>()
             every { people.observeAllInMode(any()) } returns flowOf(emptyList())
             val repo = mockk<RoomInstructionRepository>()
-            coEvery { repo.markDone("note") } throws IllegalStateException("database busy")
+            val workflow = mockk<com.kaavalan.note.data.instructions.InstructionWorkflow>()
+            coEvery { workflow.complete("note") } throws IllegalStateException("database busy")
             val reminders = mockk<ReminderManager>(relaxed = true)
-            val vm = WorkspaceViewModel(dao, people, repo, reminders, VaultModeHolder(), mockk(), users()).also { model = it }
+            val vm = WorkspaceViewModel(dao, people, repo, reminders, VaultModeHolder(), mockk(), users(), workflow).also { model = it }
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect() }
             advanceUntilIdle()
             var dismissed = false
@@ -90,7 +91,7 @@ class WorkspaceViewModelTest {
                 every { observeAllInMode(any()) } returns flowOf(emptyList())
             }
             val vault = VaultModeHolder().apply { setMode(VaultMode.Hidden) }
-            val vm = WorkspaceViewModel(dao, people, mockk(), mockk(), vault, mockk(), users()).also { model = it }
+            val vm = WorkspaceViewModel(dao, people, mockk(), mockk(), vault, mockk(), users(), mockk()).also { model = it }
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect() }
             advanceUntilIdle()
             var successes = 0
@@ -118,7 +119,7 @@ class WorkspaceViewModelTest {
                 every { observeAllInMode(any()) } returns flowOf(emptyList())
             }
             coEvery { people.createContact(any(), any(), any(), any(), any(), any()) } throws IllegalStateException()
-            val vm = WorkspaceViewModel(dao, people, mockk(), mockk(), VaultModeHolder(), mockk(), users()).also { model = it }
+            val vm = WorkspaceViewModel(dao, people, mockk(), mockk(), VaultModeHolder(), mockk(), users(), mockk()).also { model = it }
             var dismissed = false
             vm.importContact("Officer", "5550100") { dismissed = true }
             advanceUntilIdle()

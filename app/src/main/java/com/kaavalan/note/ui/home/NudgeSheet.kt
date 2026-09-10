@@ -10,6 +10,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -77,6 +81,8 @@ fun NudgeSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -86,6 +92,8 @@ fun NudgeSheet(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Text("Copying or opening Share does not confirm delivery. Record any reply in the instruction’s updates.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             // v1.1: tone selector. v1.0 had one fixed template;
             // the user wanted to switch to a more urgent tone for
             // a stalling OUTGOING. Three tones mirror the cloud
@@ -120,9 +128,10 @@ fun NudgeSheet(
                     )
                 }
             }
-            val current = draft
+            // Never render a draft from the previously opened instruction while this one loads.
+            val current = draft?.takeIf { it.instructionId == instruction.id }
             if (current != null) {
-                var text by remember(current.id) { mutableStateOf(current.draftText) }
+                var text by remember(current.id, current.draftText) { mutableStateOf(current.draftText) }
                 OutlinedTextField(
                     value = text,
                     onValueChange = {
@@ -131,7 +140,7 @@ fun NudgeSheet(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(160.dp),
+                        .heightIn(min = 160.dp, max = 240.dp),
                     label = { Text(stringResource(R.string.nudge_message_label)) },
                 )
                 Spacer(Modifier.height(4.dp))
@@ -141,7 +150,7 @@ fun NudgeSheet(
                             val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             val clipboardLabel = context.getString(R.string.nudge_clipboard_label)
                             cm.setPrimaryClip(ClipData.newPlainText(clipboardLabel, text))
-                            scope.launch { viewModel.markSent(current.id, "COPY") }
+                            viewModel.recordPreparation(current.id, "COPY")
                             onDismiss()
                         },
                         modifier = Modifier.weight(1f),
@@ -159,7 +168,7 @@ fun NudgeSheet(
                             // v1.1: "WHATSAPP" is misleading because
                             // the share intent can route to any
                             // app. Use a generic "SHARE" tag.
-                            scope.launch { viewModel.markSent(current.id, "SHARE") }
+                            viewModel.recordPreparation(current.id, "SHARE")
                             onDismiss()
                         },
                         modifier = Modifier.weight(1f),
@@ -183,13 +192,16 @@ class NudgeSheetViewModel @Inject constructor(
 
     private val _draft = MutableStateFlow<NudgeDraft?>(null)
     val draft: StateFlow<NudgeDraft?> = _draft.asStateFlow()
+    private var draftJob: kotlinx.coroutines.Job? = null
 
     fun ensureDraft(
         instruction: Instruction,
         person: Person?,
         tone: com.kaavalan.note.data.nudge.Tone = com.kaavalan.note.data.nudge.Tone.POLITE,
     ) {
-        viewModelScope.launch {
+        draftJob?.cancel()
+        _draft.value = null
+        draftJob = viewModelScope.launch {
             // Reuse the most recent live draft for this instruction
             // if one exists, otherwise generate a new one.
             val existing = generator.observeFor(instruction.id).first()
@@ -217,5 +229,9 @@ class NudgeSheetViewModel @Inject constructor(
 
     fun markSent(id: String, sentVia: String) {
         viewModelScope.launch { generator.markSent(id, sentVia) }
+    }
+
+    fun recordPreparation(id: String, action: String) {
+        viewModelScope.launch { generator.recordPreparation(id, action) }
     }
 }

@@ -13,6 +13,11 @@ class ReminderManager @Inject constructor(
 ) {
     suspend fun update(instructionId: String, reminderAtMs: Long?) {
         instructionRepository.setDueChip(instructionId, reminderAtMs)
+        scheduleSaved(instructionId, reminderAtMs)
+    }
+
+    /** Used after an atomic journal + reminder write. Does not change the persisted record. */
+    fun scheduleSaved(instructionId: String, reminderAtMs: Long?) {
         if (reminderAtMs == null) {
             scheduler.cancel(instructionId)
             notifier.dismiss(instructionId)

@@ -52,12 +52,13 @@ class PlainExporter @Inject constructor(
             ))).append("\n")
         }
         val instructions = StringBuilder()
-        instructions.append("id,person_id,direction,status,source,priority,title,raw_text,due_at,captured_at,created_at,updated_at,next_action_at\n")
+        instructions.append("id,person_id,direction,status,source,priority,title,raw_text,due_at,captured_at,created_at,updated_at,next_action_at,deadline_at_ms,updates_json,due_at_ms\n")
         snap.instructions.forEach { i ->
             instructions.append(joinCsv(listOf(
                 i.id, i.personId.orEmpty(), i.direction, i.status, i.source, i.priority,
                 i.title, i.rawText, i.dueAt.orEmpty(), i.capturedAt, i.createdAt,
                 i.updatedAt, i.nextActionAt?.toString().orEmpty(),
+                i.deadlineAtMs?.toString().orEmpty(), i.updatesJson, i.dueAtMs?.toString().orEmpty(),
             ))).append("\n")
         }
         val tags = StringBuilder()
@@ -92,6 +93,11 @@ class PlainExporter @Inject constructor(
                 put("created_at", i.createdAt); put("updated_at", i.updatedAt)
                 put("next_action_at", i.nextActionAt)
                 put("completed_at", i.completedAt); put("dropped_reason", i.droppedReason)
+                put("deadline_at_ms", i.deadlineAtMs); put("updates_json", i.updatesJson)
+                put("due_at_ms", i.dueAtMs); put("channel", i.channel)
+                put("audience_kind", i.audienceKind); put("audience_target", i.audienceTarget)
+                put("audience_label", i.audienceLabel); put("audience_is_broadcast", i.audienceIsBroadcast)
+                put("is_sensitive", i.isSensitive)
             })
         }
         val tagArr = JSONArray()

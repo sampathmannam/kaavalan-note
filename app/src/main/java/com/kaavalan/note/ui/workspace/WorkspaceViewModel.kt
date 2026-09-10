@@ -38,6 +38,7 @@ class WorkspaceViewModel @Inject constructor(
     vault: VaultModeHolder,
     val contactSyncService: com.kaavalan.note.data.person.ContactSyncService,
     userDao: com.kaavalan.note.data.user.UserDao,
+    private val workflow: com.kaavalan.note.data.instructions.InstructionWorkflow,
 ) : ViewModel() {
     val deviceOwnerName = userDao.observeDeviceOwner().map { it?.displayName.orEmpty() }
         .catch { emit("") }
@@ -45,6 +46,8 @@ class WorkspaceViewModel @Inject constructor(
     private val reload = MutableStateFlow(0)
     private val events = Channel<String>(Channel.BUFFERED)
     val messages = events.receiveAsFlow()
+    private val completions = Channel<com.kaavalan.note.data.instructions.CompletionUndo>(Channel.BUFFERED)
+    val completed = completions.receiveAsFlow()
     private val _busy = MutableStateFlow(false)
     val busy = _busy.asStateFlow()
     val state = combine(vault.mode, reload) { mode, _ -> mode }.flatMapLatest { mode ->
@@ -66,28 +69,38 @@ class WorkspaceViewModel @Inject constructor(
 
     fun retry() { reload.value++ }
 
-    fun complete(id: String, onSuccess: () -> Unit) = mutate("Marked done", onSuccess) {
+    fun complete(id: String, onSuccess: () -> Unit) = mutate(null, onSuccess) {
         requireVisible(id)
-        instructions.markDone(id)
-        reminders.cancelDelivery(id)
+        completions.send(workflow.complete(id))
     }
+
+    fun undoComplete(undo: com.kaavalan.note.data.instructions.CompletionUndo) = mutate("Completion undone") {
+        workflow.undoCompletion(undo)
+    }
+
+    fun edit(id: String, text: String, direction: com.kaavalan.note.data.instructions.Direction, personId: String?, deadline: Long?, onSuccess: () -> Unit) =
+        mutate("Instruction saved", onSuccess) { workflow.edit(id, text, direction, personId, deadline) }
+
+    fun addUpdate(id: String, text: String, status: com.kaavalan.note.data.instructions.Status, followUp: Long?, onSuccess: () -> Unit) =
+        mutate("Update saved", onSuccess) { workflow.addUpdate(id, text, status, followUp) }
+
+    fun editContact(id: String, name: String, rank: String, station: String, phone: String, onSuccess: () -> Unit) =
+        mutate("Contact saved", onSuccess) { workflow.editContact(id, name, rank, station, phone) }
 
     fun close(id: String, onSuccess: () -> Unit) = mutate("Closed without action", onSuccess) {
         requireVisible(id)
-        instructions.markDropped(id, null)
-        reminders.cancelDelivery(id)
+        workflow.close(id)
     }
 
     fun reopen(id: String, onSuccess: () -> Unit) = mutate("Instruction reopened", onSuccess) {
-        val item = requireVisible(id)
-        instructions.reopen(id)
-        item.reminderMillis?.takeIf { it > System.currentTimeMillis() }?.let { reminders.update(id, it) }
+        requireVisible(id)
+        workflow.reopen(id)
     }
 
     fun remind(id: String, at: Long?) = mutate(if (at == null) "Reminder removed" else "Reminder updated") {
         requireVisible(id)
         require(at == null || at > System.currentTimeMillis())
-        reminders.update(id, at)
+        workflow.changeReminder(id, at)
     }
 
     fun addContact(name: String, designation: String?, station: String?, onSuccess: () -> Unit) = mutate("Contact added", onSuccess) {
@@ -101,14 +114,14 @@ class WorkspaceViewModel @Inject constructor(
 
     private fun requireVisible(id: String): Instruction = state.value.instructions.first { it.id == id }
 
-    private fun mutate(message: String, onSuccess: () -> Unit = {}, work: suspend () -> Unit) {
+    private fun mutate(message: String?, onSuccess: () -> Unit = {}, work: suspend () -> Unit) {
         if (_busy.value) return
         _busy.value = true
         viewModelScope.launch {
             try {
                 work()
                 onSuccess()
-                events.trySend(message)
+                message?.let { events.trySend(it) }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {

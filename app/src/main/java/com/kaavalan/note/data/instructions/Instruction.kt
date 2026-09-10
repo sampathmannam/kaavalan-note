@@ -46,6 +46,8 @@ data class Instruction(
     @SerialName("due_at_ms") val dueAtMs: Long? = null,
     // v2.0 (Hierarchy): outbound delivery channel.
     @SerialName("channel") val channel: String? = null,
+    val deadlineAtMs: Long? = null,
+    val updates: List<InstructionUpdate> = emptyList(),
 )
 
 /** Wire values match the `instruction_direction` Postgres enum. */
@@ -57,6 +59,7 @@ enum class Status {
     ACK_PENDING,
     IN_PROGRESS,
     WAITING_ON_OTHER,
+    REPORTED_DONE,
     DONE,
     CARRIED_OVER,
     DROPPED,

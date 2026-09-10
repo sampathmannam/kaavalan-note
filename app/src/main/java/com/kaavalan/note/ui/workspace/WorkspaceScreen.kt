@@ -17,6 +17,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -30,7 +32,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /** Stateless destinations: actions are handled by the shell / view model, not nested screen VMs. */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun WorkspaceScreen(
     tab: WorkspaceTab,
@@ -48,7 +50,9 @@ fun WorkspaceScreen(
     onRetry: () -> Unit,
 ) {
     var query by rememberSaveable(tab) { mutableStateOf("") }
-    var filter by rememberSaveable { mutableStateOf(WorkFilter.OPEN) }
+    var filter by rememberSaveable { mutableStateOf(WorkFilter.ALL) }
+    var responsibility by rememberSaveable { mutableStateOf<Direction?>(null) }
+    var chooseResponsibility by remember { mutableStateOf(false) }
     Scaffold(
         contentWindowInsets = WindowInsets(0),
         topBar = {
@@ -86,11 +90,12 @@ fun WorkspaceScreen(
                 )
                 tab == WorkspaceTab.TODAY -> TodayDesk(state, date, busy, onCapture, onInstruction, onOpenInstructions, onComplete)
                 tab == WorkspaceTab.INSTRUCTIONS -> Column(Modifier.widthIn(max = 840.dp).fillMaxSize()) {
-                    WorkspaceSearch(query, { query = it }, "Search notes, contacts or stations")
-                    LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(WorkFilter.entries) { item ->
+                    WorkspaceSearch(query, { query = it }, "Search instructions and updates")
+                    FlowRow(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(WorkFilter.ALL, WorkFilter.OPEN, WorkFilter.CLOSED).forEach { item ->
                             FilterChip(modifier = Modifier.testTag("filter_${item.name}"), selected = filter == item,
                                 onClick = { filter = item }, label = { Text(when (item) {
+                                WorkFilter.ALL -> "All records"
                                 WorkFilter.OPEN -> "All open"
                                 WorkFilter.FOR_ME -> "For me"
                                 WorkFilter.ASSIGNED -> "Assigned"
@@ -99,17 +104,25 @@ fun WorkspaceScreen(
                             }) })
                         }
                     }
-                    val results = remember(state.instructions, state.contacts, filter, query) {
-                        filterWork(state.instructions, state.contacts, filter, query)
+                    Box(Modifier.padding(horizontal = 12.dp)) {
+                        TextButton(onClick = { chooseResponsibility = true }) { Text(responsibility?.officerLabel() ?: "All responsibilities") }
+                        DropdownMenu(chooseResponsibility, onDismissRequest = { chooseResponsibility = false }) {
+                            DropdownMenuItem(text = { Text("All responsibilities") }, onClick = { responsibility = null; chooseResponsibility = false })
+                            Direction.entries.forEach { direction -> DropdownMenuItem(text = { Text(direction.officerLabel()) },
+                                modifier = Modifier.testTag("filter_${direction.name}"), onClick = { responsibility = direction; chooseResponsibility = false }) }
+                        }
+                    }
+                    val results = remember(state.instructions, state.contacts, filter, query, responsibility) {
+                        filterWork(state.instructions, state.contacts, filter, query).filter { responsibility == null || it.direction == responsibility }
                     }
                     if (results.isEmpty()) {
                         EmptyWorkspace(
                             title = if (query.isNotBlank()) "No matching instructions" else if (filter == WorkFilter.CLOSED) "Nothing closed yet" else "A clear place for your work",
-                            body = if (query.isNotBlank()) "Try a name, station or a few words from the note."
+                            body = if (query.isNotBlank()) "No results in the selected scope. Try All records and All responsibilities, or a few different words."
                                 else if (filter == WorkFilter.CLOSED) "Completed and closed instructions stay here. You can reopen them at any time."
                                 else "Record a task for yourself, an instruction you gave, or one you received. A contact is optional.",
-                            action = if (query.isNotBlank()) "Clear search" else "New note",
-                            onAction = if (query.isNotBlank()) ({ query = "" }) else onCapture,
+                            action = if (query.isNotBlank()) "Reset search & filters" else "New note",
+                            onAction = if (query.isNotBlank()) ({ query = ""; filter = WorkFilter.ALL; responsibility = null }) else onCapture,
                             modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
                         )
                     } else {
@@ -136,6 +149,9 @@ private fun TodayDesk(
 ) {
     val work = remember(state.instructions, date) { todayWork(state.instructions, date, ZoneId.systemDefault()) }
     val focus = work.attention.firstOrNull()
+    var allFollowUps by rememberSaveable { mutableStateOf(false) }
+    var allAttention by rememberSaveable { mutableStateOf(false) }
+    var allUpcoming by rememberSaveable { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier.widthIn(max = 840.dp).fillMaxSize().testTag("today_list"),
         contentPadding = PaddingValues(20.dp, 0.dp, 20.dp, 24.dp),
@@ -164,6 +180,13 @@ private fun TodayDesk(
             item { GuidanceRow("Assigned by me", "Instructions to your team; a place to follow up.") }
             item { GuidanceRow("Received", "Instructions from a senior or another office.") }
         } else {
+            item { SectionHeading("Follow up", if (work.followUps.isEmpty()) "No follow-ups to check today" else "${work.followUps.size} to check · assigned work and replies you’re waiting for") }
+            items(if (allFollowUps) work.followUps else work.followUps.take(3), key = { "follow:${it.id}" }) { item ->
+                WorkCard(item, state.contacts, date, featured = item.id == work.followUps.firstOrNull()?.id, onClick = { onInstruction(item.id) })
+            }
+            if (work.followUps.size > 3) item { TextButton(onClick = { allFollowUps = !allFollowUps }) {
+                Text(if (allFollowUps) "Show fewer follow-ups" else "See all ${work.followUps.size} follow-ups")
+            } }
             item { SectionHeading("Your next action", if (focus == null) "Nothing requiring your action today" else "Start with one thing") }
             if (focus != null) {
                 item { WorkCard(focus, state.contacts, date, featured = true, onClick = { onInstruction(focus.id) },
@@ -173,28 +196,28 @@ private fun TodayDesk(
                     Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
                         Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Icon(Icons.Outlined.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
-                            Text("You have room to focus. Follow-ups and future reminders are kept below.", style = MaterialTheme.typography.bodyLarge)
+                            Text("No tasks for you today. Assigned work is in Follow up; future reminders are below.", style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                 }
             }
             if (work.attention.size > 1) {
                 item { SectionHeading("Also for you", "${work.attention.size - 1} more to consider") }
-                items(work.attention.drop(1), key = { "attention:${it.id}" }) { item ->
+                items(if (allAttention) work.attention.drop(1) else work.attention.drop(1).take(2), key = { "attention:${it.id}" }) { item ->
                     WorkCard(item, state.contacts, date, onClick = { onInstruction(item.id) })
                 }
             }
-            if (work.followUps.isNotEmpty()) {
-                item { SectionHeading("Follow up", "Instructions you assigned or are waiting on") }
-                items(work.followUps, key = { "follow:${it.id}" }) { item ->
-                    WorkCard(item, state.contacts, date, onClick = { onInstruction(item.id) })
-                }
-            }
+            if (work.attention.size > 3) item { TextButton(onClick = { allAttention = !allAttention }) {
+                Text(if (allAttention) "Show fewer tasks" else "See all ${work.attention.size} tasks for you")
+            } }
             if (work.upcoming.isNotEmpty()) {
                 item { SectionHeading("Coming up", "Reminders after today") }
-                items(work.upcoming.take(3), key = { "future:${it.id}" }) { item ->
+                items(if (allUpcoming) work.upcoming else work.upcoming.take(3), key = { "future:${it.id}" }) { item ->
                     WorkCard(item, state.contacts, date, onClick = { onInstruction(item.id) })
                 }
+                if (work.upcoming.size > 3) item { TextButton(onClick = { allUpcoming = !allUpcoming }) {
+                    Text(if (allUpcoming) "Show fewer upcoming" else "See all ${work.upcoming.size} upcoming")
+                } }
             }
             if (work.completed.isNotEmpty()) {
                 item { GuidanceRow("${work.completed.size} completed today", "Your completed work stays in Instructions → Closed.") }
@@ -248,17 +271,20 @@ fun WorkCard(
                 val day = java.time.Instant.ofEpochMilli(reminder).atZone(ZoneId.systemDefault()).toLocalDate()
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.Schedule, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text((if (day < date && !instruction.isClosed) "Carried over · " else "") + formatReminderTime(reminder),
+                    Text((if (day < date && !instruction.isClosed) "Carried over · " else "Follow-up · ") + formatReminderTime(reminder),
                         style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            if (instruction.isClosed) Text(instruction.status.officerLabel(), style = MaterialTheme.typography.labelLarge,
+            instruction.deadlineAtMs?.let { Text("Deadline · ${formatReminderTime(it)}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (instruction.status != com.kaavalan.note.data.instructions.Status.OPEN) Text(instruction.status.officerLabel(), style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+            instruction.updates.lastOrNull()?.let { update -> Text("Latest · ${update.text}", maxLines = 2, overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             if (onDone != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onDone, enabled = !busy, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Outlined.Check, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Mark done")
                 }
-                TextButton(onClick = onClick, modifier = Modifier.weight(1f)) { Text("View / remind") }
+                TextButton(onClick = onClick, modifier = Modifier.weight(1f)) { Text("Open") }
             }
         }
     }
@@ -273,7 +299,7 @@ private fun ContactsDirectory(state: WorkspaceState, query: String, onQuery: (St
     LazyColumn(Modifier.widthIn(max = 840.dp).fillMaxSize().testTag("contacts_list"),
         contentPadding = PaddingValues(bottom = 20.dp)) {
         item {
-        Text("Your officers, staff and other work contacts. Link instructions to see each person’s follow-ups in one place.",
+        if (state.contacts.isEmpty()) Text("Your officers, staff and other work contacts. Link instructions to see each person’s follow-ups in one place.",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
         WorkspaceSearch(query, onQuery, "Search name, rank or station")
@@ -281,7 +307,7 @@ private fun ContactsDirectory(state: WorkspaceState, query: String, onQuery: (St
             Text("Import from phone contacts")
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("${state.contacts.size} ${if (state.contacts.size == 1) "contact" else "contacts"}",
+            Text("${contacts.size} ${if (contacts.size == 1) "contact" else "contacts"}",
                 style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
             TextButton(onClick = onAddContact, modifier = Modifier.testTag("add_contact")) { Icon(Icons.Outlined.PersonAdd, null, Modifier.size(18.dp));
                 Spacer(Modifier.width(8.dp)); Text("Add contact") }
@@ -331,7 +357,7 @@ private fun WorkspaceSearch(query: String, onQuery: (String) -> Unit, hint: Stri
 
 @Composable
 private fun SectionHeading(title: String, subtitle: String? = null) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(Modifier.semantics { heading() }, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
