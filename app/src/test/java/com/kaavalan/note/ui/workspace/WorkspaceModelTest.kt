@@ -11,6 +11,23 @@ class WorkspaceModelTest {
     private val date = LocalDate.parse("2026-09-08")
     private val zone = ZoneId.of("Asia/Kolkata")
     private val contact = Person("p1", "Ravi Kumar", "SI", "North station", null)
+
+    @Test fun `search all records includes closed updates while open scope does not`() {
+        val closed = note("closed", status = Status.DONE).copy(updates = listOf(InstructionUpdate("u", "2026-09-08T10:00:00Z", "Wireless confirmation received", "IN_PROGRESS", null)))
+        assertEquals(listOf(closed), filterWork(listOf(closed), emptyList(), WorkFilter.ALL, "wireless"))
+        assertTrue(filterWork(listOf(closed), emptyList(), WorkFilter.OPEN, "wireless").isEmpty())
+    }
+
+    @Test fun `deadline today and reported completion stay visible despite a future reminder`() {
+        val future = date.plusDays(2).atStartOfDay(zone).toInstant().toEpochMilli()
+        val deadline = date.atStartOfDay(zone).toInstant().toEpochMilli()
+        val assigned = note("deadline", Direction.OUTGOING).copy(deadlineAtMs = deadline, dueAtMs = future)
+        val reported = note("verify", status = Status.REPORTED_DONE).copy(dueAtMs = future)
+        val work = todayWork(listOf(assigned, reported), date, zone)
+        assertEquals(setOf("deadline", "verify"), work.followUps.map { it.id }.toSet())
+        assertTrue(work.upcoming.isEmpty())
+        assertFalse(reported.isClosed)
+    }
     private fun note(id: String, direction: Direction = Direction.SELF, due: String? = null,
         status: Status = Status.OPEN, person: String? = null) =
         Instruction(id, person, direction, status, Source.TEXT, Priority.NORMAL, "Review patrol plan",
@@ -57,7 +74,7 @@ class WorkspaceModelTest {
 
     @Test fun `all categories include every matching lifecycle state`() {
         val items = Status.entries.map { note(it.name, status = it) }
-        assertEquals(5, filterWork(items, emptyList(), WorkFilter.OPEN, "").size)
+        assertEquals(6, filterWork(items, emptyList(), WorkFilter.OPEN, "").size)
         assertEquals(2, filterWork(items, emptyList(), WorkFilter.CLOSED, "").size)
         assertTrue(filterWork(items, emptyList(), WorkFilter.ASSIGNED, "").isEmpty())
     }

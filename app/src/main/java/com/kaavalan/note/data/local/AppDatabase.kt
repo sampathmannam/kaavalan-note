@@ -117,7 +117,7 @@ import com.kaavalan.note.data.user.UserEntity
     // v2.0 (Hierarchy): v16 adds the audience + due chip +
     // channel columns on `instructions` and the new
     // `delivery_receipts` table.
-    version = 16,
+    version = 17,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -140,6 +140,15 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         const val NAME = "kaavalan-note.db"
+
+        val MIGRATION_16_17: Migration = object : Migration(16, 17) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE instructions ADD COLUMN deadlineAtMs INTEGER")
+                db.execSQL("ALTER TABLE instructions ADD COLUMN updatesJson TEXT NOT NULL DEFAULT '[]'")
+                db.execSQL("UPDATE nudge_drafts SET status = 'COPIED' WHERE status = 'SENT' AND sentVia = 'COPY'")
+                db.execSQL("UPDATE nudge_drafts SET status = 'SHARE_OPENED' WHERE status = 'SENT' AND sentVia = 'SHARE'")
+            }
+        }
 
         /**
          * v1.4.2 (DATA-FINDING-04): add the UNIQUE INDEX on

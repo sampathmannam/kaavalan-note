@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -59,6 +60,7 @@ import com.kaavalan.note.ui.privacy.RecoveryPhraseScreen
 import com.kaavalan.note.ui.privacy.ThreatModelScreen
 import com.kaavalan.note.ui.settings.SettingsSheet
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
 
 @Composable
 internal fun OfficerAppRoot(
@@ -78,6 +80,9 @@ internal fun OfficerAppRoot(
     val workspaceBusy by workspace.busy.collectAsStateWithLifecycle()
     var selectedInstructionId by rememberSaveable { mutableStateOf<String?>(null) }
     var showAddContact by rememberSaveable { mutableStateOf(false) }
+    var editContactId by rememberSaveable { mutableStateOf<String?>(null) }
+    var shareInstructionId by rememberSaveable { mutableStateOf<String?>(null) }
+    var privacyInstructionId by rememberSaveable { mutableStateOf<String?>(null) }
     var showImportContact by rememberSaveable { mutableStateOf(false) }
     var today by remember { mutableStateOf(java.time.LocalDate.now()) }
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
@@ -97,6 +102,13 @@ internal fun OfficerAppRoot(
         .collectAsStateWithLifecycle()
     val undoLabel = stringResource(R.string.undo)
     LaunchedEffect(workspace) { workspace.messages.collect { snackbarHostState.showSnackbar(it) } }
+    LaunchedEffect(workspace) {
+        workspace.completed.collectLatest { undo ->
+            snackbarHostState.currentSnackbarData?.dismiss()
+            if (snackbarHostState.showSnackbar("Marked done", actionLabel = "Undo", withDismissAction = true,
+                duration = SnackbarDuration.Long) == SnackbarResult.ActionPerformed) workspace.undoComplete(undo)
+        }
+    }
     LaunchedEffect(pendingReminderInstructionId, workspaceState) {
         val id = pendingReminderInstructionId ?: return@LaunchedEffect
         if (!workspaceState.loading && workspaceState.error == null) {
@@ -230,6 +242,8 @@ internal fun OfficerAppRoot(
                         onBack = { navController.popBackStack() },
                         onOpenLinkedPerson = { id -> navController.navigate("person/$id") },
                         onCaptureForPerson = capture::openForContact,
+                        onOpenInstruction = { selectedInstructionId = it },
+                        onEditContact = { editContactId = personId },
                     )
                 }
                 // v2.0 T3-2: recovery phrase screen. Reachable
@@ -299,10 +313,33 @@ internal fun OfficerAppRoot(
             onMarkDone = { workspace.complete(selectedInstruction.id) { selectedInstructionId = null } },
             onDrop = { workspace.close(selectedInstruction.id) { selectedInstructionId = null } },
             onReopen = { workspace.reopen(selectedInstruction.id) { selectedInstructionId = null } },
-            onReminderChanged = { workspace.remind(selectedInstruction.id, it) },
+            onReminderChanged = { if (it != null) onRequestNotificationsPermission(); workspace.remind(selectedInstruction.id, it) },
             busy = workspaceBusy,
             contactName = workspaceState.contacts.firstOrNull { it.id == selectedInstruction.personId }?.name,
+            contacts = workspaceState.contacts,
+            privateMode = workspaceState.hidden,
+            onEdit = { text, direction, personId, deadline, saved -> workspace.edit(selectedInstruction.id, text, direction, personId, deadline, saved) },
+            onAddUpdate = { text, status, followUp, saved ->
+                if (followUp != null) onRequestNotificationsPermission()
+                workspace.addUpdate(selectedInstruction.id, text, status, followUp, saved)
+            },
+            onShare = { shareInstructionId = selectedInstruction.id; selectedInstructionId = null },
+            onPrivacy = { privacyInstructionId = selectedInstruction.id; selectedInstructionId = null },
         )
+    }
+    workspaceState.contacts.firstOrNull { it.id == editContactId }?.let { person ->
+        EditContactSheet(person, workspaceBusy, { editContactId = null }) { name, rank, station, phone ->
+            workspace.editContact(person.id, name, rank, station, phone) { editContactId = null }
+        }
+    }
+    workspaceState.instructions.firstOrNull { it.id == shareInstructionId }?.let { item ->
+        com.kaavalan.note.ui.home.NudgeSheet(item, workspaceState.contacts.firstOrNull { it.id == item.personId }, { shareInstructionId = null })
+    }
+    workspaceState.instructions.firstOrNull { it.id == privacyInstructionId }?.let { item ->
+        androidx.compose.material3.AlertDialog(onDismissRequest = { privacyInstructionId = null },
+            title = { androidx.compose.material3.Text("Private instruction record") },
+            text = { androidx.compose.material3.Text("This instruction and its updates are stored in your encrypted local database. Updates are not sent to contacts. Share follow-up sends only the draft you review. Backups and exports may include this record.") },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { privacyInstructionId = null }) { androidx.compose.material3.Text("Got it") } })
     }
     if (showAddContact) {
         com.kaavalan.note.ui.home.AddPersonSheet(
@@ -415,6 +452,8 @@ private fun HomeScreenPersonDetail(
     onBack: () -> Unit,
     onOpenLinkedPerson: (String) -> Unit = {},
     onCaptureForPerson: ((String) -> Unit)? = null,
+    onOpenInstruction: (String) -> Unit,
+    onEditContact: () -> Unit,
 ) {
     val vm: com.kaavalan.note.ui.home.PersonDetailViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     com.kaavalan.note.ui.home.PersonDetailScreen(
@@ -422,6 +461,8 @@ private fun HomeScreenPersonDetail(
         onBack = onBack,
         onOpenLinkedPerson = onOpenLinkedPerson,
         onCaptureForPerson = onCaptureForPerson,
+        onOpenInstruction = onOpenInstruction,
+        onEditContact = onEditContact,
         viewModel = vm,
     )
 }

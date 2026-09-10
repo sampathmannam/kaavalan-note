@@ -190,6 +190,26 @@ class PlainImporterTest {
      * a `file://` URI. Robolectric's ContentResolver
      * can read these via FileProvider-equivalent paths.
      */
+    @Test fun `journal and independent dates survive both portable formats`() = runTest {
+        val journal = com.kaavalan.note.data.instructions.InstructionJournal.encode(listOf(
+            com.kaavalan.note.data.instructions.InstructionUpdate("update", "2026-09-10T01:00:00Z", "Called, confirmed\nதமிழ்", "IN_PROGRESS", 1800000000000L)))
+        val record = com.kaavalan.note.data.local.entities.InstructionEntity("note", null, "SELF", "IN_PROGRESS", "TEXT", "NORMAL",
+            "Review", "Review patrol deployment", null, "2026-09-10T01:00:00Z", "2026-09-10T01:00:00Z", "2026-09-10T01:00:00Z",
+            deadlineAtMs = 1810000000000L, dueAtMs = 1800000000000L, updatesJson = journal)
+        listOf("json", "csv").forEach { format ->
+            instructionDao.upsert(record)
+            val snapshot = exporter.snapshot()
+            val text = if (format == "json") exporter.toJson(snapshot) else exporter.toCsv(snapshot)
+            val uri = writeTestFile("journal.$format", text)
+            db.clearAllTables()
+            importer.importFromUri(uri).getOrThrow()
+            val restored = instructionDao.getById("note")!!
+            assertEquals(record.deadlineAtMs, restored.deadlineAtMs)
+            assertEquals(record.dueAtMs, restored.dueAtMs)
+            assertEquals(journal, restored.updatesJson)
+        }
+    }
+
     private fun writeTestFile(name: String, contents: String): Uri {
         val context = ApplicationProvider.getApplicationContext<Application>()
         val dir = java.io.File(context.cacheDir, "importer-test").apply { mkdirs() }

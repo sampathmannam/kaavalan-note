@@ -374,8 +374,11 @@ android {
         // versionCode 48 -> 49.
         // v2.4.1: complete, searchable phone-contact import and permission recovery.
         // Same application ID and database schema; versionCode 49 -> 50.
-        versionCode = 50
-        versionName = "2.4.1"
+        // v2.5.0: follow-up-first officer workspace, private instruction updates,
+        // independent deadlines and reminders, verification/Undo and contact editing.
+        // Same app identity; non-destructive database migration 16 -> 17.
+        versionCode = 51
+        versionName = "2.5.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // v2.2.2 (test-infra): wipe app state between instrumented
         // tests. Without this the six device tests share one Room

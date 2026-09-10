@@ -110,6 +110,12 @@ class BackupRoundTripTest {
             priority = "HIGH",
             title = "Send FIR 47",
             rawText = "Send FIR 47 to SP by Friday",
+            deadlineAtMs = 1799999999000L,
+            dueAtMs = 1789999999000L,
+            audienceKind = "PERSON", audienceTarget = "p1", audienceLabel = "DSP Srinagar",
+            channel = "SHARE",
+            updatesJson = com.kaavalan.note.data.instructions.InstructionJournal.encode(listOf(
+                com.kaavalan.note.data.instructions.InstructionUpdate("u1", "2026-08-15T10:00:00Z", "Called; report tomorrow. தமிழ்", "IN_PROGRESS", 1789999999000L))),
             dueAt = "2026-08-22T15:00:00+05:30",
             capturedAt = "2026-08-15T10:00:00Z",
             createdAt = "2026-08-15T10:00:00Z",

@@ -90,4 +90,8 @@ data class InstructionEntity(
     // v2.0 (Hierarchy): outbound delivery channel (SMS / WHATSAPP
     // / "SMS,WHATSAPP" for both). `null` = "no dispatch attempted".
     val channel: String? = null,
+    // v17: deadline is independent of the existing reminder pair. Historical notes have no deadline.
+    val deadlineAtMs: Long? = null,
+    // The journal belongs to this aggregate and is appended inside a Room transaction.
+    @androidx.room.ColumnInfo(defaultValue = "'[]'") val updatesJson: String = "[]",
 )

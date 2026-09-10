@@ -1,5 +1,8 @@
 package com.kaavalan.note.features.reminder
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -48,6 +51,9 @@ fun ReminderPicker(
     reminderAtMs: Long?,
     onSelected: (Long?) -> Unit,
     modifier: Modifier = Modifier,
+    title: String? = null,
+    supportingText: String? = null,
+    deadline: Boolean = false,
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
@@ -55,7 +61,7 @@ fun ReminderPicker(
     var showPastTimeMessage by remember { mutableStateOf(false) }
     val zone = remember { ZoneId.systemDefault() }
     val selectReminder: (Long?) -> Unit = { value ->
-        if (value != null && value <= System.currentTimeMillis()) {
+        if (!deadline && value != null && value <= System.currentTimeMillis()) {
             showPastTimeMessage = true
         } else {
             showPastTimeMessage = false
@@ -78,11 +84,11 @@ fun ReminderPicker(
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(R.string.reminder_picker_title),
+                    text = title ?: stringResource(R.string.reminder_picker_title),
                     style = MaterialTheme.typography.titleSmall,
                 )
                 Text(
-                    text = stringResource(R.string.reminder_picker_supporting_text),
+                    text = supportingText ?: stringResource(R.string.reminder_picker_supporting_text),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -93,6 +99,7 @@ fun ReminderPicker(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
+            if (!deadline) {
             AssistChip(
                 onClick = {
                     selectReminder(ReminderPresets.inOneHour(System.currentTimeMillis()))
@@ -121,6 +128,7 @@ fun ReminderPicker(
                 },
                 label = { Text(stringResource(R.string.reminder_preset_next_week)) },
             )
+            }
             AssistChip(
                 onClick = { showDatePicker = true },
                 label = { Text(stringResource(R.string.reminder_preset_custom)) },
@@ -145,7 +153,7 @@ fun ReminderPicker(
                 IconButton(onClick = { selectReminder(null) }) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = stringResource(R.string.reminder_picker_clear),
+                        contentDescription = if (deadline) "Remove deadline" else stringResource(R.string.reminder_picker_clear),
                     )
                 }
             }
@@ -206,6 +214,7 @@ fun ReminderPicker(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
                         .padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -221,7 +230,7 @@ fun ReminderPicker(
                             onClick = {
                                 pendingDateMillis?.let { selectedDateMillis ->
                                     val date = Instant.ofEpochMilli(selectedDateMillis)
-                                        .atZone(zone)
+                                        .atZone(java.time.ZoneOffset.UTC)
                                         .toLocalDate()
                                     selectReminder(
                                         LocalDateTime.of(

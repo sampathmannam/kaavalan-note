@@ -97,6 +97,11 @@ open class NudgeDraftGenerator @Inject constructor(
         dao.markSent(id, sentVia, now)
     }
 
+    suspend fun recordPreparation(id: String, action: String) {
+        require(action == "COPY" || action == "SHARE")
+        dao.recordPreparation(id, if (action == "COPY") "COPIED" else "SHARE_OPENED", action, java.time.Instant.now().toString())
+    }
+
     suspend fun cancel(id: String) {
         dao.cancel(id)
     }

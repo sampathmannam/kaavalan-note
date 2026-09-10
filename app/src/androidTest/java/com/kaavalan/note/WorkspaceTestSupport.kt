@@ -19,7 +19,8 @@ internal fun ComposeContentTestRule.saveNote(text: String, responsibility: Strin
     onNodeWithTag("capture_open").performClick()
     waitUntil(15_000) { onAllNodesWithText("Note").fetchSemanticsNodes().isNotEmpty() }
     onNodeWithText("Note").performTextInput(text)
-    responsibility?.let { onNodeWithText(it).performScrollTo().performClick() }
+    // Match the selectable responsibility chip, not identical explanatory text behind the sheet.
+    responsibility?.let { onNode(hasText(it) and isSelectable()).performScrollTo().performClick() }
     waitUntil(15_000) { runCatching { onNodeWithText("Save").assertIsEnabled() }.isSuccess }
     onNodeWithText("Save").performClick()
     awaitCaptureSaved()

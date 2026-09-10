@@ -144,6 +144,35 @@ class Migration14To16Test {
         }
     }
 
+    @Test fun `v16 reminders keep their exact time and do not become deadlines`() {
+        buildV15Fixture()
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val helper = androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory().create(
+            androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration.builder(context).name(testDbName)
+                .callback(object : androidx.sqlite.db.SupportSQLiteOpenHelper.Callback(16) {
+                    override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) = error("Expected fixture")
+                    override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
+                        AppDatabase.MIGRATION_15_16.migrate(db)
+                    }
+                }).build())
+        helper.writableDatabase.execSQL("UPDATE instructions SET dueAtMs = 1800000000000, dueAt = '2027-01-15T08:00:00Z', status = 'WAITING_ON_OTHER'")
+        helper.writableDatabase.execSQL("INSERT INTO nudge_drafts VALUES ('copy', 'i-pre-upgrade', 'Draft', 'SENT', 'COPY', '2026-09-10T01:00:00Z', '2026-09-10T01:00:00Z', 'SYNCED')")
+        helper.close()
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, dbPath).addMigrations(AppDatabase.MIGRATION_16_17).build()
+        db.openHelper.writableDatabase.query("SELECT dueAtMs, dueAt, deadlineAtMs, updatesJson, status FROM instructions WHERE id = 'i-pre-upgrade'").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(1800000000000L, c.getLong(0))
+            assertEquals("2027-01-15T08:00:00Z", c.getString(1))
+            assertTrue(c.isNull(2))
+            assertEquals("[]", c.getString(3))
+            assertEquals("WAITING_ON_OTHER", c.getString(4))
+        }
+        db.openHelper.writableDatabase.query("SELECT status FROM nudge_drafts WHERE id = 'copy'").use { c ->
+            assertTrue(c.moveToFirst()); assertEquals("COPIED", c.getString(0))
+        }
+        db.close()
+    }
+
     /**
      * The core assertion. Opening the v15 database through the real
      * [AppDatabase] makes Room run `MIGRATION_15_16` and then compare
@@ -156,13 +185,13 @@ class Migration14To16Test {
 
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.databaseBuilder(ctx, AppDatabase::class.java, dbPath)
-            .addMigrations(AppDatabase.MIGRATION_15_16)
+            .addMigrations(AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17)
             .build()
 
         // Room is lazy: the migration + validation only run on first
         // access to the underlying database, not on build().
         val version = db.openHelper.writableDatabase.version
-        assertEquals("database should be at v16 after the migration", 16, version)
+        assertEquals("database should be at v17 after the migration chain", 17, version)
         db.close()
     }
 
@@ -172,7 +201,7 @@ class Migration14To16Test {
 
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.databaseBuilder(ctx, AppDatabase::class.java, dbPath)
-            .addMigrations(AppDatabase.MIGRATION_15_16)
+            .addMigrations(AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17)
             .build()
         db.openHelper.writableDatabase.query(
             "SELECT title, audienceKind, audienceIsBroadcast FROM instructions WHERE id = 'i-pre-upgrade'",
@@ -195,7 +224,7 @@ class Migration14To16Test {
 
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.databaseBuilder(ctx, AppDatabase::class.java, dbPath)
-            .addMigrations(AppDatabase.MIGRATION_15_16)
+            .addMigrations(AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17)
             .build()
         db.openHelper.writableDatabase.let { raw ->
             raw.execSQL(
@@ -255,12 +284,12 @@ class Migration14To16Test {
 
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.databaseBuilder(ctx, AppDatabase::class.java, dbPath)
-            .addMigrations(AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16)
+            .addMigrations(AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17)
             .build()
 
         assertEquals(
-            "database should be at v16 after the 14 -> 15 -> 16 chain",
-            16,
+            "database should be at v17 after the 14 -> 15 -> 16 -> 17 chain",
+            17,
             db.openHelper.writableDatabase.version,
         )
         db.close()
@@ -288,7 +317,7 @@ class Migration14To16Test {
 
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.databaseBuilder(ctx, AppDatabase::class.java, dbPath)
-            .addMigrations(AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16)
+            .addMigrations(AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17)
             .build()
         db.openHelper.writableDatabase.query(
             "SELECT `unique`, partial FROM pragma_index_list('users') " +
@@ -324,7 +353,7 @@ class Migration14To16Test {
 
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.databaseBuilder(ctx, AppDatabase::class.java, dbPath)
-            .addMigrations(AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16)
+            .addMigrations(AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17)
             .build()
         val raw = db.openHelper.writableDatabase
         raw.execSQL(

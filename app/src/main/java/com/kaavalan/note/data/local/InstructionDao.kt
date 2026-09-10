@@ -68,6 +68,9 @@ interface InstructionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(instruction: InstructionEntity)
 
+    @androidx.room.Update
+    suspend fun updateExisting(instruction: InstructionEntity)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(instructions: List<InstructionEntity>)
 

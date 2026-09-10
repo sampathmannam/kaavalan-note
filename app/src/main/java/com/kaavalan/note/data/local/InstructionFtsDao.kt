@@ -34,6 +34,9 @@ interface InstructionFtsDao {
     @Query("SELECT MAX(rowid) FROM instructions")
     suspend fun maxInstructionRowid(): Long?
 
+    @Query("SELECT rowid FROM instructions WHERE id = :id")
+    suspend fun rowidForInstruction(id: String): Long?
+
     /**
      * Returns up to 200 matching instructions, ordered by
      * `capturedAt` DESC (most recent first). The query

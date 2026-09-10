@@ -1,6 +1,18 @@
 {
   "changelog": [
     {
+      "version": "2.5.0",
+      "code": 51,
+      "date": "2026-09-10",
+      "highlights": [
+        "Today puts follow-ups first, with short previews and a clear way to see all your work.",
+        "Record a dated, private update after each call or review. Keep the work's deadline separate from when you want to follow up again.",
+        "Mark reported completion as Ready to verify, then verify and mark done yourself. Undo restores the previous progress state.",
+        "Edit saved instructions and local contact details. Search instruction and update text across All records, All open or Closed.",
+        "Clearer detail screens and keyboard-safe editors work in light and dark themes. Your existing records stay in the same app; updates are private notes, not messages sent to staff."
+      ]
+    },
+    {
       "version": "2.4.1",
       "code": 50,
       "date": "2026-09-09",
