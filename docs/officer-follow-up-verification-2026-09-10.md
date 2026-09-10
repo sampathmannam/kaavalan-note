@@ -47,6 +47,8 @@ Reviewed native screenshots under `app/build/ui-qa/follow-up-review/`:
 - `03-edited-contact.png`: saved rank/station and clear local Edit contact action.
 - `04-large-text-landscape-update.png`: readable update text and reachable Save above the keyboard. Form content scrolls in this constrained viewport.
 
+Copies of these synthetic-data screenshots are committed for review: [instruction history](verification/officer-follow-up-2026-09-10/01-instruction-updates.png), [closed-record search](verification/officer-follow-up-2026-09-10/02-search-closed-update.png), [edited contact](verification/officer-follow-up-2026-09-10/03-edited-contact.png) and [large-text landscape editor](verification/officer-follow-up-2026-09-10/04-large-text-landscape-update.png).
+
 Existing regression coverage: **4 passed, 0 failed** in 126.603s (`follow-up-e2e-regressions.log`). This covers `CaptureNoteFlowTest`, both `OfficerWorkflowPersistenceTest` methods and `ReminderNotificationTest`: completion/reopen, contact-linked responsibility/reminder persistence, completion cancelling WorkManager delivery, shared-text draft preservation and private notifications with Done/Snooze actions.
 
 Light/dark visual acceptance: **1 passed, 0 failed** in 90.961s (`follow-up-e2e-visual.log`). All eight screenshots in `app/build/ui-qa/follow-up-visual-review/` were visually inspected: first-use Today, populated Today, Instructions, Contacts, Settings, dark Contacts, dark Today and dark capture with its keyboard. Follow-up priority, text contrast, unclipped primary actions and consistent navigation were checked. This is visual review, not a claim of a complete accessibility audit.
@@ -67,7 +69,7 @@ This is not a physical-phone acceptance test, TalkBack audit, performance benchm
 
 ## Artifacts and release boundary
 
-Version remains v2.4.1/code 50 for this development build. The QA APK is not the user's daily-use update.
+The implementation was tested as v2.4.1/code 50 before release preparation. The QA APK is not the user's daily-use update. To preserve this evidence during the v2.5.0 rebuild, copies of the two APKs below are retained in `app/build/ui-qa/follow-up-verified-code50/` with their original filenames.
 
 | Artifact | SHA-256 |
 | --- | --- |
@@ -75,3 +77,7 @@ Version remains v2.4.1/code 50 for this development build. The QA APK is not the
 | `app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk` | `8cf6c6e6decb8f05f77831007cb750ba00dd2e8730472f0f93ab585711dd7a59` |
 
 No push, release publication, production signing or phone installation is authorized by this development verification. Ask the user before pushing or releasing.
+
+Subsequent user approval authorized committing, pushing and preparing the next release. The implementation was committed and pushed as `d091248`; v2.5.0/code 51 preparation follows without reopening production signing access. This approval does not change the original emulator evidence or imply that a signed update has been published.
+
+The user then explicitly authorized a one-time exception to use the existing production signing configuration and keystore solely to sign v2.5.0 after checks pass, and to publish its verified APK on GitHub. This exception does not authorize modifying production files, printing or copying credentials, replacing the key, or changing the phone. Release-specific evidence is recorded separately; the debug acceptance results above remain unchanged.
