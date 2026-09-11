@@ -246,7 +246,11 @@ jobs:
   assemble-release:
     name: Assemble release APK (R8)
     runs-on: [self-hosted, macOS, ARM64, baton]
-    timeout-minutes: 45
+    # v2.6.0: the expanded subdivision UI pushed a cold R8 build past the
+    # previous 45-minute ceiling on the single shared ARM64 runner under memory
+    # pressure. Keep a finite ceiling, but allow the already-verified build to
+    # finish instead of terminating the compiler while it is still active.
+    timeout-minutes: 60
     needs: unit-test
     steps:
       - name: Checkout
