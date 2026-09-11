@@ -187,6 +187,9 @@ fun CaptureSheet(
                 viewModel.dismissSheet()
                 onOpenDispatch(text)
             },
+            onAcceptPendingContext = viewModel::acceptPendingContext,
+            onKeepCurrentContext = viewModel::keepCurrentContext,
+            onClearContext = viewModel::clearContext,
         )
     }
 
@@ -235,6 +238,9 @@ private fun CaptureSheetContent(
     onAddFreeTag: (String) -> Unit = { },
     onSaveRaw: () -> Unit = { },
     onOpenDispatch: () -> Unit = {},
+    onAcceptPendingContext: () -> Unit = {},
+    onKeepCurrentContext: () -> Unit = {},
+    onClearContext: () -> Unit = {},
 ) {
     var showContacts by remember { mutableStateOf(false) }
     var showTags by remember { mutableStateOf(false) }
@@ -276,6 +282,24 @@ private fun CaptureSheetContent(
             // removing/recreating it would lose focus and the current selection.
             // Android Back dismisses the keyboard and restores the full header.
             if (!compactTyping) SheetHeader(onClose = onClose)
+            // v2.6.0: the work context this note is being filed into, shown before the
+            // field so the officer can see it while typing rather than discovering it
+            // after saving.
+            state.pendingContext?.let { pending ->
+                PendingContextChoice(
+                    pendingLabel = pending.label,
+                    currentLabel = state.contextLabel,
+                    onUseNew = onAcceptPendingContext,
+                    onKeepCurrent = onKeepCurrentContext,
+                )
+            }
+            if (state.hasContext && state.contextLabel != null) {
+                WorkContextRow(
+                    label = state.contextLabel,
+                    enabled = !state.isSaving,
+                    onClear = onClearContext,
+                )
+            }
             CaptureTextField(
                 text = state.text,
                 isSaving = state.isSaving,
@@ -398,8 +422,74 @@ private fun CaptureSheetContent(
     }
 }
 
+/**
+ * The work context a capture is filed into, stated plainly and removable in one tap.
+ * Never a bare icon: which matter a note lands in is essential context, not decoration.
+ */
+@Composable
+private fun WorkContextRow(label: String, enabled: Boolean, onClear: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth().testTag("capture_context"),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Saving into", style = MaterialTheme.typography.labelLarge)
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            TextButton(
+                onClick = onClear,
+                enabled = enabled,
+                modifier = Modifier.heightIn(min = 48.dp).testTag("capture_context_clear"),
+            ) {
+                Text("Save without a matter")
+            }
+        }
+    }
+}
+
+/**
+ * A different work context arrived while a draft was already being written. The draft is
+ * untouched; this asks which one was meant, naming both, and does nothing until answered.
+ */
+@Composable
+private fun PendingContextChoice(
+    pendingLabel: String,
+    currentLabel: String?,
+    onUseNew: () -> Unit,
+    onKeepCurrent: () -> Unit,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth().testTag("capture_pending_context"),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("You already have a note in progress", style = MaterialTheme.typography.titleSmall)
+            Text(
+                "Your text has been kept. Where should it be saved?",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Button(
+                onClick = onUseNew,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("capture_context_use_new"),
+            ) {
+                Text("Save into $pendingLabel")
+            }
+            androidx.compose.material3.OutlinedButton(
+                onClick = onKeepCurrent,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("capture_context_keep"),
+            ) {
+                Text(currentLabel?.let { "Keep $it" } ?: "Keep this note without a matter")
+            }
+        }
+    }
+}
+
 @Composable
 private fun SheetHeader(onClose: () -> Unit) {
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,

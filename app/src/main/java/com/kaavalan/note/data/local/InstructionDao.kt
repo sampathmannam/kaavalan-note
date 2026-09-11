@@ -71,6 +71,18 @@ interface InstructionDao {
     @androidx.room.Update
     suspend fun updateExisting(instruction: InstructionEntity)
 
+    /**
+     * v18: restore / import writes. INSERT-then-UPDATE rather than INSERT OR REPLACE, so
+     * restoring over an existing instruction does not delete the row and cascade its
+     * `instruction_tags` links away.
+     */
+    @androidx.room.Upsert
+    suspend fun save(instruction: InstructionEntity)
+
+    @androidx.room.Upsert
+    suspend fun saveAll(instructions: List<InstructionEntity>)
+
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(instructions: List<InstructionEntity>)
 

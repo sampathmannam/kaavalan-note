@@ -76,8 +76,19 @@ internal fun OfficerAppRoot(
     val currentRoute = backStackEntry?.destination?.route ?: Routes.TODAY
     val workspace: WorkspaceViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     val capture: CaptureViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    val subdivision: com.kaavalan.note.ui.subdivision.SubdivisionViewModel =
+        androidx.hilt.navigation.compose.hiltViewModel()
     val workspaceState by workspace.state.collectAsStateWithLifecycle()
     val workspaceBusy by workspace.busy.collectAsStateWithLifecycle()
+    val subdivisionState by subdivision.state.collectAsStateWithLifecycle()
+    val subdivisionBusy by subdivision.busy.collectAsStateWithLifecycle()
+    val subdivisionError by subdivision.mutationError.collectAsStateWithLifecycle()
+    // The scope lives here so "Review this station" and "Review this officer" can set it
+    // before navigating to the review destination.
+    var reviewScopeKey by rememberSaveable {
+        mutableStateOf(com.kaavalan.note.data.subdivision.SubdivisionProjections.SCOPE_ALL)
+    }
+    var changeContextInstructionId by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedInstructionId by rememberSaveable { mutableStateOf<String?>(null) }
     var showAddContact by rememberSaveable { mutableStateOf(false) }
     var editContactId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -102,6 +113,18 @@ internal fun OfficerAppRoot(
         .collectAsStateWithLifecycle()
     val undoLabel = stringResource(R.string.undo)
     LaunchedEffect(workspace) { workspace.messages.collect { snackbarHostState.showSnackbar(it) } }
+    LaunchedEffect(subdivision) { subdivision.messages.collect { snackbarHostState.showSnackbar(it) } }
+    // v2.6.0: the CRM destinations are normal-workspace only. Switching into the private
+    // workspace with one of them open must not leave the officer looking at a screen that
+    // cannot load — or, worse, at the previous workspace's rows. Clear them immediately.
+    LaunchedEffect(workspaceState.hidden) {
+        if (workspaceState.hidden && Routes.isSubdivision(currentRoute)) {
+            changeContextInstructionId = null
+            reviewScopeKey = com.kaavalan.note.data.subdivision.SubdivisionProjections.SCOPE_ALL
+            navController.popBackStack(Routes.TODAY, inclusive = false)
+        }
+    }
+
     LaunchedEffect(workspace) {
         workspace.completed.collectLatest { undo ->
             snackbarHostState.currentSnackbarData?.dismiss()
@@ -232,11 +255,166 @@ internal fun OfficerAppRoot(
                             onOpenInstructions = { navController.navigate(Routes.HOME) { launchSingleTop = true } },
                             onComplete = { workspace.complete(it) {} },
                             onRetry = workspace::retry,
+                            // Null in the private workspace: that is how the three CRM
+                            // entry rows stay hidden there.
+                            onOpenSubdivisionReview = if (workspaceState.hidden) {
+                                null
+                            } else {
+                                {
+                                    reviewScopeKey =
+                                        com.kaavalan.note.data.subdivision.SubdivisionProjections.SCOPE_ALL
+                                    navController.navigate(Routes.SUBDIVISION_REVIEW) { launchSingleTop = true }
+                                }
+                            },
+                            onOpenStationsStaff = if (workspaceState.hidden) {
+                                null
+                            } else {
+                                { navController.navigate(Routes.STATIONS_STAFF) { launchSingleTop = true } }
+                            },
+                            onOpenMatters = if (workspaceState.hidden) {
+                                null
+                            } else {
+                                { navController.navigate(Routes.MATTERS) { launchSingleTop = true } }
+                            },
+                            subdivisionName = subdivisionState.profile?.name,
+                            contextSearch = if (workspaceState.hidden) {
+                                emptyMap()
+                            } else {
+                                com.kaavalan.note.ui.subdivision.searchableContext(subdivisionState)
+                            },
                         )
                     }
                 }
+                composable(Routes.SUBDIVISION_REVIEW) {
+                    com.kaavalan.note.ui.subdivision.SubdivisionReviewScreen(
+                        state = subdivisionState,
+                        busy = subdivisionBusy,
+                        mutationError = subdivisionError,
+                        today = today,
+                        nowMs = System.currentTimeMillis(),
+                        onBack = { navController.popBackStack() },
+                        onRetry = subdivision::retry,
+                        onDismissError = subdivision::dismissError,
+                        onSaveProfile = { name, district, officer, done ->
+                            subdivision.saveProfile(name, district, officer, done)
+                        },
+                        onRecordReview = { scope, notes, done -> subdivision.recordReview(scope, notes, done) },
+                        onOpenInstruction = { selectedInstructionId = it },
+                        scopeKey = reviewScopeKey,
+                        onScopeKeyChange = { reviewScopeKey = it },
+                    )
+                }
+                composable(Routes.STATIONS_STAFF) {
+                    com.kaavalan.note.ui.subdivision.StationsAndStaffScreen(
+                        state = subdivisionState,
+                        busy = subdivisionBusy,
+                        mutationError = subdivisionError,
+                        onBack = { navController.popBackStack() },
+                        onRetry = subdivision::retry,
+                        onDismissError = subdivision::dismissError,
+                        onSaveStation = { id, name, kind, notes, done ->
+                            subdivision.saveStation(id, name, kind, notes) { done(it) }
+                        },
+                        onSaveStaff = { personId, stationId, responsibilities, isStaff, active, done ->
+                            subdivision.saveStaff(personId, stationId, responsibilities, isStaff, active, done)
+                        },
+                        onOpenStation = { navController.navigate(Routes.stationDetail(it)) },
+                        onOpenStaff = { navController.navigate(Routes.staffDetail(it)) },
+                        onAddContact = { showAddContact = true },
+                    )
+                }
+                composable(Routes.STATION_DETAIL) { entry ->
+                    val stationId = entry.arguments?.getString("stationId") ?: return@composable
+                    com.kaavalan.note.ui.subdivision.StationDetailScreen(
+                        stationId = stationId,
+                        state = subdivisionState,
+                        busy = subdivisionBusy,
+                        mutationError = subdivisionError,
+                        today = today,
+                        onBack = { navController.popBackStack() },
+                        onRetry = subdivision::retry,
+                        onDismissError = subdivision::dismissError,
+                        onSaveStation = { id, name, kind, notes, done ->
+                            subdivision.saveStation(id, name, kind, notes) { done(it) }
+                        },
+                        onArchiveStation = { id, archived -> subdivision.archiveStation(id, archived) },
+                        onOpenStaff = { navController.navigate(Routes.staffDetail(it)) },
+                        onOpenMatter = { navController.navigate(Routes.matterDetail(it)) },
+                        onOpenInstruction = { selectedInstructionId = it },
+                        onReviewStation = { id ->
+                            reviewScopeKey =
+                                com.kaavalan.note.data.subdivision.SubdivisionProjections.stationScope(id)
+                            navController.navigate(Routes.SUBDIVISION_REVIEW) { launchSingleTop = true }
+                        },
+                    )
+                }
+                composable(Routes.STAFF_DETAIL) { entry ->
+                    val personId = entry.arguments?.getString("personId") ?: return@composable
+                    com.kaavalan.note.ui.subdivision.StaffDetailScreen(
+                        personId = personId,
+                        state = subdivisionState,
+                        busy = subdivisionBusy,
+                        mutationError = subdivisionError,
+                        today = today,
+                        onBack = { navController.popBackStack() },
+                        onRetry = subdivision::retry,
+                        onDismissError = subdivision::dismissError,
+                        onSaveStaff = { id, stationId, responsibilities, isStaff, active, done ->
+                            subdivision.saveStaff(id, stationId, responsibilities, isStaff, active, done)
+                        },
+                        onOpenContact = { navController.navigate(Routes.person(it)) },
+                        onOpenInstruction = { selectedInstructionId = it },
+                        onReviewOfficer = { id ->
+                            reviewScopeKey =
+                                com.kaavalan.note.data.subdivision.SubdivisionProjections.personScope(id)
+                            navController.navigate(Routes.SUBDIVISION_REVIEW) { launchSingleTop = true }
+                        },
+                    )
+                }
+                composable(Routes.MATTERS) {
+                    com.kaavalan.note.ui.subdivision.MattersScreen(
+                        state = subdivisionState,
+                        busy = subdivisionBusy,
+                        mutationError = subdivisionError,
+                        onBack = { navController.popBackStack() },
+                        onRetry = subdivision::retry,
+                        onDismissError = subdivision::dismissError,
+                        onSaveMatter = { id, title, stationId, reference, description, done ->
+                            subdivision.saveMatter(id, title, stationId, reference, description) { done(it) }
+                        },
+                        onOpenMatter = { navController.navigate(Routes.matterDetail(it)) },
+                    )
+                }
+                composable(Routes.MATTER_DETAIL) { entry ->
+                    val matterId = entry.arguments?.getString("matterId") ?: return@composable
+                    com.kaavalan.note.ui.subdivision.MatterDetailScreen(
+                        matterId = matterId,
+                        state = subdivisionState,
+                        busy = subdivisionBusy,
+                        mutationError = subdivisionError,
+                        today = today,
+                        onBack = { navController.popBackStack() },
+                        onRetry = subdivision::retry,
+                        onDismissError = subdivision::dismissError,
+                        onSaveMatter = { id, title, stationId, reference, description, done ->
+                            subdivision.saveMatter(id, title, stationId, reference, description) { done(it) }
+                        },
+                        onArchiveMatter = { id, archived -> subdivision.archiveMatter(id, archived) },
+                        onLinkInstruction = { instructionId, stationId, matterIdArg, done ->
+                            subdivision.changeWorkContext(instructionId, stationId, matterIdArg, done)
+                        },
+                        // New work goes through the existing capture flow with the matter
+                        // preselected — never a parallel "New task" form.
+                        onCaptureInContext = { stationId, matterIdArg, label ->
+                            capture.openInContext(stationId, matterIdArg, label)
+                        },
+                        onOpenInstruction = { selectedInstructionId = it },
+                    )
+                }
+
                 composable(Routes.PERSON) { entry ->
                     val personId = entry.arguments?.getString("personId") ?: return@composable
+                    val staffPerson = subdivisionState.contact(personId)
                     HomeScreenPersonDetail(
                         personId = personId,
                         onBack = { navController.popBackStack() },
@@ -244,6 +422,24 @@ internal fun OfficerAppRoot(
                         onCaptureForPerson = capture::openForContact,
                         onOpenInstruction = { selectedInstructionId = it },
                         onEditContact = { editContactId = personId },
+                        staffSection = if (workspaceState.hidden || !subdivisionState.ready || staffPerson == null) {
+                            null
+                        } else {
+                            {
+                                com.kaavalan.note.ui.subdivision.ContactStaffSection(
+                                    person = staffPerson,
+                                    stationName = subdivisionState.station(staffPerson.stationId)?.name,
+                                    postings = com.kaavalan.note.ui.subdivision
+                                        .postingHistory(subdivisionState, personId),
+                                    onOpenStaff = { navController.navigate(Routes.staffDetail(personId)) },
+                                    onReviewOfficer = {
+                                        reviewScopeKey = com.kaavalan.note.data.subdivision
+                                            .SubdivisionProjections.personScope(personId)
+                                        navController.navigate(Routes.SUBDIVISION_REVIEW) { launchSingleTop = true }
+                                    },
+                                )
+                            }
+                        },
                     )
                 }
                 // v2.0 T3-2: recovery phrase screen. Reachable
@@ -325,8 +521,50 @@ internal fun OfficerAppRoot(
             },
             onShare = { shareInstructionId = selectedInstruction.id; selectedInstructionId = null },
             onPrivacy = { privacyInstructionId = selectedInstruction.id; selectedInstructionId = null },
+            workContextStation = if (workspaceState.hidden) {
+                null
+            } else {
+                subdivisionState.station(selectedInstruction.stationId)?.name
+            },
+            workContextMatter = if (workspaceState.hidden) {
+                null
+            } else {
+                subdivisionState.matter(selectedInstruction.matterId)?.title
+            },
+            workContextReference = if (workspaceState.hidden) {
+                null
+            } else {
+                subdivisionState.matter(selectedInstruction.matterId)?.reference?.takeIf { it.isNotBlank() }
+            },
+            onChangeWorkContext = if (workspaceState.hidden || !subdivisionState.ready) {
+                null
+            } else {
+                { changeContextInstructionId = selectedInstruction.id; selectedInstructionId = null }
+            },
         )
     }
+    workspaceState.instructions.firstOrNull { it.id == changeContextInstructionId }?.let { item ->
+        com.kaavalan.note.ui.subdivision.WorkContextEditor(
+            currentStationName = subdivisionState.station(item.stationId)?.name,
+            currentMatterTitle = subdivisionState.matter(item.matterId)?.title,
+            stations = subdivisionState.stations,
+            matters = subdivisionState.matters,
+            initialStationId = item.stationId,
+            initialMatterId = item.matterId,
+            busy = subdivisionBusy,
+            onDismiss = { changeContextInstructionId = null },
+            onSave = { stationId, matterId ->
+                subdivision.changeWorkContext(item.id, stationId, matterId) {
+                    changeContextInstructionId = null
+                    selectedInstructionId = item.id
+                }
+            },
+        )
+    }
+    if (changeContextInstructionId != null && subdivisionError != null) {
+        com.kaavalan.note.ui.subdivision.MutationErrorBanner(subdivisionError, subdivision::dismissError)
+    }
+
     workspaceState.contacts.firstOrNull { it.id == editContactId }?.let { person ->
         EditContactSheet(person, workspaceBusy, { editContactId = null }) { name, rank, station, phone ->
             workspace.editContact(person.id, name, rank, station, phone) { editContactId = null }
@@ -454,6 +692,7 @@ private fun HomeScreenPersonDetail(
     onCaptureForPerson: ((String) -> Unit)? = null,
     onOpenInstruction: (String) -> Unit,
     onEditContact: () -> Unit,
+    staffSection: (@Composable () -> Unit)? = null,
 ) {
     val vm: com.kaavalan.note.ui.home.PersonDetailViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     com.kaavalan.note.ui.home.PersonDetailScreen(
@@ -463,6 +702,8 @@ private fun HomeScreenPersonDetail(
         onCaptureForPerson = onCaptureForPerson,
         onOpenInstruction = onOpenInstruction,
         onEditContact = onEditContact,
+        staffSection = staffSection,
         viewModel = vm,
     )
 }
+

@@ -37,4 +37,8 @@ data class Person(
     val cadenceOverrideDays: Int? = null,
     // v2.0 Tier 2 (§2.1, §2.3): last-interaction timestamp.
     val lastInteractionAt: Long? = null,
+    val stationId: String? = null,
+    val isStaff: Boolean = false,
+    val staffActive: Boolean = true,
+    val responsibilities: String = "",
 )

@@ -82,7 +82,42 @@ tasks.withType<Test>().configureEach {
     inputs.files(rootProject.file("app/build.gradle.kts"), rootProject.file("release.sh"))
         .withPropertyName("releaseSigningContract")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+    // A sandboxed development environment may deny writes to the real user home, where
+    // Robolectric creates `.robolectric-download-lock` and caches its android-all jars.
+    // Pass `-Pkaavalan.testUserHome=<writable dir>` to redirect both. Unset by default,
+    // so CI and ordinary local runs behave exactly as before.
+    providers.gradleProperty("kaavalan.testUserHome").orNull?.let { home ->
+        systemProperty("user.home", home)
+        // Keep `java.io.tmpdir` aligned with the process TMPDIR. The HotSpot attach
+        // listener derives its socket path from the environment, while ByteBuddy - which
+        // mockk uses to install its agent - derives the same path from this property. If
+        // the two disagree the agent cannot attach and every mockk-based test dies in
+        // static initialisation.
+        systemProperty("java.io.tmpdir", System.getenv("TMPDIR")?.takeIf { it.isNotBlank() } ?: home)
+        // mockk installs its agent through ByteBuddy. Both of ByteBuddy's runtime
+        // attachment routes go through the HotSpot attach listener, whose socket path on
+        // macOS is a hardcoded /tmp, so a sandbox that does not grant /tmp leaves every
+        // mockk-based test dead in static initialisation with "Operation not permitted".
+        // Loading the agent at JVM start avoids attaching at all: ByteBuddy finds the
+        // already-installed instrumentation and returns it.
+        jvmArgs("-Djdk.attach.allowAttachSelf=true")
+        doFirst {
+            classpath.files
+                .firstOrNull { it.name.startsWith("byte-buddy-agent") && it.name.endsWith(".jar") }
+                ?.let { agent -> jvmArgs("-javaagent:${agent.absolutePath}") }
+        }
+    }
+
+
+
+    // Robolectric needs an `android-all-instrumented` runtime jar per SDK level. It
+    // normally downloads them into the Maven cache under the user home on first use. In a
+    // sandboxed or offline environment, pre-populate
+    // `<testUserHome>/.m2/repository/org/robolectric/android-all-instrumented/` instead;
+    // the redirected user home above is where Robolectric looks.
 }
+
+
 
 android {
     namespace = "com.kaavalan.note"
@@ -377,8 +412,18 @@ android {
         // v2.5.0: follow-up-first officer workspace, private instruction updates,
         // independent deadlines and reminders, verification/Undo and contact editing.
         // Same app identity; non-destructive database migration 16 -> 17.
-        versionCode = 51
-        versionName = "2.5.0"
+        // v2.6.0: the single-officer subdivision work manager. A subdivision profile,
+        // stations and units, staff postings and responsibilities, matters that group
+        // related instructions, and dated review records with point-in-time counts.
+        // Instructions now record the station they were carried out at, so transferring
+        // an officer never rewrites where past work happened. Still three primary tabs,
+        // still one note bar, still local-only: staff do not have accounts and nothing is
+        // sent to them. Same application ID; non-destructive database migration 17 -> 18;
+        // manual backup schema 3 -> 4, and schema 3 backups still restore.
+        // versionCode 51 -> 52. (52 was unused on this branch; checked before advancing.)
+        versionCode = 52
+        versionName = "2.6.0"
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // v2.2.2 (test-infra): wipe app state between instrumented
         // tests. Without this the six device tests share one Room

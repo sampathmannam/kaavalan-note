@@ -38,6 +38,14 @@ fun InstructionDetailSheet(
     privateMode: Boolean = false,
     onEdit: ((String, Direction, String?, Long?, () -> Unit) -> Unit)? = null,
     onAddUpdate: ((String, Status, Long?, () -> Unit) -> Unit)? = null,
+    // v2.6.0 (subdivision CRM): the station and matter recorded ON THIS INSTRUCTION.
+    // Deliberately not the assigned contact's current station — an officer's transfer must
+    // not appear to relocate work they finished last month. Null in the private workspace,
+    // which is how the context row stays out of it.
+    workContextStation: String? = null,
+    workContextMatter: String? = null,
+    workContextReference: String? = null,
+    onChangeWorkContext: (() -> Unit)? = null,
 ) {
     var confirmClose by remember { mutableStateOf(false) }
     var editing by rememberSaveable(instruction.id) { mutableStateOf(false) }
@@ -71,9 +79,39 @@ fun InstructionDetailSheet(
                     onShare?.let { TextButton(onClick = it, enabled = !busy) { Text("Share follow-up") } }
                     onPrivacy?.let { TextButton(onClick = it, enabled = !busy) { Text("Privacy") } }
                 }
+                if (onChangeWorkContext != null) {
+                    HorizontalDivider()
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.testTag("instruction_work_context"),
+                    ) {
+                        Text("Station & matter", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            listOfNotNull(
+                                workContextStation ?: "No station recorded",
+                                workContextMatter ?: "No matter",
+                                workContextReference,
+                            ).joinToString(" · "),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Text(
+                            "Where this instruction is filed. Reassigning the contact does not change it.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        TextButton(
+                            onClick = onChangeWorkContext,
+                            enabled = !busy,
+                            modifier = Modifier.heightIn(min = 48.dp).testTag("detail_change_context"),
+                        ) {
+                            Text("Change work context")
+                        }
+                    }
+                }
                 HorizontalDivider()
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Deadline", style = MaterialTheme.typography.titleSmall)
+
                     Text(instruction.deadlineAtMs?.let { formatReminderTime(it) } ?: "No deadline set", style = MaterialTheme.typography.bodyLarge)
                     Text(if (instruction.isClosed) "Previous follow-up · reminder stopped" else "Next follow-up", style = MaterialTheme.typography.titleSmall)
                     Text(instruction.reminderMillis?.let { formatReminderTime(it) } ?: "No follow-up scheduled", style = MaterialTheme.typography.bodyLarge)

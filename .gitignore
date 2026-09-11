@@ -176,3 +176,8 @@ test_summary.txt
 .sdd/
 .gradle-user-home/
 .android-dev/
+
+# Sandboxed development scratch: redirected Robolectric/Maven cache and Gradle temp dir.
+# See the tasks.withType<Test> block in app/build.gradle.kts.
+.test-home/
+.gradle-tmp/

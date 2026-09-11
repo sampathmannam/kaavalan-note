@@ -186,8 +186,10 @@ class V156QaTest {
             dueAtMs: Long?,
             channel: String?,
             direction: Direction,
+            stationId: String?,
+            matterId: String?,
         ): Instruction = create(personId, source, priority, title, rawText, dueAt)
-            .copy(direction = direction, dueAtMs = dueAtMs)
+            .copy(direction = direction, dueAtMs = dueAtMs, stationId = stationId, matterId = matterId)
         override suspend fun setAudience(id: String, audience: com.kaavalan.note.data.instructions.AudienceRef?) {
             // no-op
         }

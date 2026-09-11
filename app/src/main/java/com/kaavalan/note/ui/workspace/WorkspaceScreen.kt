@@ -48,6 +48,14 @@ fun WorkspaceScreen(
     onOpenInstructions: () -> Unit,
     onComplete: (String) -> Unit,
     onRetry: () -> Unit,
+    // v2.6.0 (subdivision CRM): one labeled secondary action per tab, immediately below
+    // the top bar. Null in the private workspace, which is how these entries stay hidden
+    // there without the tab needing to know why.
+    onOpenSubdivisionReview: (() -> Unit)? = null,
+    onOpenStationsStaff: (() -> Unit)? = null,
+    onOpenMatters: (() -> Unit)? = null,
+    subdivisionName: String? = null,
+    contextSearch: Map<String, String> = emptyMap(),
 ) {
     var query by rememberSaveable(tab) { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(WorkFilter.ALL) }
@@ -88,9 +96,33 @@ fun WorkspaceScreen(
                     action = "Try again", onAction = onRetry,
                     modifier = Modifier.verticalScroll(rememberScrollState()),
                 )
-                tab == WorkspaceTab.TODAY -> TodayDesk(state, date, busy, onCapture, onInstruction, onOpenInstructions, onComplete)
+                tab == WorkspaceTab.TODAY -> TodayDesk(
+                    state, date, busy, onCapture, onInstruction, onOpenInstructions, onComplete,
+                    entry = onOpenSubdivisionReview?.let { open ->
+                        {
+                            com.kaavalan.note.ui.subdivision.SubdivisionEntryRow(
+                                label = "Subdivision review",
+                                supporting = subdivisionName ?: "Set up your subdivision",
+                                icon = Icons.Outlined.AccountBalance,
+                                onClick = open,
+                                testTag = "entry_subdivision_review",
+                            )
+                        }
+                    },
+                )
                 tab == WorkspaceTab.INSTRUCTIONS -> Column(Modifier.widthIn(max = 840.dp).fillMaxSize()) {
-                    WorkspaceSearch(query, { query = it }, "Search instructions and updates")
+                    onOpenMatters?.let { open ->
+                        Box(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+                            com.kaavalan.note.ui.subdivision.SubdivisionEntryRow(
+                                label = "Matters",
+                                supporting = "Group related instructions",
+                                icon = Icons.Outlined.Folder,
+                                onClick = open,
+                                testTag = "entry_matters",
+                            )
+                        }
+                    }
+                    WorkspaceSearch(query, { query = it }, "Search instructions, station, matter and updates")
                     FlowRow(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(WorkFilter.ALL, WorkFilter.OPEN, WorkFilter.CLOSED).forEach { item ->
                             FilterChip(modifier = Modifier.testTag("filter_${item.name}"), selected = filter == item,
@@ -112,8 +144,9 @@ fun WorkspaceScreen(
                                 modifier = Modifier.testTag("filter_${direction.name}"), onClick = { responsibility = direction; chooseResponsibility = false }) }
                         }
                     }
-                    val results = remember(state.instructions, state.contacts, filter, query, responsibility) {
-                        filterWork(state.instructions, state.contacts, filter, query).filter { responsibility == null || it.direction == responsibility }
+                    val results = remember(state.instructions, state.contacts, filter, query, responsibility, contextSearch) {
+                        filterWork(state.instructions, state.contacts, filter, query, contextSearch)
+                            .filter { responsibility == null || it.direction == responsibility }
                     }
                     if (results.isEmpty()) {
                         EmptyWorkspace(
@@ -136,7 +169,20 @@ fun WorkspaceScreen(
                         }
                     }
                 }
-                else -> ContactsDirectory(state, query, { query = it }, onContact, onAddContact, onImportContact)
+                else -> ContactsDirectory(
+                    state, query, { query = it }, onContact, onAddContact, onImportContact,
+                    entry = onOpenStationsStaff?.let { open ->
+                        {
+                            com.kaavalan.note.ui.subdivision.SubdivisionEntryRow(
+                                label = "Stations & staff",
+                                supporting = "Postings and responsibilities",
+                                icon = Icons.Outlined.Groups,
+                                onClick = open,
+                                testTag = "entry_stations_staff",
+                            )
+                        }
+                    },
+                )
             }
         }
     }
@@ -146,6 +192,7 @@ fun WorkspaceScreen(
 private fun TodayDesk(
     state: WorkspaceState, date: LocalDate, busy: Boolean,
     onCapture: () -> Unit, onInstruction: (String) -> Unit, onOpenInstructions: () -> Unit, onComplete: (String) -> Unit,
+    entry: (@Composable () -> Unit)? = null,
 ) {
     val work = remember(state.instructions, date) { todayWork(state.instructions, date, ZoneId.systemDefault()) }
     val focus = work.attention.firstOrNull()
@@ -157,6 +204,7 @@ private fun TodayDesk(
         contentPadding = PaddingValues(20.dp, 0.dp, 20.dp, 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        entry?.let { item { it() } }
         item {
             Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")),
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -292,13 +340,16 @@ fun WorkCard(
 
 @Composable
 private fun ContactsDirectory(state: WorkspaceState, query: String, onQuery: (String) -> Unit,
-    onContact: (String) -> Unit, onAddContact: () -> Unit, onImportContact: () -> Unit) {
+    onContact: (String) -> Unit, onAddContact: () -> Unit, onImportContact: () -> Unit,
+    entry: (@Composable () -> Unit)? = null) {
     val contacts = state.contacts.filter { person ->
         listOfNotNull(person.name, person.designation, person.station).joinToString(" ").contains(query.trim(), ignoreCase = true)
     }
     LazyColumn(Modifier.widthIn(max = 840.dp).fillMaxSize().testTag("contacts_list"),
         contentPadding = PaddingValues(bottom = 20.dp)) {
+        entry?.let { item { Box(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) { it() } } }
         item {
+
         if (state.contacts.isEmpty()) Text("Your officers, staff and other work contacts. Link instructions to see each person’s follow-ups in one place.",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))

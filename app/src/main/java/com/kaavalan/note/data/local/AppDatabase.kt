@@ -108,6 +108,11 @@ import com.kaavalan.note.data.user.UserEntity
         PersonLinkEntity::class,
         UserEntity::class,
         com.kaavalan.note.data.local.entities.DeliveryReceiptEntity::class,
+        com.kaavalan.note.data.subdivision.SubdivisionProfile::class,
+        com.kaavalan.note.data.subdivision.Station::class,
+        com.kaavalan.note.data.subdivision.Matter::class,
+        com.kaavalan.note.data.subdivision.StaffPosting::class,
+        com.kaavalan.note.data.subdivision.SubdivisionReview::class,
     ],
     // v1.8.0 (PROD-READINESS-P2-#3 + #4): v14 adds the
     // audit_chain_events table; v1.8.0 also adds the
@@ -117,10 +122,11 @@ import com.kaavalan.note.data.user.UserEntity
     // v2.0 (Hierarchy): v16 adds the audience + due chip +
     // channel columns on `instructions` and the new
     // `delivery_receipts` table.
-    version = 17,
+    version = 18,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
+    abstract fun subdivisionDao(): com.kaavalan.note.data.subdivision.SubdivisionDao
     abstract fun personDao(): PersonDao
     abstract fun instructionDao(): InstructionDao
     abstract fun captureDao(): CaptureDao

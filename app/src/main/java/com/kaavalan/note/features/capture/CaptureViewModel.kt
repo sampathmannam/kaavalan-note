@@ -83,6 +83,9 @@ class CaptureViewModel @Inject constructor(
             direction = savedStateHandle.get<String>(KEY_DIRECTION)
                 ?.let { runCatching { Direction.valueOf(it) }.getOrNull() } ?: Direction.SELF,
             personId = savedStateHandle.get<String>(KEY_PERSON_ID),
+            contextStationId = savedStateHandle.get<String>(KEY_CONTEXT_STATION),
+            contextMatterId = savedStateHandle.get<String>(KEY_CONTEXT_MATTER),
+            contextLabel = savedStateHandle.get<String>(KEY_CONTEXT_LABEL),
         ),
     )
     val state: StateFlow<CaptureUiState> = _state.asStateFlow()
@@ -108,6 +111,11 @@ class CaptureViewModel @Inject constructor(
                 savedStateHandle[KEY_ADD_TO_CALENDAR] = current.addToCalendar
                 savedStateHandle[KEY_DIRECTION] = current.direction.name
                 savedStateHandle[KEY_PERSON_ID] = current.personId
+                // v2.6.0: the work context is part of the draft. A process death between
+                // choosing a matter and typing the note must not silently drop the matter.
+                savedStateHandle[KEY_CONTEXT_STATION] = current.contextStationId
+                savedStateHandle[KEY_CONTEXT_MATTER] = current.contextMatterId
+                savedStateHandle[KEY_CONTEXT_LABEL] = current.contextLabel
             }
         }
     }
@@ -133,8 +141,63 @@ class CaptureViewModel @Inject constructor(
         savedStateHandle.remove<Boolean>(KEY_ADD_TO_CALENDAR)
         savedStateHandle.remove<String>(KEY_DIRECTION)
         savedStateHandle.remove<String>(KEY_PERSON_ID)
+        savedStateHandle.remove<String>(KEY_CONTEXT_STATION)
+        savedStateHandle.remove<String>(KEY_CONTEXT_MATTER)
+        savedStateHandle.remove<String>(KEY_CONTEXT_LABEL)
         _state.value = CaptureUiState(availableTags = _state.value.availableTags,
             requiresContact = _state.value.requiresContact, workspaceReady = _state.value.workspaceReady)
+    }
+
+    /**
+     * v2.6.0 (subdivision CRM): open capture with a station / matter already selected.
+     *
+     * On an empty draft, or when the context is already the one asked for, the context is
+     * applied and the sheet opens. On a **non-empty** draft with a different context the
+     * draft is kept exactly as it is and the new context is parked as
+     * [CaptureUiState.pendingContext], so the sheet can ask which one the officer meant.
+     * Silently retargeting somebody's half-written note is the failure this avoids.
+     */
+    fun openInContext(stationId: String?, matterId: String?, label: String) {
+        val draft = _state.value
+        val same = draft.contextStationId == stationId && draft.contextMatterId == matterId
+        if (draft.text.isBlank() || same) {
+            _state.update {
+                it.copy(
+                    contextStationId = stationId,
+                    contextMatterId = matterId,
+                    contextLabel = label,
+                    pendingContext = null,
+                )
+            }
+        } else {
+            _state.update { it.copy(pendingContext = PendingCaptureContext(stationId, matterId, label)) }
+        }
+        openSheet()
+    }
+
+    /** The officer chose the newly offered context. The typed draft is untouched. */
+    fun acceptPendingContext() {
+        val pending = _state.value.pendingContext ?: return
+        _state.update {
+            it.copy(
+                contextStationId = pending.stationId,
+                contextMatterId = pending.matterId,
+                contextLabel = pending.label,
+                pendingContext = null,
+            )
+        }
+    }
+
+    /** The officer chose to keep the draft's existing context. */
+    fun keepCurrentContext() {
+        _state.update { it.copy(pendingContext = null) }
+    }
+
+    /** Remove the work context from this draft without touching the text. */
+    fun clearContext() {
+        _state.update {
+            it.copy(contextStationId = null, contextMatterId = null, contextLabel = null, pendingContext = null)
+        }
     }
 
     private companion object {
@@ -145,6 +208,9 @@ class CaptureViewModel @Inject constructor(
         const val KEY_ADD_TO_CALENDAR = "capture.addToCalendar"
         const val KEY_DIRECTION = "capture.direction"
         const val KEY_PERSON_ID = "capture.personId"
+        const val KEY_CONTEXT_STATION = "capture.contextStationId"
+        const val KEY_CONTEXT_MATTER = "capture.contextMatterId"
+        const val KEY_CONTEXT_LABEL = "capture.contextLabel"
         // v1.8.0 (PROD-READINESS-P0-#2): fingerprint of the last
         // successful save (sha1 of text|mode|sortedTagIds). On a
         // process death + relaunch, the VM compares the current
@@ -174,10 +240,19 @@ class CaptureViewModel @Inject constructor(
         addToCalendar: Boolean,
         direction: Direction,
         personId: String?,
+        // v2.6.0: the work context is part of the user's intent. The same words saved into
+        // two different matters are two different saves, and the dedup guard must not
+        // swallow the second one.
+        contextStationId: String?,
+        contextMatterId: String?,
     ): String {
         val sortedTags = selectedTagIds.sorted().joinToString(",")
-        return "$text|$mode|$sortedTags|$reminderAtMs|$addToCalendar|$direction|$personId".hashCode().toString()
+        return (
+            "$text|$mode|$sortedTags|$reminderAtMs|$addToCalendar|$direction|$personId" +
+                "|$contextStationId|$contextMatterId"
+            ).hashCode().toString()
     }
+
 
     /**
      * Roster presence remains useful for optional people-oriented
@@ -472,6 +547,8 @@ class CaptureViewModel @Inject constructor(
             addToCalendar = current.addToCalendar,
             direction = current.direction,
             personId = current.personId,
+            contextStationId = current.contextStationId,
+            contextMatterId = current.contextMatterId,
         )
         val lastFingerprint = savedStateHandle.get<String>(KEY_LAST_SAVED_FINGERPRINT)
         val lastSavedAtMs = savedStateHandle.get<Long>(KEY_LAST_SAVED_AT_MS) ?: 0L
@@ -501,6 +578,11 @@ class CaptureViewModel @Inject constructor(
                         dueAtMs = reminderAtMs,
                         channel = null,
                         direction = current.direction,
+                        // v2.6.0: creation and the work-context link are one transaction in
+                        // the repository. A rejected context saves nothing at all, so the
+                        // draft below survives for the officer to correct.
+                        stationId = current.contextStationId,
+                        matterId = current.contextMatterId,
                     )
             }
             result.onSuccess { created ->
@@ -576,7 +658,11 @@ class CaptureViewModel @Inject constructor(
                 _state.update {
                     it.copy(
                         isSaving = false,
-                        error = SafeError.forUserSave(
+                        // A refused work context comes back as an IllegalArgumentException
+                        // or IllegalStateException whose message already tells the officer
+                        // what to do ("Reopen it before adding work"). Anything else keeps
+                        // the existing safe generic message.
+                        error = e.workContextMessage() ?: SafeError.forUserSave(
                             e = e,
                             default = "Could not save note.",
                         ),
@@ -587,7 +673,13 @@ class CaptureViewModel @Inject constructor(
         }
     }
 
+    private fun Throwable.workContextMessage(): String? = when (this) {
+        is IllegalArgumentException, is IllegalStateException -> message?.takeIf { it.isNotBlank() }
+        else -> null
+    }
+
     private fun modeToSource(mode: CaptureMode): Source = when (mode) {
+
         CaptureMode.TEXT -> Source.TEXT
         CaptureMode.VOICE -> Source.VOICE
         CaptureMode.PHOTO -> Source.PHOTO

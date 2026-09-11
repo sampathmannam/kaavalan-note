@@ -72,6 +72,7 @@ class BackupManagerTest {
                 db.instructionDao(),
                 db.tagDao(),
                 db.instructionTagDao(),
+                db,
             ),
             personDao = db.personDao(),
             instructionDao = db.instructionDao(),
@@ -80,6 +81,8 @@ class BackupManagerTest {
             personLinkDao = db.personLinkDao(),
             captureDao = db.captureDao(),
             importantDateDao = db.importantDateDao(),
+            ftsDao = db.instructionFtsDao(),
+            db = db,
         )
     }
 

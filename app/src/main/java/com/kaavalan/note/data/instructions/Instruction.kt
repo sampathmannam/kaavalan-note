@@ -48,6 +48,8 @@ data class Instruction(
     @SerialName("channel") val channel: String? = null,
     val deadlineAtMs: Long? = null,
     val updates: List<InstructionUpdate> = emptyList(),
+    val stationId: String? = null,
+    val matterId: String? = null,
 )
 
 /** Wire values match the `instruction_direction` Postgres enum. */

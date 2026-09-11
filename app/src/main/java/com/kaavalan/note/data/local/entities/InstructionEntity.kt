@@ -37,8 +37,13 @@ import androidx.room.PrimaryKey
         Index(value = ["audienceTarget"]),
         Index(value = ["dueAtMs"]),
         Index(value = ["channel"]),
+        // v18 (subdivision CRM): the recorded work context. The station / matter work
+        // lists and the review counts filter on these columns on every emission.
+        Index(value = ["stationId"]),
+        Index(value = ["matterId"]),
     ],
 )
+
 data class InstructionEntity(
     @PrimaryKey val id: String,
     val personId: String?,
@@ -94,4 +99,6 @@ data class InstructionEntity(
     val deadlineAtMs: Long? = null,
     // The journal belongs to this aggregate and is appended inside a Room transaction.
     @androidx.room.ColumnInfo(defaultValue = "'[]'") val updatesJson: String = "[]",
+    val stationId: String? = null,
+    val matterId: String? = null,
 )

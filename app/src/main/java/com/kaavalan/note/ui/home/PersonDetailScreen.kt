@@ -87,6 +87,11 @@ fun PersonDetailScreen(
     onCaptureForPerson: ((String) -> Unit)? = null,
     onOpenInstruction: ((String) -> Unit)? = null,
     onEditContact: (() -> Unit)? = null,
+    // v2.6.0 (subdivision CRM): the contact's staff posting, responsibilities and the
+    // "Review this officer" entry, supplied as a slot so this screen keeps knowing nothing
+    // about the subdivision read model. Null in the private workspace and for a contact who
+    // has not been classified as staff. Phone import, calling and sharing are untouched.
+    staffSection: (@Composable () -> Unit)? = null,
     viewModel: PersonDetailViewModel = hiltViewModel(),
 ) {
     // Hilt's SavedStateHandle lets the VM pick up the `personId`
@@ -150,6 +155,7 @@ fun PersonDetailScreen(
                 person = s.person,
                 instructions = s.instructions,
                 padding = padding,
+                staffSection = staffSection,
                 onNudge = { ins -> nudgeTarget = ins },
                 onMarkDone = { ins -> viewModel.markDone(ins.id) },
                 onReopen = { ins -> viewModel.reopen(ins.id) },
@@ -314,6 +320,7 @@ private fun PersonTimeline(
     person: com.kaavalan.note.data.person.Person,
     instructions: List<Instruction>,
     padding: PaddingValues,
+    staffSection: (@Composable () -> Unit)? = null,
     onNudge: (Instruction) -> Unit = {},
     onMarkDone: (Instruction) -> Unit = {},
     onReopen: (Instruction) -> Unit = {},
@@ -344,8 +351,10 @@ private fun PersonTimeline(
                 onOpenSensitive = onOpenPersonSensitive,
             )
         }
+        staffSection?.let { section -> item { section() } }
         // v2.0 Tier 2 (§2.12): person-to-person links.
         item { TextButton(onClick = { showOptions = !showOptions }) { Text(if (showOptions) "Hide contact details" else "Relationships & important dates") } }
+
         if (showOptions) {
         item { PersonLinksRow(onOpenPerson = onOpenLinkedPerson) }
         // v2.0 Tier 2 (§2.5): important dates per person.

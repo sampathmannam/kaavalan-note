@@ -58,7 +58,15 @@ interface InstructionRepository {
      */
     suspend fun markDropped(id: String, reason: String?, at: String)
 
-    /** v2.0 (Hierarchy): create a new instruction with an audience pointer. */
+    /**
+     * v2.0 (Hierarchy): create a new instruction with an audience pointer.
+     *
+     * v18 (subdivision CRM): [stationId] and [matterId] carry an explicit work context —
+     * a capture started from a matter or a station. Both are validated and applied inside
+     * the same transaction as the insert, so a rejected context leaves nothing saved.
+     * Left null, the instruction snapshots the responsible contact's current station and
+     * is linked to no matter.
+     */
     suspend fun createWithAudience(
         personId: String?,
         audience: AudienceRef?,
@@ -70,7 +78,10 @@ interface InstructionRepository {
         dueAtMs: Long?,
         channel: String?,
         direction: Direction = Direction.OUTGOING,
+        stationId: String? = null,
+        matterId: String? = null,
     ): Instruction
+
 
     /** v2.0 (Hierarchy): replace the audience pointer. `null` clears. */
     suspend fun setAudience(id: String, audience: AudienceRef?)

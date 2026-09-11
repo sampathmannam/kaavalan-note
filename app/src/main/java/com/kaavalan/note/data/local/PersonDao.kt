@@ -18,6 +18,24 @@ import kotlinx.coroutines.flow.Flow
  */
 @Dao
 interface PersonDao {
+    @androidx.room.Update
+    suspend fun updateExisting(person: PersonEntity)
+
+    /**
+     * v18: restore / import writes.
+     *
+     * [upsert] and [upsertAll] are `INSERT OR REPLACE`, which DELETES the existing row
+     * before re-inserting it. `important_date` and `person_link` both reference
+     * `persons(id)` with ON DELETE CASCADE, so replacing a person wipes their important
+     * dates and relationships. Room's `@Upsert` is INSERT-then-UPDATE: no delete, so no
+     * cascade, and a repeated restore stays genuinely idempotent.
+     */
+    @androidx.room.Upsert
+    suspend fun save(person: PersonEntity)
+
+    @androidx.room.Upsert
+    suspend fun saveAll(persons: List<PersonEntity>)
+
 
     @Query("SELECT * FROM persons ORDER BY name COLLATE NOCASE ASC")
     fun observeAll(): Flow<List<PersonEntity>>

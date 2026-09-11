@@ -36,6 +36,20 @@ interface TagDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(tags: List<TagEntity>)
 
+    /**
+     * v18: restore / import writes. INSERT-then-UPDATE rather than INSERT OR REPLACE, so
+     * restoring a tag does not delete the row and cascade its `instruction_tags` links.
+     */
+    @androidx.room.Upsert
+    suspend fun save(tag: TagEntity)
+
+    @androidx.room.Upsert
+    suspend fun saveAll(tags: List<TagEntity>)
+
+    @Query("SELECT * FROM tags")
+    suspend fun snapshot(): List<TagEntity>
+
+
     @Query("UPDATE tags SET syncStatus = :status WHERE id = :id")
     suspend fun setSyncStatus(id: String, status: String)
 

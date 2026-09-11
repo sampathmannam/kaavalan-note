@@ -172,6 +172,13 @@ class CaptureViewModelTest {
         var nextId = 0
         val created = mutableListOf<CreatedInstruction>()
         var allRows: List<Instruction> = emptyList()
+
+        /**
+         * v2.6.0: set to make the repository refuse a work context, the way the real
+         * repository refuses an archived matter. The attempt is still recorded in
+         * [created] so a test can assert the draft survived a refusal.
+         */
+        var contextFailure: Throwable? = null
         override suspend fun create(
             personId: String?,
             source: Source,
@@ -236,6 +243,8 @@ class CaptureViewModelTest {
             dueAtMs: Long?,
             channel: String?,
             direction: Direction,
+            stationId: String?,
+            matterId: String?,
         ): Instruction {
             nextId += 1
             val createdId = "ins-$nextId"
@@ -249,7 +258,10 @@ class CaptureViewModelTest {
                 dueAt = dueAt,
                 dueAtMs = dueAtMs,
                 direction = direction,
+                stationId = stationId,
+                matterId = matterId,
             )
+            contextFailure?.let { throw it }
             return Instruction(
                 id = createdId,
                 personId = personId,
@@ -264,6 +276,8 @@ class CaptureViewModelTest {
                 capturedAt = "2026-08-11T00:00:00+00:00",
                 createdAt = "2026-08-11T00:00:00+00:00",
                 updatedAt = "2026-08-11T00:00:00+00:00",
+                stationId = stationId,
+                matterId = matterId,
             )
         }
         override suspend fun setAudience(id: String, audience: com.kaavalan.note.data.instructions.AudienceRef?) {
@@ -288,7 +302,10 @@ class CaptureViewModelTest {
         val dueAt: String?,
         val dueAtMs: Long?,
         val direction: Direction = Direction.OUTGOING,
+        val stationId: String? = null,
+        val matterId: String? = null,
     )
+
 
     private class FakeReminderScheduler : ReminderScheduler {
         val scheduled = mutableListOf<Pair<String, Long>>()
@@ -965,4 +982,168 @@ class CaptureViewModelTest {
         advanceUntilIdle()
         assertFalse("blank OCR must not open the sheet", vm.state.value.isVisible)
     }
+
+    // ---- v2.6.0: the subdivision work context ----
+
+    @Test
+    fun `opening capture from a matter with an empty draft applies the context`() = runTest(testDispatcher) {
+        val f = fakes()
+        val vm = makeVm(f.first, f.second, f.third)
+        vm.openInContext("st-1", "m-1", "Sand mining inquiry · Kalakad")
+        advanceUntilIdle()
+        val state = vm.state.value
+        assertTrue("the sheet opens", state.isVisible)
+        assertEquals("st-1", state.contextStationId)
+        assertEquals("m-1", state.contextMatterId)
+        assertEquals("Sand mining inquiry · Kalakad", state.contextLabel)
+        assertNull("nothing to ask about on an empty draft", state.pendingContext)
+        assertTrue(state.hasContext)
+    }
+
+    @Test
+    fun `a different context arriving on a non-empty draft keeps the draft and asks`() = runTest(testDispatcher) {
+        val f = fakes()
+        val vm = makeVm(f.first, f.second, f.third)
+        vm.openSheet()
+        vm.onTextChanged("Half-written note about the quarry road")
+        vm.openInContext("st-1", "m-1", "Sand mining inquiry")
+        advanceUntilIdle()
+
+        var state = vm.state.value
+        assertEquals(
+            "the typed text must survive untouched",
+            "Half-written note about the quarry road",
+            state.text,
+        )
+        assertNull("the context must NOT be applied silently", state.contextMatterId)
+        assertEquals("Sand mining inquiry", state.pendingContext?.label)
+
+        vm.acceptPendingContext()
+        state = vm.state.value
+        assertEquals("m-1", state.contextMatterId)
+        assertNull(state.pendingContext)
+        assertEquals("Half-written note about the quarry road", state.text)
+    }
+
+    @Test
+    fun `keeping the current context clears the question without changing the draft`() = runTest(testDispatcher) {
+        val f = fakes()
+        val vm = makeVm(f.first, f.second, f.third)
+        vm.openInContext("st-1", "m-1", "Sand mining inquiry")
+        vm.onTextChanged("Seize the two lorries")
+        vm.openInContext("st-2", "m-2", "Monsoon drive")
+        advanceUntilIdle()
+        assertEquals("Monsoon drive", vm.state.value.pendingContext?.label)
+
+        vm.keepCurrentContext()
+        val state = vm.state.value
+        assertNull(state.pendingContext)
+        assertEquals("the original context stays", "m-1", state.contextMatterId)
+        assertEquals("Seize the two lorries", state.text)
+    }
+
+    @Test
+    fun `re-opening the same context on a non-empty draft asks nothing`() = runTest(testDispatcher) {
+        val f = fakes()
+        val vm = makeVm(f.first, f.second, f.third)
+        vm.openInContext("st-1", "m-1", "Sand mining inquiry")
+        vm.onTextChanged("Seize the two lorries")
+        vm.openInContext("st-1", "m-1", "Sand mining inquiry")
+        advanceUntilIdle()
+        assertNull("nothing has changed, so there is nothing to ask", vm.state.value.pendingContext)
+        assertEquals("m-1", vm.state.value.contextMatterId)
+    }
+
+    @Test
+    fun `the work context is carried into the save and cleared only after it succeeds`() = runTest(testDispatcher) {
+        val f = fakes()
+        val vm = makeVm(f.first, f.second, f.third)
+        vm.openInContext("st-1", "m-1", "Sand mining inquiry")
+        vm.onTextChanged("Seize the two lorries")
+        vm.onSaveRaw()
+        advanceUntilIdle()
+
+        val created = f.third.created.single()
+        assertEquals("st-1", created.stationId)
+        assertEquals("m-1", created.matterId)
+        assertNull("a durable save clears the context with the draft", vm.state.value.contextMatterId)
+        assertEquals("", vm.state.value.text)
+    }
+
+    @Test
+    fun `a refused work context keeps the draft and shows the reason`() = runTest(testDispatcher) {
+        val f = fakes()
+        f.third.contextFailure = IllegalArgumentException(
+            "\"Sand mining inquiry\" is archived. Reopen it before adding work.",
+        )
+        val vm = makeVm(f.first, f.second, f.third)
+        vm.openInContext("st-1", "m-1", "Sand mining inquiry")
+        vm.onTextChanged("Seize the two lorries")
+        vm.onSaveRaw()
+        advanceUntilIdle()
+
+        val state = vm.state.value
+        assertEquals("the officer keeps their words", "Seize the two lorries", state.text)
+        assertEquals("and keeps the context so they can correct it", "m-1", state.contextMatterId)
+        assertFalse(state.isSaving)
+        assertTrue(
+            "the repository's own actionable sentence is surfaced; got: ${state.error}",
+            state.error?.contains("Reopen it before adding work") == true,
+        )
+    }
+
+    @Test
+    fun `the context is restored after a process death`() = runTest(testDispatcher) {
+        val f = fakes()
+        val handle = androidx.lifecycle.SavedStateHandle()
+        val first = makeVm(f.first, f.second, f.third, savedStateHandle = handle)
+        first.openInContext("st-1", "m-1", "Sand mining inquiry")
+        first.onTextChanged("Seize the two lorries")
+        advanceUntilIdle()
+
+        val restored = makeVm(f.first, f.second, f.third, savedStateHandle = handle)
+        val state = restored.state.value
+        assertEquals("Seize the two lorries", state.text)
+        assertEquals("st-1", state.contextStationId)
+        assertEquals("m-1", state.contextMatterId)
+        assertEquals("Sand mining inquiry", state.contextLabel)
+    }
+
+    @Test
+    fun `the same words saved into two different matters are two saves, not a duplicate`() =
+        runTest(testDispatcher) {
+            val f = fakes()
+            val handle = androidx.lifecycle.SavedStateHandle()
+            val vm = makeVm(f.first, f.second, f.third, savedStateHandle = handle)
+            vm.openInContext("st-1", "m-1", "Sand mining inquiry")
+            vm.onTextChanged("Seize the two lorries")
+            vm.onSaveRaw()
+            advanceUntilIdle()
+            assertEquals(1, f.third.created.size)
+
+            // Immediately afterwards, inside the dedup window, the same text in a
+            // different matter is a different intent and must not be swallowed.
+            vm.openInContext("st-2", "m-2", "Monsoon drive")
+            vm.onTextChanged("Seize the two lorries")
+            vm.onSaveRaw()
+            advanceUntilIdle()
+
+            assertEquals("the second save must land", 2, f.third.created.size)
+            assertEquals("m-2", f.third.created.last().matterId)
+        }
+
+    @Test
+    fun `clearing the context leaves the typed note alone`() = runTest(testDispatcher) {
+        val f = fakes()
+        val vm = makeVm(f.first, f.second, f.third)
+        vm.openInContext("st-1", "m-1", "Sand mining inquiry")
+        vm.onTextChanged("Seize the two lorries")
+        vm.clearContext()
+        advanceUntilIdle()
+        val state = vm.state.value
+        assertFalse(state.hasContext)
+        assertNull(state.contextLabel)
+        assertEquals("Seize the two lorries", state.text)
+    }
+
 }

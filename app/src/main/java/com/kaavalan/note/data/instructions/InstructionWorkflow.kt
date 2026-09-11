@@ -47,7 +47,10 @@ class InstructionWorkflow @Inject constructor(
         val now = Instant.now().toString()
         val relinked = row.personId != personId
         val person = personId?.let { db.personDao().getById(it) }
-        val entry = InstructionUpdate(UUID.randomUUID().toString(), now, "Instruction details edited", row.status,
+        val oldName = row.personId?.let { db.personDao().getById(it)?.name } ?: "No contact"
+        val entry = InstructionUpdate(UUID.randomUUID().toString(), now,
+            if (relinked) "Responsibility changed: " + oldName + " → " + (person?.name ?: "No contact") + ". Instruction details edited."
+            else "Instruction details edited", row.status,
             row.reminder(), row.rawText)
         persist(row.copy(rawText = text.trim(), title = text.trim().take(80), direction = direction.name,
             personId = personId, deadlineAtMs = deadlineAtMs, updatedAt = now,
@@ -91,18 +94,58 @@ class InstructionWorkflow @Inject constructor(
             val row = scoped(undo.id)
             // A newer lifecycle action must never be overwritten by a stale snackbar.
             require(row.status == Status.DONE.name && row.completedAt == undo.completedAt)
+            // The officer may have archived the station or matter in the seconds between
+            // marking this done and undoing it. Bringing the work back has to bring its
+            // context back too, or the instruction reappears under an archived unit.
+            com.kaavalan.note.data.subdivision.SubdivisionRepository
+                .reactivateContext(db, row.stationId, row.matterId)
             persist(row.copy(status = undo.previousStatus, completedAt = null, updatedAt = Instant.now().toString()))
             row.reminder()
         }
         reminders.scheduleSaved(undo.id, reminder)
     }
 
+    /**
+     * Edit a contact's own details. The station text resolves to a stable station ID so a
+     * contact edited from the ordinary editor stays consistent with the subdivision record,
+     * and a staff member's station change is recorded as a dated posting entry rather than
+     * overwriting where their existing work was carried out.
+     *
+     * UPDATE, not REPLACE: the person row is referenced by `important_date` and
+     * `person_link` with ON DELETE CASCADE, so a REPLACE here would delete a contact's
+     * important dates and relationships as a side effect of a rename.
+     */
     suspend fun editContact(id: String, name: String, rank: String, station: String, phone: String) = db.withTransaction {
         require(name.isNotBlank())
         val person = requireNotNull(db.personDao().getById(id))
         require(person.vaultMode == vault.mode.value.storageKey)
-        db.personDao().updateLocal(id, name.trim(), rank.trim().ifBlank { null }, station.trim().ifBlank { null },
-            phone.trim().ifBlank { null }, Instant.now().toString(), SyncStatus.PENDING_UPDATE)
+        val stationId = com.kaavalan.note.data.subdivision.SubdivisionRepository
+            .resolveStation(db, person.vaultMode, station)
+        val now = Instant.now().toString()
+        if (person.isStaff && person.stationId != stationId) {
+            db.subdivisionDao().savePosting(
+                com.kaavalan.note.data.subdivision.StaffPosting(
+                    id = UUID.randomUUID().toString(),
+                    vaultMode = person.vaultMode,
+                    personId = id,
+                    fromStation = person.station.orEmpty(),
+                    toStation = station.trim(),
+                    note = "Posting changed from the contact details editor",
+                    recordedAt = now,
+                ),
+            )
+        }
+        db.personDao().updateExisting(
+            person.copy(
+                name = name.trim(),
+                designation = rank.trim().ifBlank { null },
+                station = station.trim().ifBlank { null },
+                stationId = stationId,
+                phone = phone.trim().ifBlank { null },
+                updatedAt = now,
+                syncStatus = SyncStatus.PENDING_UPDATE,
+            ),
+        )
     }
 
     suspend fun changeReminder(id: String, at: Long?) {
@@ -128,7 +171,10 @@ class InstructionWorkflow @Inject constructor(
             val row = scoped(id)
             require(row.status == "DONE" || row.status == "DROPPED")
             val now = Instant.now().toString()
+            com.kaavalan.note.data.subdivision.SubdivisionRepository
+                .reactivateContext(db, row.stationId, row.matterId)
             val entry = InstructionUpdate(UUID.randomUUID().toString(), now, "Instruction reopened", "OPEN", row.reminder())
+
             persist(row.copy(status = "OPEN", completedAt = null, droppedReason = null, updatedAt = now,
                 updatesJson = InstructionJournal.encode(InstructionJournal.decode(row.updatesJson) + entry)))
             row.reminder()
