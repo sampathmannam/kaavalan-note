@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="800" viewBox="0 0 360 800">
+  <title>Subdivision review · dark</title>
+  <desc>KaavalanNote — Field Notebook UI v2.7. Generated from the shipped Compose theme by design/penpot-v2.7/tools/generate_boards.py. 1 unit = 1dp.</desc>
+  <rect x="0.0" y="0.0" width="360.0" height="800.0" rx="0.0" fill="#0C161D"/>
+  <text x="20.0" y="15.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="12.0" font-weight="500" fill="#B7C7D0" text-anchor="start">12:00</text>
+  <line x1="23.0" y1="52.0" x2="33.0" y2="52.0" stroke="#E4EDF2" stroke-width="1.6" stroke-linecap="round"/><path d="M 29.0 48.0 L 33.0 52.0 L 29.0 56.0" fill="none" stroke="#E4EDF2" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="48.0" y="40.8" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="12.0" font-weight="500" fill="#A8D2EC" text-anchor="start">Subdivision record</text>
+  <text x="48.0" y="68.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="22.0" font-weight="600" fill="#E4EDF2" text-anchor="start">Subdivision review</text>
+  <rect x="329.5" y="54.5" width="9.0" height="9.0" rx="2" fill="none" stroke="#E4EDF2" stroke-width="1.6"/>
+  <text x="20.0" y="118.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="22.0" font-weight="600" fill="#E4EDF2" text-anchor="start">Warangal Subdivision</text>
+  <text x="20.0" y="149.6" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="16.0" font-weight="600" fill="#E4EDF2" text-anchor="start">Scope</text>
+  <text x="20.0" y="174.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="400" fill="#B7C7D0" text-anchor="start">Choose what this review covers.</text>
+  <rect x="20.0" y="190.0" width="320.0" height="48.0" rx="24.0" fill="none" stroke="#8CA0AB" stroke-width="1"/>
+  <text x="180.0" y="219.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#A8D2EC" text-anchor="middle">Whole subdivision</text>
+  <text x="20.0" y="271.6" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="16.0" font-weight="600" fill="#E4EDF2" text-anchor="start">105 open · 0 ready to verify</text>
+  <text x="20.0" y="295.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="400" fill="#B7C7D0" text-anchor="start">Counts cover only the records available in</text>
+  <text x="20.0" y="315.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="400" fill="#B7C7D0" text-anchor="start">this workspace right now.</text>
+  <rect x="20.0" y="332.0" width="56.48" height="36.0" rx="8.0" fill="#2A4251"/>
+  <text x="48.24" y="355.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#E4EDF2" text-anchor="middle">Open</text>
+  <rect x="84.48" y="332.0" width="145.8" height="36.0" rx="8.0" fill="none" stroke="#8CA0AB" stroke-width="1"/>
+  <text x="157.38" y="355.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#E4EDF2" text-anchor="middle">Ready to verify</text>
+  <rect x="20.0" y="376.0" width="145.8" height="36.0" rx="8.0" fill="none" stroke="#8CA0AB" stroke-width="1"/>
+  <text x="92.9" y="399.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#E4EDF2" text-anchor="middle">Deadline passed</text>
+  <rect x="20.0" y="420.0" width="178.28" height="36.0" rx="8.0" fill="none" stroke="#8CA0AB" stroke-width="1"/>
+  <text x="109.14" y="443.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#E4EDF2" text-anchor="middle">No update in 7 days</text>
+  <text x="20.0" y="484.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#B7C7D0" text-anchor="start">105 instructions</text>
+  <rect x="20.0" y="500.0" width="320.0" height="184.0" rx="16.0" fill="#091218" stroke="#3A515E" stroke-width="1"/>
+  <rect x="36.0" y="516.0" width="69.76" height="24.0" rx="8.0" fill="#203F53"/>
+  <text x="44.0" y="532.32" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="12.0" font-weight="500" fill="#DDEFFA" text-anchor="start">Received</text>
+  <rect x="254.24" y="516.0" width="69.76" height="24.0" rx="8.0" fill="#204B47"/>
+  <text x="262.24" y="532.32" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="12.0" font-weight="500" fill="#D0F0EB" text-anchor="start">Priority</text>
+  <text x="36.0" y="565.16" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="16.0" font-weight="600" fill="#E4EDF2" text-anchor="start">164 statement from the new</text>
+  <text x="36.0" y="587.16" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="16.0" font-weight="600" fill="#E4EDF2" text-anchor="start">informant in the 2024 appeal.</text>
+  <text x="36.0" y="615.6" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="400" fill="#B7C7D0" text-anchor="start">B. Ramesh Naidu · Subedari PS</text>
+  <text x="36.0" y="638.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="400" fill="#B7C7D0" text-anchor="start">Recorded at Subedari PS · Responsible:</text>
+  <text x="36.0" y="658.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="400" fill="#B7C7D0" text-anchor="start">B. Ramesh Naidu</text>
+</svg>

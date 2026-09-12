@@ -1,0 +1,6 @@
+<style>body{margin:0;background:#888;font:12px system-ui} .g{display:flex;flex-wrap:wrap;gap:8px;padding:8px} figure{margin:0;background:#fff;padding:4px} figcaption{font-size:10px;text-align:center}</style>
+<div class="g" id="g"></div>
+<script>
+const files=["01-onboarding-light","04-today-first-use-light","05-today-populated-light","06-today-populated-dark","07-today-populated-large-text","09-instructions-populated-light","11-instructions-first-use-light","13-contacts-populated-light","17-capture-light","19-capture-keyboard-light","22-subdivision-review-light","26-settings-light"];
+document.getElementById('g').innerHTML=files.map(f=>`<figure><img src="boards/${f}.svg" width="270"><figcaption>${f}</figcaption></figure>`).join('');
+</script>

@@ -15,6 +15,14 @@ internal fun ComposeContentTestRule.openWorkspace() {
     onNodeWithTag("capture_open").assertIsDisplayed()
 }
 
+internal fun ComposeContentTestRule.chooseDisplayTheme(label: String) {
+    onNodeWithContentDescription("Settings").performClick()
+    onNodeWithText("Display theme").performScrollTo().performClick()
+    onNodeWithText(label).performClick()
+    onNodeWithContentDescription("Close settings").performClick()
+    waitForIdle()
+}
+
 internal fun ComposeContentTestRule.saveNote(text: String, responsibility: String? = null) {
     onNodeWithTag("capture_open").performClick()
     waitUntil(15_000) { onAllNodesWithText("Note").fetchSemanticsNodes().isNotEmpty() }

@@ -3,6 +3,10 @@ package com.kaavalan.note.ui.subdivision
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -132,30 +136,36 @@ private fun StationsList(
 ) {
     val rows = remember(state, showArchived, query) { stationRows(state, showArchived, query) }
     val archivedCount = state.stations.count { it.archived }
+    val firstUse = rows.isEmpty() && query.isBlank() && !showArchived
     LazyColumn(Modifier.fillMaxSize().testTag("stations_list"), contentPadding = PaddingValues(bottom = 32.dp)) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 SubdivisionSearch(query, onQuery, "Search stations and units", "stations_search")
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                ) {
-                    Text(
-                        "${rows.size} ${if (showArchived) "archived" else "active"} " +
-                            if (rows.size == 1) "record" else "records",
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.weight(1f),
-                    )
-                    TextButton(
-                        onClick = onAddStation,
-                        enabled = !busy,
-                        modifier = Modifier.heightIn(min = 48.dp).testTag("add_station"),
+                // With an empty list the first-use block below carries the same Add
+                // action; showing both put two identical controls on one screen.
+                if (!firstUse) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                     ) {
-                        Text("Add station / unit")
+                        Text(
+                            "${rows.size} ${if (showArchived) "archived" else "active"} " +
+                                if (rows.size == 1) "record" else "records",
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(
+                            onClick = onAddStation,
+                            enabled = !busy,
+                            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+                            modifier = Modifier.heightIn(min = 48.dp).testTag("add_station"),
+                        ) {
+                            Text("Add station / unit")
+                        }
                     }
                 }
                 if (archivedCount > 0 || showArchived) {
-                    Row(Modifier.padding(horizontal = 12.dp)) {
+                    Row(Modifier.padding(horizontal = 20.dp)) {
                         FilterChip(
                             selected = showArchived,
                             onClick = { onShowArchived(!showArchived) },
@@ -185,6 +195,7 @@ private fun StationsList(
                     action = if (query.isNotBlank()) "Clear search" else if (showArchived) null else "Add station / unit",
                     onAction = if (query.isNotBlank()) ({ onQuery("") }) else onAddStation,
                     testTag = "stations_empty",
+                    actionTestTag = if (firstUse) "add_station" else null,
                 )
             }
         } else {
@@ -198,6 +209,7 @@ private fun StationsList(
                     ),
                     onClick = { onOpenStation(row.id) },
                     testTag = "station_row_${row.station.name}",
+                    icon = Icons.Outlined.AccountBalance,
                     trailing = if (row.station.archived) "Archived" else null,
                 )
             }
@@ -216,25 +228,30 @@ private fun StaffList(
     onOpenStaff: (String) -> Unit,
 ) {
     val rows = remember(state, query) { staffRows(state, query) }
+    val firstUse = rows.isEmpty() && query.isBlank()
     LazyColumn(Modifier.fillMaxSize().testTag("staff_list"), contentPadding = PaddingValues(bottom = 32.dp)) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 SubdivisionSearch(query, onQuery, "Search staff, rank or responsibilities", "staff_search")
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                ) {
-                    Text(
-                        "${rows.size} ${if (rows.size == 1) "officer" else "officers"}",
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.weight(1f),
-                    )
-                    TextButton(
-                        onClick = if (state.contacts.isEmpty()) onAddContact else onAddFromContacts,
-                        enabled = !busy,
-                        modifier = Modifier.heightIn(min = 48.dp).testTag("add_from_contacts"),
+                // The first-use notice below owns the only Add action while the list is
+                // empty, matching the Stations segment and avoiding duplicate controls.
+                if (!firstUse) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                     ) {
-                        Text(if (state.contacts.isEmpty()) "Add a contact first" else "Add from contacts")
+                        Text(
+                            "${rows.size} ${if (rows.size == 1) "officer" else "officers"}",
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(
+                            onClick = if (state.contacts.isEmpty()) onAddContact else onAddFromContacts,
+                            enabled = !busy,
+                            modifier = Modifier.heightIn(min = 48.dp).testTag("add_from_contacts"),
+                        ) {
+                            Text(if (state.contacts.isEmpty()) "Add a contact first" else "Add from contacts")
+                        }
                     }
                 }
             }
@@ -266,6 +283,7 @@ private fun StaffList(
                         else -> onAddFromContacts
                     },
                     testTag = "staff_empty",
+                    actionTestTag = if (firstUse) "add_from_contacts" else null,
                 )
             }
         } else {
@@ -279,6 +297,7 @@ private fun StaffList(
                     ),
                     onClick = { onOpenStaff(row.person.id) },
                     testTag = "staff_row_${row.person.name}",
+                    icon = Icons.Outlined.Badge,
                     trailing = if (row.person.staffActive) "Active" else "Inactive",
                 )
             }
@@ -382,6 +401,7 @@ fun StationDetailScreen(
                     ),
                     onClick = { onOpenStaff(person.id) },
                     testTag = "station_staff_${person.name}",
+                    icon = Icons.Outlined.Badge,
                     trailing = if (person.staffActive) "Active" else "Inactive",
                 )
             }
@@ -399,6 +419,7 @@ fun StationDetailScreen(
                     supporting = listOfNotNull(matter.reference.takeIf { it.isNotBlank() }),
                     onClick = { onOpenMatter(matter.id) },
                     testTag = "station_matter_${matter.title}",
+                    icon = Icons.Outlined.Folder,
                     trailing = if (matter.archived) "Archived" else null,
                 )
             }
@@ -411,9 +432,12 @@ fun StationDetailScreen(
                 }
             }
             items(work, key = { "work:${it.id}" }) { item ->
-                Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    WorkCard(item, state.contacts, today, onClick = { onOpenInstruction(item.id) })
-                    RecordedContextLine(state, item)
+                Box(Modifier.padding(horizontal = 20.dp)) {
+                    WorkCard(
+                        item, state.contacts, today,
+                        onClick = { onOpenInstruction(item.id) },
+                        footer = { RecordedContextLine(state, item) },
+                    )
                 }
             }
             if (work.isEmpty()) {
@@ -562,9 +586,12 @@ fun StaffDetailScreen(
                 }
             }
             items(work, key = { "work:${it.id}" }) { item ->
-                Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    WorkCard(item, state.contacts, today, onClick = { onOpenInstruction(item.id) })
-                    RecordedContextLine(state, item)
+                Box(Modifier.padding(horizontal = 20.dp)) {
+                    WorkCard(
+                        item, state.contacts, today,
+                        onClick = { onOpenInstruction(item.id) },
+                        footer = { RecordedContextLine(state, item) },
+                    )
                 }
             }
             if (work.isEmpty()) {
@@ -608,4 +635,3 @@ internal fun FlowActions(content: @Composable () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) { content() }
 }
-

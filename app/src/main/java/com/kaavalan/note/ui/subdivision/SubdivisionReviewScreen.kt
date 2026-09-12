@@ -185,12 +185,12 @@ fun SubdivisionReviewScreen(
                     )
                 }
                 items(results, key = { "review:${it.id}" }) { item ->
-                    Column(
-                        Modifier.padding(horizontal = 20.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        WorkCard(item, state.contacts, today, onClick = { onOpenInstruction(item.id) })
-                        RecordedContextLine(state, item)
+                    Box(Modifier.padding(horizontal = 20.dp)) {
+                        WorkCard(
+                            item, state.contacts, today,
+                            onClick = { onOpenInstruction(item.id) },
+                            footer = { RecordedContextLine(state, item) },
+                        )
                     }
                 }
             }
@@ -243,7 +243,8 @@ fun SubdivisionReviewScreen(
                 item {
                     TextButton(
                         onClick = { showAllHistory = !showAllHistory },
-                        modifier = Modifier.padding(horizontal = 12.dp).heightIn(min = 48.dp),
+                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 20.dp).heightIn(min = 48.dp),
                     ) {
                         Text(if (showAllHistory) "Show fewer reviews" else "See all ${reviews.size} reviews")
                     }

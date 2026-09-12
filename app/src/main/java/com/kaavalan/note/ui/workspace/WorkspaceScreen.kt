@@ -1,6 +1,7 @@
 package com.kaavalan.note.ui.workspace
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
@@ -27,6 +28,13 @@ import com.kaavalan.note.data.instructions.Direction
 import com.kaavalan.note.data.instructions.Priority
 import com.kaavalan.note.data.person.Person
 import com.kaavalan.note.features.reminder.formatReminderTime
+import com.kaavalan.note.ui.components.KaavalanBadge
+import com.kaavalan.note.ui.components.KaavalanEmptyState
+import com.kaavalan.note.ui.components.KaavalanIconTile
+import com.kaavalan.note.ui.components.KaavalanPanel
+import com.kaavalan.note.ui.components.KaavalanSearchField
+import com.kaavalan.note.ui.components.KaavalanSectionHeading
+import com.kaavalan.note.ui.components.KaavalanTopBarTitle
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -66,21 +74,39 @@ fun WorkspaceScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(when (tab) {
-                        WorkspaceTab.TODAY -> "Today"
-                        WorkspaceTab.INSTRUCTIONS -> "Instructions"
-                        WorkspaceTab.CONTACTS -> "Contacts"
-                    }, style = if (androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f)
-                        MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium,
-                        modifier = Modifier.testTag("workspace_title"))
+                    KaavalanTopBarTitle(
+                        title = when (tab) {
+                            WorkspaceTab.TODAY -> "Today"
+                            WorkspaceTab.INSTRUCTIONS -> "Instructions"
+                            WorkspaceTab.CONTACTS -> "Contacts"
+                        },
+                        // Today opens with the local date (DESIGN.md "Navigation and
+                        // hierarchy"). Carrying it in the title block keeps the one
+                        // labelled subdivision action immediately below the top bar
+                        // instead of pushing it under a card that only shows a date.
+                        context = if (tab == WorkspaceTab.TODAY) {
+                            date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM"))
+                        } else {
+                            "Field notebook"
+                        },
+                        titleTestTag = "workspace_title",
+                    )
                 },
                 actions = {
+                    // Which workspace is open matters on every tab, not only Today.
+                    if (state.hidden) {
+                        KaavalanBadge("Private", modifier = Modifier.testTag("private_workspace_badge"))
+                        Spacer(Modifier.width(4.dp))
+                    }
                     IconButton(onClick = onSettings) {
                         Icon(Icons.Outlined.Settings, contentDescription = "Settings")
                     }
                 },
                 windowInsets = WindowInsets(0),
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                ),
             )
         },
     ) { padding ->
@@ -122,7 +148,15 @@ fun WorkspaceScreen(
                             )
                         }
                     }
-                    WorkspaceSearch(query, { query = it }, "Search instructions, station, matter and updates")
+                    WorkspaceSearch(
+                        query,
+                        { query = it },
+                        // filterWork also matches the station / matter text supplied in
+                        // contextSearch, but that map is empty in the private workspace,
+                        // where promising those scopes would be wrong.
+                        if (contextSearch.isEmpty()) "Search instructions and updates"
+                        else "Search instructions, updates, stations and matters",
+                    )
                     FlowRow(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(WorkFilter.ALL, WorkFilter.OPEN, WorkFilter.CLOSED).forEach { item ->
                             FilterChip(modifier = Modifier.testTag("filter_${item.name}"), selected = filter == item,
@@ -136,8 +170,15 @@ fun WorkspaceScreen(
                             }) })
                         }
                     }
-                    Box(Modifier.padding(horizontal = 12.dp)) {
-                        TextButton(onClick = { chooseResponsibility = true }) { Text(responsibility?.officerLabel() ?: "All responsibilities") }
+                    Box(Modifier.padding(horizontal = 20.dp)) {
+                        TextButton(
+                            onClick = { chooseResponsibility = true },
+                            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
+                            Text(responsibility?.officerLabel() ?: "All responsibilities")
+                            Icon(Icons.Outlined.ArrowDropDown, contentDescription = null, modifier = Modifier.size(20.dp))
+                        }
                         DropdownMenu(chooseResponsibility, onDismissRequest = { chooseResponsibility = false }) {
                             DropdownMenuItem(text = { Text("All responsibilities") }, onClick = { responsibility = null; chooseResponsibility = false })
                             Direction.entries.forEach { direction -> DropdownMenuItem(text = { Text(direction.officerLabel()) },
@@ -201,25 +242,23 @@ private fun TodayDesk(
     var allUpcoming by rememberSaveable { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier.widthIn(max = 840.dp).fillMaxSize().testTag("today_list"),
-        contentPadding = PaddingValues(20.dp, 0.dp, 20.dp, 24.dp),
+        contentPadding = PaddingValues(20.dp, 8.dp, 20.dp, 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         entry?.let { item { it() } }
-        item {
-            Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")),
-                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (state.hidden) Text("Private contacts workspace", style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))
-        }
         if (state.instructions.isEmpty()) {
             item {
-                Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.large) {
+                KaavalanPanel(Modifier.fillMaxWidth(), emphasized = true) {
                     Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Icon(Icons.Outlined.EditNote, null, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        KaavalanIconTile(
+                            Icons.Outlined.EditNote,
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = .62f),
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
                         Text("A clear start to your duty.", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                         Text("Capture an instruction while it is fresh. Add a reminder if it needs your attention later.",
                             color = MaterialTheme.colorScheme.onPrimaryContainer)
-                        Button(onClick = onCapture) { Text("Write your first note") }
+                        Button(onClick = onCapture, modifier = Modifier.heightIn(min = 48.dp)) { Text("Write your first note") }
                     }
                 }
             }
@@ -290,21 +329,41 @@ fun WorkCard(
     featured: Boolean = false,
     onDone: (() -> Unit)? = null,
     busy: Boolean = false,
+    // Record context (the station and matter an instruction was recorded at) belongs to
+    // the record, not to a loose line of text underneath the card.
+    footer: (@Composable () -> Unit)? = null,
 ) {
     val contact = contacts.firstOrNull { it.id == instruction.personId }
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().testTag("instruction_${instruction.id}"),
-        colors = CardDefaults.cardColors(containerColor = if (featured) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(
+            containerColor = if (featured) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLowest,
+            contentColor = if (featured) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(
+            1.dp,
+            if (featured) MaterialTheme.colorScheme.primary.copy(alpha = .28f)
+            else MaterialTheme.colorScheme.outlineVariant,
+        ),
         shape = MaterialTheme.shapes.large,
     ) {
         Column(Modifier.padding(if (featured) 20.dp else 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(instruction.direction.officerLabel(), style = MaterialTheme.typography.labelLarge,
-                    color = if (featured) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.weight(1f))
+                KaavalanBadge(
+                    instruction.direction.officerLabel(),
+                    containerColor = if (featured) MaterialTheme.colorScheme.surface.copy(alpha = .55f)
+                    else MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                Spacer(Modifier.weight(1f))
                 if (instruction.priority == Priority.HIGH || instruction.priority == Priority.URGENT) {
-                    Text("Priority", style = MaterialTheme.typography.labelMedium)
+                    KaavalanBadge(
+                        "Priority",
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    )
                 }
             }
             Text(instruction.rawText.ifBlank { instruction.title },
@@ -328,6 +387,7 @@ fun WorkCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             instruction.updates.lastOrNull()?.let { update -> Text("Latest · ${update.text}", maxLines = 2, overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            footer?.invoke()
             if (onDone != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onDone, enabled = !busy, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Outlined.Check, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Mark done")
@@ -345,6 +405,7 @@ private fun ContactsDirectory(state: WorkspaceState, query: String, onQuery: (St
     val contacts = state.contacts.filter { person ->
         listOfNotNull(person.name, person.designation, person.station).joinToString(" ").contains(query.trim(), ignoreCase = true)
     }
+    val directoryEmpty = state.contacts.isEmpty()
     LazyColumn(Modifier.widthIn(max = 840.dp).fillMaxSize().testTag("contacts_list"),
         contentPadding = PaddingValues(bottom = 20.dp)) {
         entry?.let { item { Box(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) { it() } } }
@@ -354,41 +415,72 @@ private fun ContactsDirectory(state: WorkspaceState, query: String, onQuery: (St
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
         WorkspaceSearch(query, onQuery, "Search name, rank or station")
-        TextButton(onClick = onImportContact, modifier = Modifier.padding(horizontal = 12.dp)) {
+        TextButton(
+            onClick = onImportContact,
+            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 20.dp).heightIn(min = 48.dp),
+        ) {
             Text("Import from phone contacts")
         }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("${contacts.size} ${if (contacts.size == 1) "contact" else "contacts"}",
-                style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-            TextButton(onClick = onAddContact, modifier = Modifier.testTag("add_contact")) { Icon(Icons.Outlined.PersonAdd, null, Modifier.size(18.dp));
-                Spacer(Modifier.width(8.dp)); Text("Add contact") }
+        // With nothing in the directory the count row says "0 contacts" and repeats the
+        // Add action the first-use block below already offers. Show one, not both.
+        if (!directoryEmpty) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("${contacts.size} ${if (contacts.size == 1) "contact" else "contacts"}",
+                    style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+                TextButton(
+                    onClick = onAddContact,
+                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("add_contact"),
+                ) {
+                    Icon(Icons.Outlined.PersonAdd, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Add contact")
+                }
+            }
         }
         }
         if (contacts.isEmpty()) item {
-            EmptyWorkspace(if (query.isBlank()) "Know who is handling what" else "No matching contacts",
-                if (query.isBlank()) "Add a colleague with their rank and station. You can still save notes without adding anyone."
+            EmptyWorkspace(
+                title = if (query.isBlank()) "Know who is handling what" else "No matching contacts",
+                body = if (query.isBlank()) "Add a colleague with their rank and station. You can still save notes without adding anyone."
                 else "Try their name, rank or station.",
-                if (query.isBlank()) "Add contact" else "Clear search",
-                if (query.isBlank()) onAddContact else ({ onQuery("") }))
+                action = if (query.isBlank()) "Add contact" else "Clear search",
+                onAction = if (query.isBlank()) onAddContact else ({ onQuery("") }),
+                // The directory's own Add action is hidden while this block is the only
+                // thing on screen, so the tag travels with the action the officer sees.
+                actionTestTag = if (directoryEmpty && query.isBlank()) "add_contact" else null,
+            )
         } else {
             items(contacts, key = { it.id }) { person ->
                 val count = state.instructions.count { it.personId == person.id && !it.isClosed }
                 Row(Modifier.fillMaxWidth().clickable { onContact(person.id) }.padding(horizontal = 20.dp, vertical = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
+                    horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+                    Surface(
+                        shape = MaterialTheme.shapes.medium,
+                        color = if (count > 0) MaterialTheme.colorScheme.primaryContainer
+                        else MaterialTheme.colorScheme.secondaryContainer,
+                    ) {
                         Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) {
                             Text(person.name.trim().take(1).uppercase(), style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                color = if (count > 0) MaterialTheme.colorScheme.onPrimaryContainer
+                                else MaterialTheme.colorScheme.onSecondaryContainer)
                         }
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(person.name, style = MaterialTheme.typography.titleMedium)
                         Text(listOfNotNull(person.designation, person.station).filter(String::isNotBlank).joinToString(" · ").ifBlank { "Work contact" },
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(if (count == 0) "No open instructions" else "$count open ${if (count == 1) "instruction" else "instructions"}",
-                            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        KaavalanBadge(
+                            if (count == 0) "No open instructions" else "$count open ${if (count == 1) "instruction" else "instructions"}",
+                            containerColor = if (count == 0) MaterialTheme.colorScheme.surfaceContainerLow
+                            else MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = if (count == 0) MaterialTheme.colorScheme.onSurfaceVariant
+                            else MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
                     }
-                    Icon(Icons.Outlined.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(Icons.Outlined.ChevronRight, null, Modifier.align(Alignment.CenterVertically),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 HorizontalDivider(Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
             }
@@ -398,20 +490,18 @@ private fun ContactsDirectory(state: WorkspaceState, query: String, onQuery: (St
 
 @Composable
 private fun WorkspaceSearch(query: String, onQuery: (String) -> Unit, hint: String) {
-    OutlinedTextField(value = query, onValueChange = onQuery, singleLine = true,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp).testTag("workspace_search"),
-        placeholder = { Text(hint, style = MaterialTheme.typography.bodyMedium) },
-        leadingIcon = { Icon(Icons.Outlined.Search, null) },
-        trailingIcon = if (query.isNotEmpty()) ({ IconButton(onClick = { onQuery("") }) { Icon(Icons.Outlined.Close, contentDescription = "Clear search") } }) else null,
-        shape = MaterialTheme.shapes.large)
+    KaavalanSearchField(
+        value = query,
+        onValueChange = onQuery,
+        hint = hint,
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+        testTag = "workspace_search",
+    )
 }
 
 @Composable
 private fun SectionHeading(title: String, subtitle: String? = null) {
-    Column(Modifier.semantics { heading() }, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-    }
+    KaavalanSectionHeading(title = title, subtitle = subtitle)
 }
 
 @Composable
@@ -423,10 +513,16 @@ private fun GuidanceRow(title: String, body: String) {
 }
 
 @Composable
-private fun EmptyWorkspace(title: String, body: String, action: String, onAction: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(title, style = MaterialTheme.typography.titleLarge)
-        Text(body, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        TextButton(onClick = onAction) { Text(action) }
-    }
+private fun EmptyWorkspace(
+    title: String,
+    body: String,
+    action: String,
+    onAction: () -> Unit,
+    modifier: Modifier = Modifier,
+    actionTestTag: String? = null,
+) {
+    KaavalanEmptyState(
+        title = title, body = body, actionLabel = action, onAction = onAction,
+        modifier = modifier, actionTestTag = actionTestTag,
+    )
 }

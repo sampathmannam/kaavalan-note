@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="800" viewBox="0 0 360 800">
+  <title>Onboarding · 150% text</title>
+  <desc>KaavalanNote — Field Notebook UI v2.7. Generated from the shipped Compose theme by design/penpot-v2.7/tools/generate_boards.py. 1 unit = 1dp.</desc>
+  <rect x="0.0" y="0.0" width="360.0" height="800.0" rx="0.0" fill="#F6F8FA"/>
+  <text x="20.0" y="22.5" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="18.0" font-weight="500" fill="#4B5E6A" text-anchor="start">12:00</text>
+  <rect x="20.0" y="32.0" width="320.0" height="452.0" rx="16.0" fill="#D8EBF6" stroke="#174D6C" stroke-width="1"/>
+  <rect x="44.0" y="56.0" width="40.0" height="40.0" rx="12.0" fill="#FBFCFD"/>
+  <rect x="59.5" y="71.5" width="9.0" height="9.0" rx="2" fill="none" stroke="#113A53" stroke-width="1.6"/>
+  <text x="96.0" y="77.6" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="18.0" font-weight="500" fill="#113A53" text-anchor="start">Private field notebook</text>
+  <text x="96.0" y="106.4" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="24.0" font-weight="600" fill="#113A53" text-anchor="start">Kaavalan note</text>
+  <text x="44.0" y="159.2" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="42.0" font-weight="600" fill="#113A53" text-anchor="start">A clear</text>
+  <text x="44.0" y="213.2" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="42.0" font-weight="600" fill="#113A53" text-anchor="start">head.</text>
+  <text x="44.0" y="267.2" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="42.0" font-weight="600" fill="#113A53" text-anchor="start">A clear</text>
+  <text x="44.0" y="321.2" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="42.0" font-weight="600" fill="#113A53" text-anchor="start">record.</text>
+  <text x="44.0" y="379.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="24.0" font-weight="400" fill="#113A53" text-anchor="start">Your working notebook</text>
+  <text x="44.0" y="415.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="24.0" font-weight="400" fill="#113A53" text-anchor="start">for instructions,</text>
+  <text x="44.0" y="451.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="24.0" font-weight="400" fill="#113A53" text-anchor="start">decisions and</text>
+  <text x="44.0" y="487.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="24.0" font-weight="400" fill="#113A53" text-anchor="start">follow-ups on duty.</text>
+  <text x="20.0" y="534.4" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="24.0" font-weight="600" fill="#15242E" text-anchor="start">Built around your duty</text>
+  <rect x="20.0" y="557.0" width="40.0" height="40.0" rx="12.0" fill="#D8EBF6"/>
+  <rect x="35.5" y="572.5" width="9.0" height="9.0" rx="2" fill="none" stroke="#113A53" stroke-width="1.6"/>
+  <text x="74.0" y="583.4" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="24.0" font-weight="600" fill="#15242E" text-anchor="start">Today</text>
+  <text x="74.0" y="618.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="21.0" font-weight="400" fill="#4B5E6A" text-anchor="start">See your next action and</text>
+  <text x="74.0" y="648.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="21.0" font-weight="400" fill="#4B5E6A" text-anchor="start">follow up with your</text>
+  <text x="74.0" y="678.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="21.0" font-weight="400" fill="#4B5E6A" text-anchor="start">team.</text>
+  <rect x="20.0" y="672.0" width="320.0" height="48.0" rx="24.0" fill="#174D6C"/>
+  <text x="180.0" y="703.56" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="21.0" font-weight="500" fill="#FFFFFF" text-anchor="middle">Open my workspace</text>
+  <text x="180.0" y="759.56" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="21.0" font-weight="500" fill="#174D6C" text-anchor="middle">Skip</text>
+</svg>

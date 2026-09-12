@@ -421,8 +421,13 @@ android {
         // sent to them. Same application ID; non-destructive database migration 17 -> 18;
         // manual backup schema 3 -> 4, and schema 3 backups still restore.
         // versionCode 51 -> 52. (52 was unused on this branch; checked before advancing.)
-        versionCode = 52
-        versionName = "2.6.0"
+        // v2.7.0: calm field-notebook UI across onboarding, Today, Instructions,
+        // Contacts, quick capture, settings and the subdivision record. Shared Material 3
+        // surfaces now cover light/dark, empty/populated/error, keyboard, landscape and
+        // enlarged-text states. Same application ID, Room schema 18 and backup schema 4;
+        // versionCode 52 -> 53.
+        versionCode = 53
+        versionName = "2.7.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // v2.2.2 (test-infra): wipe app state between instrumented

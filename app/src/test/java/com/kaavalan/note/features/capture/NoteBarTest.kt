@@ -17,7 +17,7 @@ class NoteBarTest {
     }
 
     @Test fun typingDoesNotOwnAnOuterSurfaceWrappingTheOtherActions() {
-        assertTrue(source.contains("FilledTonalButton(onClick = onTextClick"))
+        assertTrue(source.contains("Button(onClick = onTextClick"))
         assertFalse(source.contains("Surface(onClick = onTextClick"))
     }
 }

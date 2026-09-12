@@ -15,8 +15,11 @@ import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
@@ -661,25 +664,38 @@ internal fun OfficerAppRoot(
 /** Material navigation owns selected semantics and system navigation-bar insets. */
 @Composable
 private fun WorkspaceNavigation(navController: NavHostController, currentRoute: String) {
-    NavigationBar(tonalElevation = 0.dp) {
-        listOf(
-            Triple(Routes.TODAY, "Today", Icons.Outlined.Today),
-            Triple(Routes.HOME, "Instructions", Icons.Outlined.Checklist),
-            Triple(Routes.CONTACTS, "Contacts", Icons.Outlined.People),
-        ).forEach { (route, label, icon) ->
-            NavigationBarItem(
-                modifier = Modifier.testTag("nav_$route"),
-                selected = currentRoute == route,
-                onClick = {
-                    navController.navigate(route) {
-                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                icon = { Icon(icon, contentDescription = null) },
-                label = { Text(label) },
-            )
+    Column {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        NavigationBar(
+            tonalElevation = 0.dp,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+        ) {
+            listOf(
+                Triple(Routes.TODAY, "Today", Icons.Outlined.Today),
+                Triple(Routes.HOME, "Instructions", Icons.Outlined.Checklist),
+                Triple(Routes.CONTACTS, "Contacts", Icons.Outlined.People),
+            ).forEach { (route, label, icon) ->
+                NavigationBarItem(
+                    modifier = Modifier.testTag("nav_$route"),
+                    selected = currentRoute == route,
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ),
+                    onClick = {
+                        navController.navigate(route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    icon = { Icon(icon, contentDescription = null) },
+                    label = { Text(label) },
+                )
+            }
         }
     }
 }
@@ -706,4 +722,3 @@ private fun HomeScreenPersonDetail(
         viewModel = vm,
     )
 }
-

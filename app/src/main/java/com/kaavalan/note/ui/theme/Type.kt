@@ -18,18 +18,18 @@ import androidx.compose.ui.unit.sp
  *  - bodyLarge    16sp / 24sp   — main content text (1.5 line-height)
  *  - bodyMedium   14sp / 20sp   — secondary content (1.43)
  *  - bodySmall    12sp / 16sp   — metadata, timestamps (1.33)
- *  - titleLarge   20sp / 28sp   — page-level titles (1.4)
+ *  - titleLarge   22sp / 30sp   — page-level titles (1.36; v2.7 raised from 20/28)
  *  - titleMedium  16sp / 22sp   — card titles (1.4)
  *  - titleSmall   14sp / 20sp   — section labels, "Reading" headers (1.43)
  *  - labelLarge   14sp / 20sp   — primary buttons (1.43)
  *  - labelMedium  12sp / 16sp   — chips, badges (1.33)
  *  - labelSmall   11sp / 16sp   — tags, smallest labels (1.45)
- *  - headlineSmall 20sp / 28sp  — sheet titles (1.4)
- *  - headlineMedium 22sp / 30sp — page banners (1.36)
+ *  - headlineSmall 24sp / 32sp  — sheet titles (1.33)
+ *  - headlineMedium 28sp / 36sp — page titles (1.29)
  *  - displaySmall 28sp / 36sp   — display / number readouts (1.29)
  *
- * Weights: 400 for body, 500 for titles and labels, never above
- * semibold. The "weight via weight" knob is more readable than
+ * Weights: 400 for body, 500 for labels, 600 (semibold) for titles
+ * and page headings — never above semibold. The "weight via weight" knob is more readable than
  * "weight via color or size" — Obsidian uses weight sparingly too.
  */
 private val DefaultFont = FontFamily.Default
@@ -52,13 +52,13 @@ val KaavalanNoteTypography = Typography(
     ),
     titleLarge = TextStyle(
         fontFamily = DefaultFont,
-        fontWeight = FontWeight.Medium,
-        fontSize = 20.sp,
-        lineHeight = 28.sp,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 22.sp,
+        lineHeight = 30.sp,
     ),
     titleMedium = TextStyle(
         fontFamily = DefaultFont,
-        fontWeight = FontWeight.Medium,
+        fontWeight = FontWeight.SemiBold,
         fontSize = 16.sp,
         lineHeight = 22.sp,
     ),

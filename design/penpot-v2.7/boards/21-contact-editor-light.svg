@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="800" viewBox="0 0 360 800">
+  <title>Contact editor · light</title>
+  <desc>KaavalanNote — Field Notebook UI v2.7. Generated from the shipped Compose theme by design/penpot-v2.7/tools/generate_boards.py. 1 unit = 1dp.</desc>
+  <rect x="0.0" y="0.0" width="360.0" height="800.0" rx="0.0" fill="#F6F8FA"/>
+  <text x="20.0" y="15.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="12.0" font-weight="500" fill="#4B5E6A" text-anchor="start">12:00</text>
+  <rect x="0.0" y="0.0" width="360.0" height="800.0" rx="0.0" fill="#F6F8FA"/>
+  <rect x="0.0" y="0.0" width="360.0" height="800.0" rx="28.0" fill="#F0F4F6"/>
+  <rect x="164.0" y="10.0" width="32.0" height="4.0" rx="2.0" fill="#CAD7DE"/>
+  <rect x="20.0" y="28.0" width="40.0" height="40.0" rx="12.0" fill="#D8EBF6"/>
+  <rect x="35.5" y="43.5" width="9.0" height="9.0" rx="2" fill="none" stroke="#113A53" stroke-width="1.6"/>
+  <text x="72.0" y="42.4" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="12.0" font-weight="500" fill="#174D6C" text-anchor="start">Field notebook</text>
+  <text x="72.0" y="69.6" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="24.0" font-weight="500" fill="#15242E" text-anchor="start">Edit contact</text>
+  <rect x="329.5" y="43.5" width="9.0" height="9.0" rx="2" fill="none" stroke="#4B5E6A" stroke-width="1.6"/>
+  <text x="20.0" y="103.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="400" fill="#4B5E6A" text-anchor="start">Changes apply only in KaavalanNote, not to</text>
+  <text x="20.0" y="123.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="400" fill="#4B5E6A" text-anchor="start">your phone&#x27;s address book.</text>
+  <rect x="20.0" y="148.0" width="320.0" height="48.0" rx="12.0" fill="#FFFFFF" stroke="#CAD7DE" stroke-width="1"/>
+  <rect x="30.0" y="141.0" width="32.8" height="14.0" rx="0.0" fill="#F0F4F6"/>
+  <text x="32.0" y="152.32" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="12.0" font-weight="500" fill="#4B5E6A" text-anchor="start">Name</text>
+  <text x="36.0" y="176.8" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="16.0" font-weight="400" fill="#15242E" text-anchor="start">B. Ramesh Naidu</text>
+  <rect x="20.0" y="212.0" width="320.0" height="48.0" rx="12.0" fill="#FFFFFF" stroke="#CAD7DE" stroke-width="1"/>
+  <rect x="30.0" y="205.0" width="133.6" height="14.0" rx="0.0" fill="#F0F4F6"/>
+  <text x="32.0" y="216.32" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="12.0" font-weight="500" fill="#4B5E6A" text-anchor="start">Rank / designation</text>
+  <text x="36.0" y="240.8" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="16.0" font-weight="400" fill="#15242E" text-anchor="start">Sub-Inspector (SI)</text>
+  <rect x="20.0" y="276.0" width="320.0" height="48.0" rx="12.0" fill="#FFFFFF" stroke="#CAD7DE" stroke-width="1"/>
+  <rect x="30.0" y="269.0" width="119.2" height="14.0" rx="0.0" fill="#F0F4F6"/>
+  <text x="32.0" y="280.32" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="12.0" font-weight="500" fill="#4B5E6A" text-anchor="start">Station / office</text>
+  <text x="36.0" y="304.8" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="16.0" font-weight="400" fill="#15242E" text-anchor="start">Subedari Police Station</text>
+  <rect x="20.0" y="340.0" width="320.0" height="48.0" rx="12.0" fill="#FFFFFF" stroke="#CAD7DE" stroke-width="1"/>
+  <rect x="30.0" y="333.0" width="40.0" height="14.0" rx="0.0" fill="#F0F4F6"/>
+  <text x="32.0" y="344.32" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="12.0" font-weight="500" fill="#4B5E6A" text-anchor="start">Phone</text>
+  <text x="36.0" y="368.8" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="16.0" font-weight="400" fill="#15242E" text-anchor="start">+91 90000 00000</text>
+  <line x1="20.0" y1="716.0" x2="340.0" y2="716.0" stroke="#CAD7DE" stroke-width="1"/>
+  <rect x="20.0" y="728.0" width="320.0" height="48.0" rx="24.0" fill="#174D6C"/>
+  <text x="180.0" y="757.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#FFFFFF" text-anchor="middle">Save</text>
+</svg>

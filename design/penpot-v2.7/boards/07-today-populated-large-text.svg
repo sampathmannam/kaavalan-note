@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="800" viewBox="0 0 360 800">
+  <title>Today · populated · 150% text</title>
+  <desc>KaavalanNote — Field Notebook UI v2.7. Generated from the shipped Compose theme by design/penpot-v2.7/tools/generate_boards.py. 1 unit = 1dp.</desc>
+  <rect x="0.0" y="0.0" width="360.0" height="800.0" rx="0.0" fill="#F6F8FA"/>
+  <text x="20.0" y="22.5" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="18.0" font-weight="500" fill="#4B5E6A" text-anchor="start">12:00</text>
+  <text x="20.0" y="47.2" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="18.0" font-weight="500" fill="#174D6C" text-anchor="start">Saturday, 12 September</text>
+  <text x="20.0" y="95.2" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="42.0" font-weight="600" fill="#15242E" text-anchor="start">Today</text>
+  <rect x="329.5" y="74.5" width="9.0" height="9.0" rx="2" fill="none" stroke="#15242E" stroke-width="1.6"/>
+  <rect x="20.0" y="122.0" width="320.0" height="72.0" rx="16.0" fill="#FFFFFF" stroke="#CAD7DE" stroke-width="1"/>
+  <rect x="36.0" y="138.0" width="40.0" height="40.0" rx="12.0" fill="#D8EBF6"/>
+  <rect x="51.5" y="153.5" width="9.0" height="9.0" rx="2" fill="none" stroke="#113A53" stroke-width="1.6"/>
+  <text x="92.0" y="152.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="21.0" font-weight="500" fill="#15242E" text-anchor="start">Subdivision review</text>
+  <text x="92.0" y="182.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="21.0" font-weight="400" fill="#4B5E6A" text-anchor="start">Warangal Subdivisi…</text>
+  <path d="M 317.0 152.0 L 323.0 158.0 L 317.0 164.0" fill="none" stroke="#4B5E6A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="20.0" y="236.4" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="24.0" font-weight="600" fill="#15242E" text-anchor="start">Follow up</text>
+  <text x="20.0" y="271.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="21.0" font-weight="400" fill="#4B5E6A" text-anchor="start">3 to check · assigned work</text>
+  <text x="20.0" y="301.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="21.0" font-weight="400" fill="#4B5E6A" text-anchor="start">and replies you&#x27;re waiting</text>
+  <text x="20.0" y="331.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="21.0" font-weight="400" fill="#4B5E6A" text-anchor="start">for</text>
+  <rect x="20.0" y="349.0" width="320.0" height="328.0" rx="16.0" fill="#D8EBF6" stroke="#174D6C" stroke-width="1"/>
+  <rect x="40.0" y="369.0" width="157.12" height="32.0" rx="8.0" fill="#FBFCFD"/>
+  <text x="48.0" y="391.48" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="18.0" font-weight="500" fill="#113A53" text-anchor="start">Assigned by me</text>
+  <rect x="223.36" y="369.0" width="96.64" height="32.0" rx="8.0" fill="#D0EEE9"/>
+  <text x="231.36" y="391.48" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="18.0" font-weight="500" fill="#134A45" text-anchor="start">Priority</text>
+  <text x="40.0" y="444.1" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="33.0" font-weight="600" fill="#113A53" text-anchor="start">Daily diary</text>
+  <text x="40.0" y="489.1" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="33.0" font-weight="600" fill="#113A53" text-anchor="start">report — need</text>
+  <text x="40.0" y="534.1" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="33.0" font-weight="600" fill="#113A53" text-anchor="start">it submitted by</text>
+  <text x="40.0" y="579.1" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="33.0" font-weight="600" fill="#113A53" text-anchor="start">6 PM every day.</text>
+  <text x="40.0" y="620.4" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="21.0" font-weight="400" fill="#113A53" text-anchor="start">K. Mahesh · Jangaon Circ…</text>
+  <text x="40.0" y="650.4" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="21.0" font-weight="500" fill="#113A53" text-anchor="start">Follow-up · Today, 18:…</text>
+  <rect x="20.0" y="693.0" width="320.0" height="239.0" rx="16.0" fill="#FFFFFF" stroke="#CAD7DE" stroke-width="1"/>
+  <rect x="36.0" y="709.0" width="96.64" height="32.0" rx="8.0" fill="#D8EBF6"/>
+  <text x="44.0" y="731.48" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="18.0" font-weight="500" fill="#113A53" text-anchor="start">Received</text>
+  <text x="36.0" y="774.74" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="24.0" font-weight="600" fill="#15242E" text-anchor="start">164 statement from</text>
+  <text x="36.0" y="807.74" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="24.0" font-weight="600" fill="#15242E" text-anchor="start">the new informant in</text>
+  <text x="36.0" y="840.74" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="24.0" font-weight="600" fill="#15242E" text-anchor="start">the 2024 appeal.</text>
+  <text x="36.0" y="879.4" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="21.0" font-weight="400" fill="#4B5E6A" text-anchor="start">B. Ramesh Naidu · Subedar…</text>
+  <text x="36.0" y="909.4" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="21.0" font-weight="500" fill="#4B5E6A" text-anchor="start">Carried over · 10 Sep,…</text>
+  <text x="20.0" y="974.4" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="24.0" font-weight="600" fill="#15242E" text-anchor="start">Your next action</text>
+  <text x="20.0" y="1009.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="21.0" font-weight="400" fill="#4B5E6A" text-anchor="start">Start with one thing</text>
+  <rect x="0.0" y="655.0" width="360.0" height="73.0" rx="0.0" fill="#FFFFFF"/>
+  <line x1="0.0" y1="655.0" x2="360.0" y2="655.0" stroke="#CAD7DE" stroke-width="1"/>
+  <rect x="20.0" y="664.0" width="192.0" height="56.0" rx="16.0" fill="#174D6C"/>
+  <rect x="36.5" y="687.5" width="9.0" height="9.0" rx="2" fill="none" stroke="#FFFFFF" stroke-width="1.6"/>
+  <text x="64.0" y="699.56" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="21.0" font-weight="500" fill="#FFFFFF" text-anchor="start">New note</text>
+  <rect x="220.0" y="664.0" width="56.0" height="56.0" rx="12.0" fill="#F0F4F6"/>
+  <rect x="243.5" y="677.5" width="9.0" height="9.0" rx="2" fill="none" stroke="#174D6C" stroke-width="1.6"/>
+  <text x="248.0" y="712.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="18.0" font-weight="500" fill="#4B5E6A" text-anchor="middle">Photo</text>
+  <rect x="284.0" y="664.0" width="56.0" height="56.0" rx="12.0" fill="#F0F4F6"/>
+  <rect x="307.5" y="677.5" width="9.0" height="9.0" rx="2" fill="none" stroke="#174D6C" stroke-width="1.6"/>
+  <text x="312.0" y="712.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="18.0" font-weight="500" fill="#4B5E6A" text-anchor="middle">Voice</text>
+  <rect x="0.0" y="728.0" width="360.0" height="72.0" rx="0.0" fill="#FFFFFF"/>
+  <line x1="0.0" y1="728.0" x2="360.0" y2="728.0" stroke="#CAD7DE" stroke-width="1"/>
+  <rect x="28.0" y="738.0" width="64.0" height="32.0" rx="16.0" fill="#D8EBF6"/>
+  <rect x="55.5" y="749.5" width="9.0" height="9.0" rx="2" fill="none" stroke="#113A53" stroke-width="1.6"/>
+  <text x="60.0" y="786.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="18.0" font-weight="500" fill="#174D6C" text-anchor="middle">Today</text>
+  <rect x="175.5" y="749.5" width="9.0" height="9.0" rx="2" fill="none" stroke="#4B5E6A" stroke-width="1.6"/>
+  <text x="180.0" y="786.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="18.0" font-weight="500" fill="#4B5E6A" text-anchor="middle">Instructions</text>
+  <rect x="295.5" y="749.5" width="9.0" height="9.0" rx="2" fill="none" stroke="#4B5E6A" stroke-width="1.6"/>
+  <text x="300.0" y="786.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="18.0" font-weight="500" fill="#4B5E6A" text-anchor="middle">Contacts</text>
+</svg>

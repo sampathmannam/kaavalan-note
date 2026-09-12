@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="800" viewBox="0 0 360 800">
+  <title>Matters · first use · light</title>
+  <desc>KaavalanNote — Field Notebook UI v2.7. Generated from the shipped Compose theme by design/penpot-v2.7/tools/generate_boards.py. 1 unit = 1dp.</desc>
+  <rect x="0.0" y="0.0" width="360.0" height="800.0" rx="0.0" fill="#F6F8FA"/>
+  <text x="20.0" y="15.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="12.0" font-weight="500" fill="#4B5E6A" text-anchor="start">12:00</text>
+  <line x1="23.0" y1="52.0" x2="33.0" y2="52.0" stroke="#15242E" stroke-width="1.6" stroke-linecap="round"/><path d="M 29.0 48.0 L 33.0 52.0 L 29.0 56.0" fill="none" stroke="#15242E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="48.0" y="40.8" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="12.0" font-weight="500" fill="#174D6C" text-anchor="start">Subdivision record</text>
+  <text x="48.0" y="68.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="22.0" font-weight="600" fill="#15242E" text-anchor="start">Matters</text>
+  <rect x="329.5" y="54.5" width="9.0" height="9.0" rx="2" fill="none" stroke="#15242E" stroke-width="1.6"/>
+  <text x="20.0" y="105.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="400" fill="#4B5E6A" text-anchor="start">Group related instructions and their</text>
+  <text x="20.0" y="125.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="400" fill="#4B5E6A" text-anchor="start">history.</text>
+  <rect x="20.0" y="138.0" width="320.0" height="56.0" rx="16.0" fill="#F0F4F6"/>
+  <circle cx="38.5" cy="164.5" r="4.5" fill="none" stroke="#4B5E6A" stroke-width="1.6"/><line x1="42.0" y1="168.0" x2="45.5" y2="171.5" stroke="#4B5E6A" stroke-width="1.6" stroke-linecap="round"/>
+  <text x="64.0" y="171.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="400" fill="#4B5E6A" text-anchor="start">Search matters and references</text>
+  <text x="20.0" y="262.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="22.0" font-weight="600" fill="#15242E" text-anchor="start">Group work that belongs</text>
+  <text x="20.0" y="292.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="22.0" font-weight="600" fill="#15242E" text-anchor="start">together</text>
+  <text x="20.0" y="328.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="16.0" font-weight="400" fill="#4B5E6A" text-anchor="start">A matter is a named group of</text>
+  <text x="20.0" y="352.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="16.0" font-weight="400" fill="#4B5E6A" text-anchor="start">instructions — an inquiry, a drive, a</text>
+  <text x="20.0" y="376.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="16.0" font-weight="400" fill="#4B5E6A" text-anchor="start">recurring duty. Add one, then link</text>
+  <text x="20.0" y="400.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="16.0" font-weight="400" fill="#4B5E6A" text-anchor="start">instructions to it or capture new ones</text>
+  <text x="20.0" y="424.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="16.0" font-weight="400" fill="#4B5E6A" text-anchor="start">in its context.</text>
+  <rect x="20.0" y="442.0" width="134.8" height="48.0" rx="24.0" fill="none" stroke="#687D8B" stroke-width="1"/>
+  <text x="87.4" y="471.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#174D6C" text-anchor="middle">Add matter</text>
+</svg>

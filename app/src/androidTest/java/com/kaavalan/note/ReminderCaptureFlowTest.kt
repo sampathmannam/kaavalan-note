@@ -24,10 +24,12 @@ class ReminderCaptureFlowTest {
         composeRule.awaitCaptureSaved()
         composeRule.onNodeWithTag("nav_home").performClick()
         composeRule.onNodeWithText(note).performClick()
-        composeRule.onNodeWithText("Reminder").assertExists()
+        composeRule.onNodeWithText("Next follow-up").assertExists()
+        composeRule.onNodeWithText("No follow-up scheduled").assertDoesNotExist()
         composeRule.activityRule.scenario.recreate()
         composeRule.waitUntil(15_000) { composeRule.onAllNodesWithTag("instruction_detail_text").fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithTag("instruction_detail_text").assertTextEquals(note)
+        composeRule.onNodeWithText("Change follow-up").performScrollTo().performClick()
         composeRule.onNodeWithContentDescription("Clear reminder").performScrollTo().assertIsDisplayed()
     }
 }
