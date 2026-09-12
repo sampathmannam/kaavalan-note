@@ -158,7 +158,7 @@ class Migration14To16Test {
         helper.writableDatabase.execSQL("UPDATE instructions SET dueAtMs = 1800000000000, dueAt = '2027-01-15T08:00:00Z', status = 'WAITING_ON_OTHER'")
         helper.writableDatabase.execSQL("INSERT INTO nudge_drafts VALUES ('copy', 'i-pre-upgrade', 'Draft', 'SENT', 'COPY', '2026-09-10T01:00:00Z', '2026-09-10T01:00:00Z', 'SYNCED')")
         helper.close()
-        val db = Room.databaseBuilder(context, AppDatabase::class.java, dbPath).addMigrations(AppDatabase.MIGRATION_16_17).build()
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, dbPath).addMigrations(AppDatabase.MIGRATION_16_17, com.kaavalan.note.data.subdivision.SUBDIVISION_MIGRATION_17_18).build()
         db.openHelper.writableDatabase.query("SELECT dueAtMs, dueAt, deadlineAtMs, updatesJson, status FROM instructions WHERE id = 'i-pre-upgrade'").use { c ->
             assertTrue(c.moveToFirst())
             assertEquals(1800000000000L, c.getLong(0))
@@ -180,18 +180,18 @@ class Migration14To16Test {
      * classes. A mismatch throws here.
      */
     @Test
-    fun `v15 database upgrades to v16 and passes Room schema validation`() {
+    fun `v15 database upgrades to v18 and passes Room schema validation`() {
         buildV15Fixture()
 
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.databaseBuilder(ctx, AppDatabase::class.java, dbPath)
-            .addMigrations(AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17)
+            .addMigrations(AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17, com.kaavalan.note.data.subdivision.SUBDIVISION_MIGRATION_17_18)
             .build()
 
         // Room is lazy: the migration + validation only run on first
         // access to the underlying database, not on build().
         val version = db.openHelper.writableDatabase.version
-        assertEquals("database should be at v17 after the migration chain", 17, version)
+        assertEquals("database should be at v18 after the migration chain", 18, version)
         db.close()
     }
 
@@ -201,7 +201,7 @@ class Migration14To16Test {
 
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.databaseBuilder(ctx, AppDatabase::class.java, dbPath)
-            .addMigrations(AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17)
+            .addMigrations(AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17, com.kaavalan.note.data.subdivision.SUBDIVISION_MIGRATION_17_18)
             .build()
         db.openHelper.writableDatabase.query(
             "SELECT title, audienceKind, audienceIsBroadcast FROM instructions WHERE id = 'i-pre-upgrade'",
@@ -224,7 +224,7 @@ class Migration14To16Test {
 
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.databaseBuilder(ctx, AppDatabase::class.java, dbPath)
-            .addMigrations(AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17)
+            .addMigrations(AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17, com.kaavalan.note.data.subdivision.SUBDIVISION_MIGRATION_17_18)
             .build()
         db.openHelper.writableDatabase.let { raw ->
             raw.execSQL(
@@ -279,17 +279,17 @@ class Migration14To16Test {
      * sequence and validates the end state against the entities.
      */
     @Test
-    fun `v14 database upgrades through the full chain to v16`() {
+    fun `v14 database upgrades through the full chain to v18`() {
         buildV14Fixture()
 
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.databaseBuilder(ctx, AppDatabase::class.java, dbPath)
-            .addMigrations(AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17)
+            .addMigrations(AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17, com.kaavalan.note.data.subdivision.SUBDIVISION_MIGRATION_17_18)
             .build()
 
         assertEquals(
-            "database should be at v17 after the 14 -> 15 -> 16 -> 17 chain",
-            17,
+            "database should be at v18 after the 14 -> 15 -> 16 -> 17 -> 18 chain",
+            18,
             db.openHelper.writableDatabase.version,
         )
         db.close()
@@ -305,7 +305,7 @@ class Migration14To16Test {
      * the upgrade rolled back — permanently bricking the launch for
      * anyone coming from a v1.8.0-era install.
      *
-     * The `v14 database upgrades through the full chain to v16` test
+     * The `v14 database upgrades through the full chain to v18` test
      * above is what actually catches a recurrence (it fails on the
      * Room validation). This test pins the specific property that
      * was wrong, so a future change that reintroduces a unique index
@@ -317,7 +317,7 @@ class Migration14To16Test {
 
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.databaseBuilder(ctx, AppDatabase::class.java, dbPath)
-            .addMigrations(AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17)
+            .addMigrations(AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17, com.kaavalan.note.data.subdivision.SUBDIVISION_MIGRATION_17_18)
             .build()
         db.openHelper.writableDatabase.query(
             "SELECT `unique`, partial FROM pragma_index_list('users') " +
@@ -353,7 +353,7 @@ class Migration14To16Test {
 
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.databaseBuilder(ctx, AppDatabase::class.java, dbPath)
-            .addMigrations(AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17)
+            .addMigrations(AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17, com.kaavalan.note.data.subdivision.SUBDIVISION_MIGRATION_17_18)
             .build()
         val raw = db.openHelper.writableDatabase
         raw.execSQL(

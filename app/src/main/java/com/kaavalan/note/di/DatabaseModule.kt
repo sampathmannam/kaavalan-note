@@ -150,6 +150,7 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_14_15,
                 AppDatabase.MIGRATION_15_16,
                 AppDatabase.MIGRATION_16_17,
+                com.kaavalan.note.data.subdivision.SUBDIVISION_MIGRATION_17_18,
             )
             .build()
     }
@@ -215,6 +216,9 @@ object DatabaseModule {
 
     @Provides
     fun providePersonDao(db: AppDatabase): PersonDao = db.personDao()
+
+    @Provides
+    fun provideSubdivisionDao(db: AppDatabase): com.kaavalan.note.data.subdivision.SubdivisionDao = db.subdivisionDao()
 
     @Provides
     fun provideInstructionDao(db: AppDatabase): InstructionDao = db.instructionDao()

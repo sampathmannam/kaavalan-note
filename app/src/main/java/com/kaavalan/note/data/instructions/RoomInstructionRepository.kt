@@ -122,6 +122,7 @@ open class RoomInstructionRepository @Inject constructor(
         channel = channel,
         deadlineAtMs = deadlineAtMs,
         updatesJson = InstructionJournal.encode(updates),
+        stationId = stationId, matterId = matterId,
     )
 
     /**
@@ -169,7 +170,13 @@ open class RoomInstructionRepository @Inject constructor(
         // between them rolls back the partial state. See the class
         // docstring for the failure modes this closes.
         val touchResult = db.withTransaction {
-            dao.upsert(entity)
+            dao.upsert(
+                entity.copy(
+                    stationId = com.kaavalan.note.data.subdivision.SubdivisionRepository
+                        .resolveCreationContext(db, personId, null, null).stationId,
+                ),
+            )
+
             // The FTS row's rowid is the main row's rowid, which
             // is auto-assigned by SQLite on the insert above. Read
             // it back inside the same transaction so we don't
@@ -194,7 +201,11 @@ open class RoomInstructionRepository @Inject constructor(
             // effect; the value is not used by [create] itself.
             touchOnActivity.touch(personId)
         }
-        return entity.toDomain()
+        // v18: read the saved row back rather than returning the pre-copy `entity`.
+        // The station snapshot is applied inside the transaction above, so the local
+        // `entity` value no longer describes what is on disk; a caller that trusted it
+        // would carry a null stationId into the UI and into any follow-up write.
+        return requireNotNull(dao.getById(id)) { "Instruction $id was not persisted" }.toDomain()
     }
 
     /**
@@ -220,7 +231,7 @@ open class RoomInstructionRepository @Inject constructor(
         completedAt: String?,
         droppedReason: String?,
         isSensitive: Boolean,
-    ): Instruction {
+    ): Instruction = db.withTransaction {
         val current = dao.getById(id) ?: error("Instruction $id not found in local mirror")
         val now = Instant.now().toString()
         val updated = current.copy(
@@ -231,20 +242,27 @@ open class RoomInstructionRepository @Inject constructor(
             updatedAt = now,
             syncStatus = SyncStatus.PENDING_UPDATE,
         )
-        dao.upsert(updated)
-        // v2.0: also re-upsert the FTS row.
-        val newRowid = ftsDao.maxInstructionRowid() ?: 0L
-        ftsDao.upsert(
-            InstructionFtsEntity(
-                rowid = newRowid,
-                title = updated.title,
-                rawText = updated.rawText,
-                personId = updated.personId,
-                capturedAt = updated.capturedAt,
-            ),
-        )
+        // v18: UPDATE, not INSERT OR REPLACE. A REPLACE deletes the existing row before
+        // re-inserting it, and `instruction_tags` references `instructions(id)` with
+        // ON DELETE CASCADE — so editing a row's status used to silently drop every
+        // label attached to it. The row already exists here by construction.
+        dao.updateExisting(updated)
+        // v18: this row's own rowid, not MAX(rowid). MAX is the newest instruction in the
+        // table, which on an edit is somebody else's row: the old code overwrote a
+        // different note's search index and left this one stale.
+        ftsDao.rowidForInstruction(id)?.let { rowid ->
+            ftsDao.upsert(
+                InstructionFtsEntity(
+                    rowid = rowid,
+                    title = updated.title,
+                    rawText = updated.rawText,
+                    personId = updated.personId,
+                    capturedAt = updated.capturedAt,
+                ),
+            )
+        }
         enqueueUpdate(id)
-        return updated.toDomain()
+        updated.toDomain()
     }
 
     /**
@@ -296,6 +314,8 @@ open class RoomInstructionRepository @Inject constructor(
         dueAtMs: Long?,
         channel: String?,
         direction: Direction,
+        stationId: String?,
+        matterId: String?,
     ): Instruction {
         val now = Instant.now().toString()
         val id = UUID.randomUUID().toString()
@@ -321,8 +341,16 @@ open class RoomInstructionRepository @Inject constructor(
             dueAtMs = dueAtMs,
             channel = channel,
         )
+        // v18: creation and the work-context link land in ONE transaction. A capture
+        // started from a matter must not be able to leave a saved-but-unlinked
+        // instruction behind: if the chosen station or matter turns out to be archived,
+        // hidden, or in another vault, the validation throws and the whole insert rolls
+        // back, so the officer keeps their draft instead of a misleading half-saved note.
         db.withTransaction {
-            dao.upsert(entity)
+            val responsible = personId ?: audience?.target?.takeIf { audience.kind == "PERSON" }
+            val context = com.kaavalan.note.data.subdivision.SubdivisionRepository
+                .resolveCreationContext(db, responsible, stationId, matterId)
+            dao.upsert(entity.copy(stationId = context.stationId, matterId = context.matterId))
             val newRowid = ftsDao.maxInstructionRowid() ?: 0L
             ftsDao.upsert(
                 InstructionFtsEntity(
@@ -336,7 +364,7 @@ open class RoomInstructionRepository @Inject constructor(
             enqueueInsert(id)
             touchOnActivity.touch(personId)
         }
-        return entity.toDomain()
+        return requireNotNull(dao.getById(id)) { "Instruction $id was not persisted" }.toDomain()
     }
 
     override suspend fun setAudience(id: String, audience: AudienceRef?) {
@@ -448,16 +476,21 @@ open class RoomInstructionRepository @Inject constructor(
      * even though spec §13 says sensitive rows never hit the server).
      */
     suspend fun setSensitive(id: String, sensitive: Boolean) {
-        val row = dao.getById(id) ?: return
-        dao.upsert(
-            row.copy(
-                isSensitive = sensitive,
-                updatedAt = Instant.now().toString(),
-                syncStatus = SyncStatus.PENDING_UPDATE,
+        db.withTransaction {
+            val row = dao.getById(id) ?: return@withTransaction
+            // v18: UPDATE rather than REPLACE — see [update] for why a REPLACE here
+            // cascaded the row's label links away.
+            dao.updateExisting(
+                row.copy(
+                    isSensitive = sensitive,
+                    updatedAt = Instant.now().toString(),
+                    syncStatus = SyncStatus.PENDING_UPDATE,
+                ),
             )
-        )
-        enqueueUpdate(id)
+            enqueueUpdate(id)
+        }
     }
+
 
     /**
      * v1.1: enqueue a single UPDATE row to the sync outbox and
@@ -535,4 +568,5 @@ internal fun InstructionEntity.toDomain(): Instruction = Instruction(
     channel = channel,
     deadlineAtMs = deadlineAtMs,
     updates = InstructionJournal.decode(updatesJson),
+    stationId = stationId, matterId = matterId,
 )

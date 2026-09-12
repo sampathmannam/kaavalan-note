@@ -53,8 +53,13 @@ import androidx.room.PrimaryKey
         // this index the list filter is a full scan on every
         // emission.
         Index(value = ["vaultMode"]),
+        // v18 (subdivision CRM): the station list's per-station staff count and the
+        // staff segment's filter both scope on these two columns.
+        Index(value = ["stationId"]),
+        Index(value = ["isStaff"]),
     ],
 )
+
 data class PersonEntity(
     @PrimaryKey val id: String,
     val name: String,
@@ -92,4 +97,8 @@ data class PersonEntity(
     // the `vaultMode` column on disk. The settings copy in
     // Settings → Threat model spells this out.
     val vaultMode: String = "visible",
+    val stationId: String? = null,
+    @androidx.room.ColumnInfo(defaultValue = "0") val isStaff: Boolean = false,
+    @androidx.room.ColumnInfo(defaultValue = "1") val staffActive: Boolean = true,
+    @androidx.room.ColumnInfo(defaultValue = "''") val responsibilities: String = "",
 )

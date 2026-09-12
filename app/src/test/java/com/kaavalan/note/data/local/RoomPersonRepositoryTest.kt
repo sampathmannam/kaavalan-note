@@ -57,6 +57,7 @@ class RoomPersonRepositoryTest {
         repo = RoomPersonRepository(
             dao = personDao,
             syncQueueDao = syncQueueDao,
+            db = db,
         )
     }
 

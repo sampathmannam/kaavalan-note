@@ -65,8 +65,8 @@ class PlainImporterTest {
         personDao = db.personDao()
         instructionDao = db.instructionDao()
         tagDao = db.tagDao()
-        exporter = PlainExporter(personDao, instructionDao, tagDao, db.instructionTagDao())
-        importer = PlainImporter(context, personDao, instructionDao, tagDao)
+        exporter = PlainExporter(personDao, instructionDao, tagDao, db.instructionTagDao(), db)
+        importer = PlainImporter(context, personDao, instructionDao, tagDao, db.instructionFtsDao(), db)
     }
 
     @After

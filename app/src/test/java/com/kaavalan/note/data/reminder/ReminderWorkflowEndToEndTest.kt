@@ -30,6 +30,8 @@ import io.mockk.coVerify
 import io.mockk.every
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asExecutor
+
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -73,7 +75,15 @@ class ReminderWorkflowEndToEndTest {
         )
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
             .allowMainThreadQueries()
+            // Run Room's queries and transactions on the test dispatcher. With Room's
+            // default background executors the capture save lands on a thread
+            // `advanceUntilIdle()` cannot see, so the assertion that the row exists was
+            // racing the write - it passed alone and failed under load. This makes the
+            // save actually complete before the test looks for it.
+            .setQueryExecutor(testDispatcher.asExecutor())
+            .setTransactionExecutor(testDispatcher.asExecutor())
             .build()
+
         repository = RoomInstructionRepository(
             db = db,
             dao = db.instructionDao(),

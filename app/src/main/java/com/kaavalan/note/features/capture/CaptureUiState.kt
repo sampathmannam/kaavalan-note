@@ -46,10 +46,34 @@ data class CaptureUiState(
     // [DispatchSuggestion] -- this only OFFERS the dispatch flow, it
     // never switches surfaces on its own.
     val dispatchSuggestion: DispatchSuggestion? = null,
+    // v2.6.0 (subdivision CRM): the work context this capture was started in — a matter
+    // and/or station chosen before typing. Persisted in SavedStateHandle alongside the
+    // draft, included in the duplicate-save fingerprint, applied atomically with the
+    // insert, and cleared only after a durable save.
+    val contextStationId: String? = null,
+    val contextMatterId: String? = null,
+    val contextLabel: String? = null,
+    // Set when a new context arrives while a non-empty draft is already in flight. The
+    // draft is kept and the officer is offered a clearly labelled choice; nothing is
+    // silently replaced.
+    val pendingContext: PendingCaptureContext? = null,
 ) {
     val canSaveRaw: Boolean
         get() = isVisible && text.isNotBlank() && !isSaving && workspaceReady && (!requiresContact || personId != null)
+
+    val hasContext: Boolean get() = contextStationId != null || contextMatterId != null
 }
+
+/**
+ * A work context offered to an already-started draft. [label] is what the officer sees, so
+ * the choice names both sides rather than asking about an abstract "context".
+ */
+data class PendingCaptureContext(
+    val stationId: String?,
+    val matterId: String?,
+    val label: String,
+)
+
 
 /**
  * v2.x (product decision, adversarial-QA follow-up): the hierarchy

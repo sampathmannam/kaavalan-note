@@ -1,6 +1,18 @@
 {
   "changelog": [
     {
+      "version": "2.6.0",
+      "code": 52,
+      "date": "2026-09-10",
+      "highlights": [
+        "Set up your own subdivision: a name, and optionally a district and your display name. It is your private work record - your staff do not need an account and nothing is sent to them.",
+        "Record the stations and units you work with, mark existing contacts as staff, and keep their posting and responsibilities. A transfer records a dated posting change and never rewrites where past work was carried out.",
+        "Matters group related instructions and their history. Add new work through the same note bar with the matter already selected, or link an instruction you have already recorded.",
+        "Subdivision review shows open and ready-to-verify work for the whole subdivision, one station or one officer, with filters for deadlines passed, no update in seven days, and what changed since your last review. Saving a review records your note - it never completes work.",
+        "Backups and exports now carry your subdivision, stations, staff postings, matters and reviews, and restore is all-or-nothing rather than silently partial. Older backups still restore, without inventing a subdivision or classifying anyone as staff."
+      ]
+    },
+    {
       "version": "2.5.0",
       "code": 51,
       "date": "2026-09-10",
@@ -69,11 +81,11 @@
       "code": 46,
       "date": "2026-08-26",
       "highlights": [
-        "Brand rename: package com.baton.app \u2192 com.kaavalan.note; class identifiers Baton* \u2192 Kaavalan*. The launcher label, widget label, and tile label are now KaavalanNote (single CamelCase token). The app icon (KAAVALAN shield on cream) is unchanged.",
-        "Hierarchy polish: ContactSyncService + ContactPickerSheet (import device contacts into the People list from the Home empty state), RosterBuilder + AudienceResolver + MentionAndTagParser + DeliveryService for the people \u2192 instructions \u2192 mentions \u2192 roster \u2192 dispatch round-trip, E.164 phone normalization via TelephonyManager, DispatchComposerSheet + DispatchViewModel with race-safe rosterReady gating.",
+        "Brand rename: package com.baton.app → com.kaavalan.note; class identifiers Baton* → Kaavalan*. The launcher label, widget label, and tile label are now KaavalanNote (single CamelCase token). The app icon (KAAVALAN shield on cream) is unchanged.",
+        "Hierarchy polish: ContactSyncService + ContactPickerSheet (import device contacts into the People list from the Home empty state), RosterBuilder + AudienceResolver + MentionAndTagParser + DeliveryService for the people → instructions → mentions → roster → dispatch round-trip, E.164 phone normalization via TelephonyManager, DispatchComposerSheet + DispatchViewModel with race-safe rosterReady gating.",
         "EXPECTED_SCHEMA in DatabasePreflight aligned to v16 (the hierarchy work had left it pinned to the v15 baseline; on a fresh install the preflight was flagging a brand-new DB as 'missing body/kind columns').",
-        "Priority.URGENT restored to the v2.1.1 priority enum \u2014 the hierarchy merge had dropped the constant; existing on-device instructions with priority=URGENT were crashing RoomInstructionRepository.toDomain() at Enum.valueOf.",
-        "release-v2.1.1 security stack (P0 PKCE / P1 BackupCrypto / P2 CharArray + schema verify + PII redaction) is in the build \u2014 release/v2.1.1-security is an ancestor of this branch.",
+        "Priority.URGENT restored to the v2.1.1 priority enum — the hierarchy merge had dropped the constant; existing on-device instructions with priority=URGENT were crashing RoomInstructionRepository.toDomain() at Enum.valueOf.",
+        "release-v2.1.1 security stack (P0 PKCE / P1 BackupCrypto / P2 CharArray + schema verify + PII redaction) is in the build — release/v2.1.1-security is an ancestor of this branch.",
         "Bug fixes: device-owner bootstrap now runs synchronously before the preflight (was a GlobalScope race that surfaced a spurious 'DB error' banner on first launch); AutoMirrored ArrowBack/Send icon migration; the Unchecked cast on HomeViewModel's combine result is gone via a type-safe filterIsInstance.",
         "Test suite: 578/578 effective pass (5 VaultCryptoCharArrayTest ignored because argon2kt 1.6.0 has no host JVM fallback; see docs/v2.1.1_test_environment.md to enable them locally)."
       ]
@@ -83,11 +95,11 @@
       "code": 45,
       "date": "2026-08-24",
       "highlights": [
-        "Google Drive backup: WhatsApp-style. The local DB stays on the device; a backup goes to your Google Drive's hidden app folder; you can restore on a new device. Backups are encrypted with a key derived from your 12-word recovery phrase BEFORE upload \u2014 Google cannot read the bytes.",
+        "Google Drive backup: WhatsApp-style. The local DB stays on the device; a backup goes to your Google Drive's hidden app folder; you can restore on a new device. Backups are encrypted with a key derived from your 12-word recovery phrase BEFORE upload — Google cannot read the bytes.",
         "Daily auto-backup: a WorkManager job runs every 24h, encrypts the latest snapshot, and uploads to Drive. The passphrase is set once on first manual backup.",
         "SQLCipher preflight is now a full read + write + read round-trip (catches the 'write silently corrupts' case that the v2.0.2 SELECT-1 missed).",
         "Removed the pre-v8 destructive migration. Users upgrading from v1.7.x or earlier will still see data preservation through the new 6 explicit MIGRATION_2_3..MIGRATION_7_8.",
-        "Settings \u2192 Google Drive backup section: 'Sign in with Google' / 'Back up now' / 'Restore from backup' / 'Sign out'. The OAuth flow uses AndroidX Browser Custom Tabs (no play-services-auth dep needed).",
+        "Settings → Google Drive backup section: 'Sign in with Google' / 'Back up now' / 'Restore from backup' / 'Sign out'. The OAuth flow uses AndroidX Browser Custom Tabs (no play-services-auth dep needed).",
         "521 unit tests pass; :app:assembleDebug builds clean."
       ]
     },
@@ -96,8 +108,8 @@
       "code": 44,
       "date": "2026-08-24",
       "highlights": [
-        "Settings \u2192 Privacy \u2192 About: build info, privacy posture, source repo link.",
-        "SQLCipher DB-error recovery: a 'Database error \u2014 Erase and restart' banner appears if the preflight detects a corrupt DB. The 'Erase all data' flow is the recovery path."
+        "Settings → Privacy → About: build info, privacy posture, source repo link.",
+        "SQLCipher DB-error recovery: a 'Database error — Erase and restart' banner appears if the preflight detects a corrupt DB. The 'Erase all data' flow is the recovery path."
       ]
     },
     {
@@ -105,10 +117,10 @@
       "code": 43,
       "date": "2026-08-24",
       "highlights": [
-        "Settings \u2192 Privacy \u2192 Audit log: lists recent entries and runs the SHA-256 chain verifier on demand.",
-        "Settings \u2192 Import: round-trip a v1.x CSV/JSON export back into the local DB. Re-importing is idempotent.",
+        "Settings → Privacy → Audit log: lists recent entries and runs the SHA-256 chain verifier on demand.",
+        "Settings → Import: round-trip a v1.x CSV/JSON export back into the local DB. Re-importing is idempotent.",
         "RetentionWorker firing test pins the daily retention contract (old rows deleted/redacted, recent survive).",
-        "BackupManager restore e2e test pins the export \u2192 wipe \u2192 restore round-trip.",
+        "BackupManager restore e2e test pins the export → wipe → restore round-trip.",
         "Bug fix: Hilt 'HttpClient' MissingBinding that would have crashed the in-app 'Check for updates' (latent in v1.9.x).",
         "Threat model rewritten to document the local-only architecture and the ML Kit OCR third-party surface.",
         "Operations runbook: recovery flows for 'data is gone', 'app crashes on launch', 'I forgot my vault PIN', and migration from v1.x.",
@@ -125,10 +137,10 @@
         "The only outbound network call is 'Check for updates' against the public GitHub Releases API (no auth, no PII).",
         "Removed: multi-device sync, MCP cloud server, MindAnchor cross-app state, in-app sign-up/sign-in.",
         "The sync_queue table is kept in the schema for forward-compat but no rows are written in v2.0.",
-        "Settings \u2192 Privacy \u2192 What's new (replaces the auto-shown 'What's new' modal \u2014 v1.6.0 design rule).",
+        "Settings → Privacy → What's new (replaces the auto-shown 'What's new' modal — v1.6.0 design rule).",
         "Threat model rewritten to document the local-only architecture and the ML Kit OCR third-party surface.",
         "490 unit tests pass; :app:assembleDebug builds clean.",
-        "Pre-v8 users MUST back up via Settings \u2192 Export before updating \u2014 the v2-v7 destructive migration will wipe the local DB."
+        "Pre-v8 users MUST back up via Settings → Export before updating — the v2-v7 destructive migration will wipe the local DB."
       ]
     },
     {
@@ -139,7 +151,7 @@
         "Quick Note widget now has 3 sizes: 2x2 capture button, 4x2 with today's count, 4x4 with recent notes",
         "In-app 'What's new' screen on first launch after a version bump",
         "Recovery-phrase flow is now end-to-end tested (wipe device + 12-word restore + 56 people + 200 instructions)",
-        "Single shared Supabase client (was 4, now 1) \u2014 fewer battery + bandwidth use at cold start",
+        "Single shared Supabase client (was 4, now 1) — fewer battery + bandwidth use at cold start",
         "Tag refresh failures now surface a visible error in the Home screen (was silent)",
         "A11y: every interactive element has a contentDescription; touch targets are 48dp minimum",
         "APK size budget set to 40MB; release build is 38MB (debug is 47MB)"
@@ -150,7 +162,7 @@
       "code": 40,
       "date": "2026-08-24",
       "highlights": [
-        "Quick Note widget \u2014 one-tap capture from the home screen (no need to open the app)",
+        "Quick Note widget — one-tap capture from the home screen (no need to open the app)",
         "Tag refresh errors now surface a visible error (was silent)",
         "Single shared Supabase client (was 4, now 1)"
       ]
@@ -160,9 +172,9 @@
       "code": 39,
       "date": "2026-08-23",
       "highlights": [
-        "Atomic instruction creation (4-table write now in a single transaction \u2014 no partial data on crash)",
+        "Atomic instruction creation (4-table write now in a single transaction — no partial data on crash)",
         "Auto-reseed is debug-gated (release builds no longer wipe user data on first launch)",
-        "One-tap 'Report a problem' mailto in Settings \u2014 embeds the latest crash log in the body"
+        "One-tap 'Report a problem' mailto in Settings — embeds the latest crash log in the body"
       ]
     },
     {

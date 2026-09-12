@@ -29,6 +29,7 @@ fun PersonEntity.toDomain(): Person = Person(
     tier = tier,
     cadenceOverrideDays = cadenceOverrideDays,
     lastInteractionAt = lastInteractionAt,
+    stationId = stationId, isStaff = isStaff, staffActive = staffActive, responsibilities = responsibilities,
 )
 
 fun Person.toEntity(syncStatus: String = SyncStatus.SYNCED): PersonEntity = PersonEntity(
@@ -46,4 +47,5 @@ fun Person.toEntity(syncStatus: String = SyncStatus.SYNCED): PersonEntity = Pers
     tier = tier,
     cadenceOverrideDays = cadenceOverrideDays,
     lastInteractionAt = lastInteractionAt,
+    stationId = stationId, isStaff = isStaff, staffActive = staffActive, responsibilities = responsibilities,
 )

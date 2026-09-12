@@ -1,15 +1,11 @@
 package com.kaavalan.note.data.export
 
+import android.app.Application
+import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.kaavalan.note.data.instructions.InstructionJournal
+import com.kaavalan.note.data.instructions.InstructionUpdate
 import com.kaavalan.note.data.local.AppDatabase
-import com.kaavalan.note.data.local.CaptureDao
-import com.kaavalan.note.data.local.ImportantDateDao
-import com.kaavalan.note.data.local.InstructionDao
-import com.kaavalan.note.data.local.InstructionTagDao
-import com.kaavalan.note.data.local.PersonDao
-import com.kaavalan.note.data.local.PersonLinkDao
-import com.kaavalan.note.data.local.TagDao
 import com.kaavalan.note.data.local.entities.CaptureEntity
 import com.kaavalan.note.data.local.entities.ImportantDateEntity
 import com.kaavalan.note.data.local.entities.InstructionEntity
@@ -17,14 +13,24 @@ import com.kaavalan.note.data.local.entities.InstructionTagCrossRef
 import com.kaavalan.note.data.local.entities.PersonEntity
 import com.kaavalan.note.data.local.entities.PersonLinkEntity
 import com.kaavalan.note.data.local.entities.TagEntity
-import io.mockk.coEvery
-import io.mockk.every
-import io.mockk.mockk
-import kotlinx.coroutines.flow.flowOf
+import com.kaavalan.note.data.subdivision.Matter
+import com.kaavalan.note.data.subdivision.StaffPosting
+import com.kaavalan.note.data.subdivision.Station
+import com.kaavalan.note.data.subdivision.SubdivisionProfile
+import com.kaavalan.note.data.subdivision.SubdivisionRepository
+import com.kaavalan.note.data.subdivision.SubdivisionReview
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asExecutor
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -34,45 +40,52 @@ import org.robolectric.annotation.Config
 import java.io.File
 
 /**
- * v1.8.0 (PROD-READINESS-P0-#1): round-trip test for
- * [BackupManager]. Writes a backup of an in-memory snapshot,
- * clears the in-memory state, then restores from the backup
- * file and asserts every row is back. The "clears + restores"
- * step simulates an app reinstall (clear-data wipes Room, then
- * a fresh install restores from the user's last backup).
+ * The manual backup, exercised against a real in-memory Room database.
  *
- * Robolectric is used so the [android.content.Context] passed
- * to [BackupManager] resolves to a real filesDir (under the
- * test app's data directory). We use the live in-memory Room
- * (the v1.7.0 schema is SQLCipher-encrypted; the v1.7.4 test
- * build points at an in-memory build so this test does not
- * touch the production DB).
- *
- * The DAOs are stubbed via mockk so we can drive the snapshot +
- * restore paths without spinning up a full Room + Hilt stack.
- * The test asserts the SERIALISE -> PARSE round trip is faithful
- * for every column in every table.
+ * v2.6.0 replaced the mocked-DAO version of this test. Mocks could show that `restore()`
+ * reported plausible counts, but not that a row actually came back, that a repeated
+ * restore did not destroy a child row through an ON DELETE CASCADE, or that a refused
+ * file left the database untouched. Those are precisely the properties recovery depends
+ * on, so the test now wipes the tables and asserts the rows are genuinely back.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class BackupRoundTripTest {
 
+    private val testDispatcher = UnconfinedTestDispatcher()
+    private lateinit var db: AppDatabase
     private lateinit var backupManager: BackupManager
-    private lateinit var plainExporter: PlainExporter
-    private lateinit var personDao: PersonDao
-    private lateinit var instructionDao: InstructionDao
-    private lateinit var tagDao: TagDao
-    private lateinit var instructionTagDao: InstructionTagDao
-    private lateinit var personLinkDao: PersonLinkDao
-    private lateinit var captureDao: CaptureDao
-    private lateinit var importantDateDao: ImportantDateDao
+
+    private val now = "2026-08-15T10:00:00Z"
+
+    private val station = Station(
+        id = "st-1",
+        vaultMode = "visible",
+        name = "Kalakad",
+        nameKey = SubdivisionRepository.stationKey("Kalakad"),
+        kind = "Station",
+        notes = "Coastal beat, two outposts.\n\nSecond paragraph, with a comma.",
+        createdAt = now,
+        updatedAt = now,
+    )
+
+    private val matter = Matter(
+        id = "m-1",
+        vaultMode = "visible",
+        title = "Sand mining inquiry",
+        stationId = "st-1",
+        reference = "REF/2026/14",
+        description = "Quoted \"context\" with, commas and தமிழ் text.",
+        createdAt = now,
+        updatedAt = now,
+    )
 
     private val testPeople = listOf(
         PersonEntity(
             id = "p1",
             name = "DSP Srinagar",
             designation = "DSP",
-            station = "Srinagar",
+            station = "Kalakad",
             phone = "+91-9876543210",
             userId = "u1",
             createdAt = "2026-08-01T10:00:00Z",
@@ -82,6 +95,10 @@ class BackupRoundTripTest {
             cadenceOverrideDays = null,
             lastInteractionAt = 1725000000000L,
             vaultMode = "visible",
+            stationId = "st-1",
+            isStaff = true,
+            staffActive = true,
+            responsibilities = "Coastal beat, sand mining, night patrol",
         ),
         PersonEntity(
             id = "p2",
@@ -112,10 +129,21 @@ class BackupRoundTripTest {
             rawText = "Send FIR 47 to SP by Friday",
             deadlineAtMs = 1799999999000L,
             dueAtMs = 1789999999000L,
-            audienceKind = "PERSON", audienceTarget = "p1", audienceLabel = "DSP Srinagar",
+            audienceKind = "PERSON",
+            audienceTarget = "p1",
+            audienceLabel = "DSP Srinagar",
             channel = "SHARE",
-            updatesJson = com.kaavalan.note.data.instructions.InstructionJournal.encode(listOf(
-                com.kaavalan.note.data.instructions.InstructionUpdate("u1", "2026-08-15T10:00:00Z", "Called; report tomorrow. தமிழ்", "IN_PROGRESS", 1789999999000L))),
+            updatesJson = InstructionJournal.encode(
+                listOf(
+                    InstructionUpdate(
+                        "u1",
+                        "2026-08-15T10:00:00Z",
+                        "Called; report tomorrow. தமிழ்",
+                        "IN_PROGRESS",
+                        1789999999000L,
+                    ),
+                ),
+            ),
             dueAt = "2026-08-22T15:00:00+05:30",
             capturedAt = "2026-08-15T10:00:00Z",
             createdAt = "2026-08-15T10:00:00Z",
@@ -127,6 +155,8 @@ class BackupRoundTripTest {
             caseType = "FIR",
             urgency = "normal",
             reviewAtEpochDay = null,
+            stationId = "st-1",
+            matterId = "m-1",
         ),
     )
 
@@ -160,17 +190,10 @@ class BackupRoundTripTest {
         ),
     )
 
-    private val testInstructionTags = listOf(
-        InstructionTagCrossRef(instructionId = "i1", tagId = "t1"),
-    )
+    private val testInstructionTags = listOf(InstructionTagCrossRef(instructionId = "i1", tagId = "t1"))
 
     private val testPersonLinks = listOf(
-        PersonLinkEntity(
-            fromId = "p1",
-            toId = "p2",
-            relation = "Reports to",
-            createdAt = "2026-08-10T10:00:00Z",
-        ),
+        PersonLinkEntity(fromId = "p1", toId = "p2", relation = "Reports to", createdAt = "2026-08-10T10:00:00Z"),
     )
 
     private val testImportantDates = listOf(
@@ -187,124 +210,293 @@ class BackupRoundTripTest {
 
     @Before
     fun setUp() {
-        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        plainExporter = mockk(relaxed = true)
-        personDao = mockk(relaxed = true)
-        instructionDao = mockk(relaxed = true)
-        tagDao = mockk(relaxed = true)
-        instructionTagDao = mockk(relaxed = true)
-        personLinkDao = mockk(relaxed = true)
-        captureDao = mockk(relaxed = true)
-        importantDateDao = mockk(relaxed = true)
-
-        // Drive the export side. The restore side is
-        // driven by the file the manager just wrote, so
-        // the DAOs are exercised on the upsert path.
-        coEvery { plainExporter.snapshot() } returns PlainExporter.Snapshot(
-            people = testPeople,
-            instructions = testInstructions,
-            tags = testTags,
-        )
-        coEvery { captureDao.snapshot() } returns testCaptures
-        coEvery { importantDateDao.snapshot() } returns testImportantDates
-        coEvery { personLinkDao.snapshot() } returns testPersonLinks
-        coEvery { instructionTagDao.snapshotAll() } returns testInstructionTags
-
-        // Restore side: the mocked DAOs accept any list
-        // argument and are no-ops. The restore() result
-        // count is what we assert.
-        coEvery { personDao.upsertAll(any()) } returns Unit
-        coEvery { instructionDao.upsertAll(any()) } returns Unit
-        coEvery { tagDao.upsertAll(any()) } returns Unit
-        coEvery { instructionTagDao.attachAll(any()) } returns Unit
-        coEvery { personLinkDao.upsertAll(any()) } returns Unit
-        coEvery { captureDao.upsertAll(any()) } returns Unit
-        coEvery { importantDateDao.upsertAll(any()) } returns Unit
-
+        Dispatchers.setMain(testDispatcher)
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .allowMainThreadQueries()
+            .setQueryExecutor(testDispatcher.asExecutor())
+            .setTransactionExecutor(testDispatcher.asExecutor())
+            .build()
         backupManager = BackupManager(
             context = context,
-            plainExporter = plainExporter,
-            personDao = personDao,
-            instructionDao = instructionDao,
-            tagDao = tagDao,
-            instructionTagDao = instructionTagDao,
-            personLinkDao = personLinkDao,
-            captureDao = captureDao,
-            importantDateDao = importantDateDao,
+            plainExporter = PlainExporter(
+                db.personDao(),
+                db.instructionDao(),
+                db.tagDao(),
+                db.instructionTagDao(),
+                db,
+            ),
+            personDao = db.personDao(),
+            instructionDao = db.instructionDao(),
+            tagDao = db.tagDao(),
+            instructionTagDao = db.instructionTagDao(),
+            personLinkDao = db.personLinkDao(),
+            captureDao = db.captureDao(),
+            importantDateDao = db.importantDateDao(),
+            ftsDao = db.instructionFtsDao(),
+            db = db,
         )
     }
 
     @After
     fun tearDown() {
-        // Clean up any backup files the test wrote.
         backupManager.listBackups().forEach { it.delete() }
+        db.close()
+        Dispatchers.resetMain()
+    }
+
+    private suspend fun seedEverything() {
+        db.subdivisionDao().saveProfile(
+            SubdivisionProfile("visible", "Ambasamudram", "Tirunelveli", "K. Sundaram", now),
+        )
+        db.subdivisionDao().saveStation(station)
+        db.subdivisionDao().saveMatter(matter)
+        db.personDao().upsertAll(testPeople)
+        db.subdivisionDao().savePosting(
+            StaffPosting("po-1", "visible", "p1", "", "Kalakad", "Posting changed", now),
+        )
+        db.subdivisionDao().saveReview(
+            SubdivisionReview("rv-1", "visible", "all", "Whole subdivision", "Monthly review note.", now, 1, 0),
+        )
+        db.tagDao().upsertAll(testTags)
+        db.instructionDao().upsertAll(testInstructions)
+        db.instructionTagDao().attachAll(testInstructionTags)
+        db.personLinkDao().upsertAll(testPersonLinks)
+        db.captureDao().upsertAll(testCaptures)
+        db.importantDateDao().upsertAll(testImportantDates)
+    }
+
+    private suspend fun wipeEverything() {
+        db.openHelper.writableDatabase.let { raw ->
+            listOf(
+                "instruction_tags", "important_date", "person_link", "captures",
+                "instructions", "tags", "persons",
+                "subdivision_reviews", "staff_postings", "matters", "stations", "subdivision_profile",
+            ).forEach { raw.execSQL("DELETE FROM $it") }
+        }
+        assertEquals(0, db.personDao().snapshot().size)
     }
 
     @Test
-    fun `backup writes a JSON file with every table and restore re-inserts every row`() = runTest {
-        // Act 1: backup
+    fun `backup writes every table and restore brings every row back`() = runTest {
+        seedEverything()
         val file = backupManager.backup()
         assertNotNull("backup() must return a file", file)
         assertTrue("backup file must exist on disk", file.exists())
-        assertTrue("backup file must be non-empty", file.length() > 0)
         val json = file.readText()
-        assertTrue("backup must include people", json.contains("\"people\""))
-        assertTrue("backup must include instructions", json.contains("\"instructions\""))
-        assertTrue("backup must include tags", json.contains("\"tags\""))
-        assertTrue("backup must include captures", json.contains("\"captures\""))
-        assertTrue("backup must include important_dates", json.contains("\"important_dates\""))
-        assertTrue("backup must include person_links", json.contains("\"person_links\""))
-        assertTrue("backup must include instruction_tags", json.contains("\"instruction_tags\""))
-        assertTrue("backup must include schema_version", json.contains("\"schema_version\""))
+        listOf(
+            "people", "instructions", "tags", "captures", "important_dates",
+            "person_links", "instruction_tags", "schema_version", "subdivision",
+        ).forEach { key ->
+            assertTrue("backup must include $key", json.contains("\"$key\""))
+        }
+        assertEquals(
+            "the manual backup schema version must be 4",
+            BackupManager.SCHEMA_VERSION,
+            JSONObject(json).getInt("schema_version"),
+        )
 
-        // Act 2: restore. The mock DAOs have captured the
-        // upsert calls; we don't have a public accessor for
-        // them, so we re-parse the file and assert the
-        // structural correctness of the round-trip.
+        wipeEverything()
         val result = backupManager.restore(file)
+        assertEquals("restore must report 2 people", 2, result.people)
+        assertEquals("restore must report 1 instruction", 1, result.instructions)
+        assertEquals("restore must report 1 tag", 1, result.tags)
+        assertEquals("restore must report 1 instruction_tag", 1, result.instructionTags)
+        assertEquals("restore must report 1 person_link", 1, result.personLinks)
+        assertEquals("restore must report 1 capture", 1, result.captures)
+        assertEquals("restore must report 1 important_date", 1, result.importantDates)
         assertEquals(
-            "restore must report 2 people",
-            2, result.people,
+            "restore must report the profile, station, matter, posting and review",
+            5,
+            result.subdivisionRecords,
+        )
+
+        // The rows are genuinely back, not merely counted.
+        val person = db.personDao().getById("p1")
+        assertNotNull(person)
+        assertEquals("st-1", person?.stationId)
+        assertTrue("the staff classification must survive", person?.isStaff == true)
+        assertEquals("Coastal beat, sand mining, night patrol", person?.responsibilities)
+        assertTrue("the sensitive flag must survive", person?.isSensitive == true)
+
+        val instruction = db.instructionDao().getById("i1")
+        assertEquals("st-1", instruction?.stationId)
+        assertEquals("m-1", instruction?.matterId)
+        assertEquals(1799999999000L, instruction?.deadlineAtMs)
+        assertEquals(1789999999000L, instruction?.dueAtMs)
+        assertEquals("PERSON", instruction?.audienceKind)
+        assertEquals(
+            "the journal must survive with its Tamil text",
+            "Called; report tomorrow. தமிழ்",
+            InstructionJournal.decode(instruction!!.updatesJson).single().text,
+        )
+
+        assertEquals("Ambasamudram", db.subdivisionDao().profile("visible")?.name)
+        assertEquals(
+            "the station notes must keep their blank line and comma",
+            station.notes,
+            db.subdivisionDao().station("st-1")?.notes,
         )
         assertEquals(
-            "restore must report 1 instruction",
-            1, result.instructions,
+            "the matter description must keep its quotes and Tamil text",
+            matter.description,
+            db.subdivisionDao().matter("m-1")?.description,
+        )
+        assertEquals(1, db.subdivisionDao().postingsFor("visible", "p1").size)
+        assertEquals("Whole subdivision", db.subdivisionDao().latestReview("visible", "all")?.scopeTitle)
+    }
+
+    @Test
+    fun `restored instructions are findable by full-text search`() = runTest {
+        seedEverything()
+        val file = backupManager.backup()
+        wipeEverything()
+        backupManager.restore(file)
+        val hits = db.instructionFtsDao().searchOnce("FIR*")
+        assertEquals(
+            "a restored instruction must be searchable immediately, not after a reseed",
+            listOf("i1"),
+            hits.map { it.id },
+        )
+    }
+
+    @Test
+    fun `restoring the same backup twice keeps child rows and stays idempotent`() = runTest {
+        seedEverything()
+        val file = backupManager.backup()
+        backupManager.restore(file)
+        backupManager.restore(file)
+        assertEquals("no duplicate contacts", 2, db.personDao().snapshot().size)
+        assertEquals("no duplicate instructions", 1, db.instructionDao().snapshot().size)
+        // The pre-2.6.0 restore used INSERT OR REPLACE, which deleted the person and the
+        // instruction first and cascaded these two away.
+        assertEquals(
+            "the label link must survive a repeated restore",
+            1,
+            db.instructionTagDao().snapshotAll().size,
         )
         assertEquals(
-            "restore must report 1 tag",
-            1, result.tags,
+            "the contact's important dates must survive a repeated restore",
+            1,
+            db.importantDateDao().snapshot().size,
         )
         assertEquals(
-            "restore must report 1 instruction_tag",
-            1, result.instructionTags,
+            "the contact's relationships must survive a repeated restore",
+            1,
+            db.personLinkDao().snapshot().size,
         )
+    }
+
+    @Test
+    fun `a backup from a newer schema version is refused and changes nothing`() = runTest {
+        seedEverything()
+        val file = backupManager.backup()
+        val bumped = JSONObject(file.readText()).put("schema_version", BackupManager.SCHEMA_VERSION + 1)
+        file.writeText(bumped.toString())
+        wipeEverything()
+
+        val failure = runCatching { backupManager.restore(file) }.exceptionOrNull()
+        assertNotNull("a newer backup format must be refused", failure)
+        assertTrue(
+            "the message must tell the officer to update the app; got ${failure?.message}",
+            failure?.message?.contains("newer version") == true,
+        )
+        assertEquals("the database must be untouched", 0, db.personDao().snapshot().size)
+    }
+
+    @Test
+    fun `a backup with a dangling matter reference is refused and changes nothing`() = runTest {
+        seedEverything()
+        val file = backupManager.backup()
+        val root = JSONObject(file.readText())
+        // Point the instruction at a matter nobody has.
+        root.getJSONArray("instructions").getJSONObject(0).put("matter_id", "m-does-not-exist")
+        file.writeText(root.toString())
+        wipeEverything()
+
+        val failure = runCatching { backupManager.restore(file) }.exceptionOrNull()
+        assertNotNull("a dangling matter reference must be refused", failure)
+        assertTrue(
+            "the message must name the problem; got ${failure?.message}",
+            failure?.message?.contains("matter") == true,
+        )
+        assertEquals("no contact may be written", 0, db.personDao().snapshot().size)
+        assertEquals("no instruction may be written", 0, db.instructionDao().snapshot().size)
+        assertEquals("no station may be written", 0, db.subdivisionDao().stations().size)
+    }
+
+    @Test
+    fun `a backup with a malformed instruction is refused rather than partially restored`() = runTest {
+        seedEverything()
+        val file = backupManager.backup()
+        val root = JSONObject(file.readText())
+        root.getJSONArray("instructions").getJSONObject(0).remove("status")
+        file.writeText(root.toString())
+        wipeEverything()
+
+        val failure = runCatching { backupManager.restore(file) }.exceptionOrNull()
+        assertNotNull("a malformed row must be refused, not skipped", failure)
         assertEquals(
-            "restore must report 1 person_link",
-            1, result.personLinks,
+            "the pre-2.6.0 parser skipped the bad row and restored the rest; that silent loss is gone",
+            0,
+            db.personDao().snapshot().size,
         )
+    }
+
+    @Test
+    fun `a schema 3 backup restores without inventing a subdivision or staff`() = runTest {
+        seedEverything()
+        val file = backupManager.backup()
+        // Rewrite the file as a genuine pre-2.6.0 backup: version 3, no subdivision object,
+        // and none of the columns v2.6.0 added.
+        val root = JSONObject(file.readText())
+        root.put("schema_version", 3)
+        root.remove("subdivision")
+        val people = root.getJSONArray("people")
+        for (i in 0 until people.length()) {
+            people.getJSONObject(i).apply {
+                remove("station_id"); remove("is_staff"); remove("staff_active"); remove("responsibilities")
+            }
+        }
+        val instructions = root.getJSONArray("instructions")
+        for (i in 0 until instructions.length()) {
+            instructions.getJSONObject(i).apply { remove("station_id"); remove("matter_id") }
+        }
+        val legacy = File(file.parentFile, "kaavalan-note-backup-legacy.json")
+        legacy.writeText(root.toString())
+        wipeEverything()
+
+        val result = backupManager.restore(legacy)
+        assertEquals("the old backup's contacts must come back", 2, result.people)
+        assertEquals("an old backup carries no subdivision records", 0, result.subdivisionRecords)
+        assertNull(
+            "restoring an old backup must not invent a subdivision profile",
+            db.subdivisionDao().profile("visible"),
+        )
+        val person = db.personDao().getById("p1")
+        assertFalse(
+            "restoring an old backup must not classify a real person as staff",
+            person?.isStaff == true,
+        )
+        // The free-text station name is safe to fold into a real station; the classification
+        // is not.
+        assertNotNull("a legacy station name should be derived into a station", person?.stationId)
         assertEquals(
-            "restore must report 1 capture",
-            1, result.captures,
+            "Kalakad",
+            db.subdivisionDao().station(person!!.stationId!!)?.name,
         )
-        assertEquals(
-            "restore must report 1 important_date",
-            1, result.importantDates,
-        )
+        legacy.delete()
     }
 
     @Test
     fun `backup file name uses the timestamp pattern and lives in the backups subdirectory`() = runTest {
         val file = backupManager.backup()
         val name = file.name
-        // v1.8.0: the filename is kaavalan-note-backup-YYYYMMDD-HHmmss.json
         assertTrue(
             "filename must start with kaavalan-note-backup-; got $name",
             name.startsWith("kaavalan-note-backup-"),
         )
-        assertTrue(
-            "filename must end with .json; got $name",
-            name.endsWith(".json"),
-        )
+        assertTrue("filename must end with .json; got $name", name.endsWith(".json"))
         assertTrue(
             "backup file must live in the backups/ subdir; got ${file.parentFile?.name}",
             file.parentFile?.name == "backups",
@@ -313,23 +505,15 @@ class BackupRoundTripTest {
 
     @Test
     fun `backup prunes old files beyond the retention limit`() = runTest {
-        // v1.8.0 (PROD-READINESS-P0-#1): the manager keeps
-        // the MAX_BACKUPS most recent files. Call backup
-        // MAX_BACKUPS+2 times with a small sleep so the
-        // timestamp differs; assert the older ones are
-        // gone.
         repeat(BackupManager.MAX_BACKUPS + 2) {
             backupManager.backup()
-            // The timestamp is second-resolution, so a 1.1s
-            // sleep guarantees a unique filename. On a slow
-            // test runner this is acceptable; the alternative
-            // is a monotonic filename suffix but the spec
-            // calls for human-readable timestamps.
+            // The timestamp has second resolution, so a short sleep guarantees a unique name.
             Thread.sleep(1100)
         }
         val remaining = backupManager.listBackups().size
         assertTrue(
-            "after ${BackupManager.MAX_BACKUPS + 2} backups the dir must hold at most ${BackupManager.MAX_BACKUPS} files; got $remaining",
+            "after ${BackupManager.MAX_BACKUPS + 2} backups at most ${BackupManager.MAX_BACKUPS} " +
+                "files may remain; got $remaining",
             remaining <= BackupManager.MAX_BACKUPS,
         )
     }

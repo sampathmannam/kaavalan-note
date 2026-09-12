@@ -260,11 +260,32 @@ object Routes {
     // from Settings → Privacy → About. Build info,
     // privacy posture, source repo.
     const val ABOUT = "about"
+    // v2.6.0 (subdivision CRM): the officer's own subdivision record. Ordinary native
+    // full-screen child destinations with Back — deliberately NOT a fourth primary tab,
+    // and deliberately not one crowded all-in-one dialog. All of them are
+    // normal-workspace only; [OfficerAppRoot] clears them on a vault change.
+    const val SUBDIVISION_REVIEW = "subdivision/review"
+    const val STATIONS_STAFF = "subdivision/stations"
+    const val STATION_DETAIL = "subdivision/stations/{stationId}"
+    const val STAFF_DETAIL = "subdivision/staff/{personId}"
+    const val MATTERS = "subdivision/matters"
+    const val MATTER_DETAIL = "subdivision/matters/{matterId}"
+
+    /** Every CRM destination shares this prefix so a vault change can clear all of them. */
+    const val SUBDIVISION_PREFIX = "subdivision/"
+
+    fun stationDetail(id: String) = "subdivision/stations/$id"
+    fun staffDetail(id: String) = "subdivision/staff/$id"
+    fun matterDetail(id: String) = "subdivision/matters/$id"
     // v2.1.1 (QA P1-#4): the sync-conflict routes were
     // removed alongside the dead SyncConflictScreens file.
     // The data layer (entity / DAO / Room table) stays
     // for the future cloud-sync build.
     fun person(id: String) = "person/$id"
+
+    /** True for any destination that must not survive a switch into the private workspace. */
+    fun isSubdivision(route: String?) = route?.startsWith(SUBDIVISION_PREFIX) == true
+
 }
 
 /**

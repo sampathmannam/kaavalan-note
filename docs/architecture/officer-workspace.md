@@ -17,6 +17,11 @@ The former Home/People screen owned contact creation, global search, inbound/out
 - `CaptureViewModel`: saved draft, responsibility/contact/reminder selection and save state. `createWithAudience` commits direction, contact, due ISO and due milliseconds together inside the existing Room transaction. Legacy create callers retain their outgoing default.
 - `PersonDetailScreen`: contact-specific records, shared detail/reminder UI and the same app-level capture host. Relationships, important dates, sharing and privacy remain available as secondary actions.
 - `SettingsCategory`: single selected settings section with back navigation; existing secure backup/recovery implementations remain intact.
+- `SubdivisionRepository`: every subdivision write. Re-reads the target row, rechecks vault ownership and sensitivity at the write boundary, and runs in a Room transaction. Owns station-name uniqueness, the archive guards, the link/relink journal and the review snapshot. Composables never call `SubdivisionDao`.
+- `SubdivisionProjections`: pure, `now`-injected review projections — scopes, counts, the five filters, the stale window and the normal-workspace visibility gate. Shared by the UI and by the repository's review snapshot, so a saved review can never disagree with the number the officer was looking at when they saved it.
+- `SubdivisionViewModel`: lifecycle-aware Flow state for profile, stations, matters, postings and reviews, with loading, a recoverable read error, a busy flag and an actionable mutation error. Resets before revealing anything on a vault change.
+- `SubdivisionModel`: pure row projections and search for the station, staff and matter lists.
+- `SubdivisionScaffold` / `SubdivisionEditors`: one frame per destination handling Back and the three non-content states once, and one editor frame with a scrolling body, pinned Save, retained draft and a discard warning only when something was typed.
 
 ## Privacy and data compatibility
 
@@ -46,6 +51,64 @@ Cold startup no longer automatically loads or replaces synthetic fixtures, even 
 Contacts uses a single scrolling directory, including its introductory controls. Empty/error content can scroll at larger text sizes. Capture and contact forms keep their save action outside the scrolling body. App-selected light/dark system-bar appearance also reaches the separate Material sheet windows.
 
 In landscape, capture omits the drag-handle chrome. While the keyboard is open it also reduces vertical padding and hides the redundant heading, without replacing the focused editor or shrinking the user's text. Dismissing the keyboard restores the full heading and form. The large-text device check requires an editor viewport of at least 80dp alongside a visible, enabled Save action.
+
+### Subdivision work record — September 11
+
+A non-destructive **17 → 18** migration adds `subdivision_profile`, `stations`, `matters`,
+`staff_postings` and `subdivision_reviews`, plus `stationId` / `isStaff` / `staffActive` /
+`responsibilities` on `persons` and `stationId` / `matterId` on `instructions`, with
+indices for the new columns. `SUBDIVISION_MIGRATION_17_18` is registered in
+`DatabaseModule` for every real construction path; there is no
+`fallbackToDestructiveMigration`. The migration derives stations from the station text
+already typed into contacts, separately per vault, and stamps the resulting IDs onto
+existing instructions. It seeds no subdivision profile and classifies nobody as staff.
+`exportSchema` remains `false` for this project, so the migration test validates by opening
+the migrated database through Room itself and letting Room's identity check run, rather
+than diffing an exported JSON schema.
+
+- An instruction carries the station it was **recorded at**, not a pointer to wherever its
+  contact is posted today. Moving an officer writes a dated posting entry and leaves their
+  past work where it happened. Only an explicit context change moves an instruction, and it
+  appends a journal entry naming both sides.
+- Station names are unique per vault on the trimmed, ASCII-case-folded form, and the check
+  includes archived rows. The SQL `lower()` folding and the Kotlin normalizer deliberately
+  match. Non-Latin names are stored and compared intact. A rename updates the compatibility
+  station text on contacts but never a posting-history snapshot.
+- Archive replaces delete. A station archive requires no active staff, no active matters
+  and no open linked work; a matter archive requires no open linked work. Each refusal
+  names the specific next action. Reopening work reopens its archived station and matter,
+  including an Undo that lands after an intervening archive.
+- `resolveCreationContext` makes creation and the work-context link one transaction, so a
+  refused context leaves nothing behind rather than a misleading half-saved instruction.
+  Capture carries the context through `SavedStateHandle`, includes it in the duplicate-save
+  fingerprint, and offers a labelled choice instead of overwriting a non-empty draft.
+- Editing uses Room `@Update`, never `INSERT OR REPLACE`. Replace deletes the row first,
+  which cascaded `instruction_tags` off an edited instruction and `important_date` /
+  `person_link` off a renamed contact. FTS is rewritten against the row's own rowid.
+- Review records store the scope, the officer's note and the open / ready-to-verify counts
+  computed inside the saving transaction. The UI labels them `At this review`. Recording a
+  review completes nothing and sends nothing.
+- Everything CRM is normal-workspace only. Sensitive people, hidden links and audience-only
+  pointers are excluded from every list, count, review, picker and search result, and a
+  vault switch mid-form fails the write closed rather than showing stale state.
+
+Backup carries the record or fails whole. `SubdivisionArchiveCodec` is one versioned
+encode / decode / validate shared by all three formats. `PlainExporter` reads its snapshot
+in a single transaction and appends the new columns after the historic ones; `PlainImporter`
+parses and validates the entire file before applying it in one transaction, refusing
+duplicate IDs, dangling and cross-vault references, malformed journals and unsupported
+versions. `BackupManager` moves manual backup schema 3 → **4** and no longer skips
+malformed rows — a restore now either completes or changes nothing. Schema 3 and older
+backups still restore: recoverable legacy station names are folded into real stations, and
+no profile or staff classification is ever invented. `CsvCodec` replaces the old
+split-on-newlines parser, which tore journal JSON and multi-paragraph notes apart at blank
+lines and discarded the halves silently; it handles quoted commas, doubled quotes, CRLF,
+Unicode and blank lines inside a field, and carries the archive in a labelled
+`subdivision_json` block.
+
+A lazy list measures its items with unbounded height, so `SubdivisionNotice` — the empty
+and unavailable state — carries no scroll container of its own. `SubdivisionNoticeScreen`
+is the variant for a notice that occupies a whole destination and therefore needs one.
 
 ## Development safety
 

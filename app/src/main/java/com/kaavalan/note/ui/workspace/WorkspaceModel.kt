@@ -66,7 +66,21 @@ private val workOrder = compareBy<Instruction> { minOf(it.reminderMillis ?: Long
     .thenByDescending { when (it.priority) { Priority.URGENT -> 3; Priority.HIGH -> 2; Priority.NORMAL -> 1; Priority.LOW -> 0 } }
     .thenByDescending { it.capturedAt }
 
-fun filterWork(items: List<Instruction>, people: List<Person>, filter: WorkFilter, query: String): List<Instruction> {
+/**
+ * The Instructions-tab list.
+ *
+ * [contextText] maps an instruction id to its recorded station name, matter title and
+ * matter reference, so searching for a station or a matter finds the work filed under it.
+ * v2.6.0 added it; passing an empty map keeps the pre-2.6 behaviour exactly, which is
+ * what the private workspace does. Direction, status and reminder filtering are unchanged.
+ */
+fun filterWork(
+    items: List<Instruction>,
+    people: List<Person>,
+    filter: WorkFilter,
+    query: String,
+    contextText: Map<String, String> = emptyMap(),
+): List<Instruction> {
     val names = people.associate { it.id to listOfNotNull(it.name, it.designation, it.station).joinToString(" ") }
     val words = query.trim().split(Regex("\\s+")).filter(String::isNotBlank)
     return items.filter { item ->
@@ -78,10 +92,13 @@ fun filterWork(items: List<Instruction>, people: List<Person>, filter: WorkFilte
             WorkFilter.RECEIVED -> !item.isClosed && item.direction == Direction.INCOMING
             WorkFilter.CLOSED -> item.isClosed
         }
-        val searchable = "${item.title} ${item.rawText} ${names[item.personId].orEmpty()} ${item.audience?.label.orEmpty()} ${item.updates.joinToString(" ") { it.text }}"
+        val searchable = "${item.title} ${item.rawText} ${names[item.personId].orEmpty()} " +
+            "${item.audience?.label.orEmpty()} ${item.updates.joinToString(" ") { it.text }} " +
+            contextText[item.id].orEmpty()
         category && words.all { searchable.contains(it, ignoreCase = true) }
     }.sortedWith(if (filter == WorkFilter.CLOSED) compareByDescending { it.updatedAt } else workOrder)
 }
+
 
 /** Fail closed for linked contacts outside the active vault, including deleted/orphaned links. */
 fun visibleWork(items: List<Instruction>, people: List<Person>, includeUnlinked: Boolean): List<Instruction> {

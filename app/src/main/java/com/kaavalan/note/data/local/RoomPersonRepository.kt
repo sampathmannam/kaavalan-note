@@ -1,5 +1,7 @@
 package com.kaavalan.note.data.local
 
+import androidx.room.withTransaction
+import com.kaavalan.note.data.subdivision.SubdivisionRepository
 import com.kaavalan.note.data.local.entities.PersonEntity
 import com.kaavalan.note.data.local.entities.SyncQueueEntity
 import com.kaavalan.note.data.local.entities.SyncStatus
@@ -27,6 +29,7 @@ import javax.inject.Singleton
 class RoomPersonRepository @Inject constructor(
     private val dao: PersonDao,
     private val syncQueueDao: SyncQueueDao,
+    private val db: AppDatabase,
 ) : PersonRepository {
 
     override fun observeAll(): Flow<List<Person>> = dao.observeAll()
@@ -57,7 +60,7 @@ class RoomPersonRepository @Inject constructor(
         phone: String? = null,
         vaultMode: String = "visible",
         clientId: String? = null,
-    ): Person {
+    ): Person = db.withTransaction {
         val nowIso = nowIso()
         val id = clientId ?: java.util.UUID.randomUUID().toString()
         val local = PersonEntity(
@@ -65,6 +68,7 @@ class RoomPersonRepository @Inject constructor(
             name = name,
             designation = designation,
             station = station,
+            stationId = SubdivisionRepository.resolveStation(db, vaultMode, station),
             phone = phone,
             vaultMode = vaultMode,
             userId = "",
@@ -77,7 +81,7 @@ class RoomPersonRepository @Inject constructor(
         // still enqueued (forward-compat) but no drain will
         // ever run. A future v2.x pass that adds cloud sync
         // would re-insert the drain call here.
-        return local.toDomain()
+        local.toDomain()
     }
 
     override suspend fun findByName(name: String): Person? {
