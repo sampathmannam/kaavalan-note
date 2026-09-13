@@ -164,7 +164,7 @@ class DatabasePreflight @Inject constructor(
                 )
             }
             // All five steps OK → DB is healthy.
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
             // v2.1.1 (security): don't echo the
             // [UserEntity] (which may include the user's
             // `displayName` and other PII) into logcat.
@@ -176,12 +176,10 @@ class DatabasePreflight @Inject constructor(
             // not the full entity).
             Log.e(
                 TAG,
-                "DB preflight failed: ${e.javaClass.simpleName}: " +
-                    "${e.message?.substringBefore('\n') ?: "(no message)"}. " +
+                "DB preflight failed (${e.javaClass.simpleName}). " +
                     "Marking the database as corrupt; the Settings " +
                     "sheet will surface a 'Database error' banner with " +
                     "an 'Erase all data' CTA.",
-                e,
             )
             databaseHealth.markCorrupt()
         }
@@ -275,4 +273,3 @@ class DatabasePreflight @Inject constructor(
         )
     }
 }
-

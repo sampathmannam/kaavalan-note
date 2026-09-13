@@ -6,6 +6,7 @@ import androidx.work.Configuration
 import com.kaavalan.note.data.local.AppInitializer
 import com.kaavalan.note.data.work.WorkManagerInitializer
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -115,10 +116,16 @@ class KaavalanApplication : Application(), Configuration.Provider {
         // in one child cannot cancel the other and the scope is
         // substitutable in tests.
         applicationScope.launch(Dispatchers.IO) {
-            runCatching { userBootstrap.ensureDeviceOwner() }
-                .onFailure {
-                    android.util.Log.w("KaavalanApplication", "ensureDeviceOwner bootstrap failed", it)
-                }
+            try {
+                userBootstrap.ensureDeviceOwner()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.w(
+                    "KaavalanApplication",
+                    "ensureDeviceOwner bootstrap failed (${e.javaClass.simpleName})",
+                )
+            }
             // v2.0.2 (PM rating): the database preflight. Runs a
             // `SELECT 1` and sets the "database corrupt" flag in
             // SecurePreferences if the open throws; the Settings sheet
@@ -126,10 +133,16 @@ class KaavalanApplication : Application(), Configuration.Provider {
             // erase and start fresh" banner. Failures are logged, not
             // swallowed, so a real DB error reaches logcat instead of
             // silently flipping the flag to false.
-            runCatching { databasePreflight.runPreflight() }
-                .onFailure {
-                    android.util.Log.e("KaavalanApplication", "database preflight failed", it)
-                }
+            try {
+                databasePreflight.runPreflight()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.e(
+                    "KaavalanApplication",
+                    "database preflight failed (${e.javaClass.simpleName})",
+                )
+            }
         }
         // v1.5.0 vault mode: no cloud sync. The
         // [com.kaavalan.note.data.work.WorkManagerInitializer] periodic
@@ -172,14 +185,19 @@ class KaavalanApplication : Application(), Configuration.Provider {
         // depends on it having happened, so deferring it by a few
         // milliseconds is safe.
         applicationScope.launch(Dispatchers.IO) {
-            runCatching {
+            try {
                 if (googleOAuthClient.isSignedIn() &&
                     securePreferences.getBackupEncryptionKeyHash() != null
                 ) {
                     com.kaavalan.note.data.work.WorkManagerInitializer.scheduleDriveBackup(this@KaavalanApplication)
                 }
-            }.onFailure {
-                android.util.Log.w("KaavalanApplication", "Drive backup scheduling check failed", it)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.w(
+                    "KaavalanApplication",
+                    "Drive backup scheduling check failed (${e.javaClass.simpleName})",
+                )
             }
         }
     }

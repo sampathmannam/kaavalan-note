@@ -147,8 +147,8 @@ class VoiceCaptureService : Service() {
         }
         runCatching { recognizer.startListening(listenIntent) }
             .onFailure { e ->
-                Log.e(TAG, "startListening failed", e)
-                deliverError(e.message ?: "Could not start voice recognition.")
+                Log.e(TAG, "startListening failed (${e.javaClass.simpleName})")
+                deliverError("Could not start voice recognition.")
                 VoiceCaptureState.setRecording(false)
                 stopForegroundCompat()
                 stopSelf()
@@ -161,7 +161,7 @@ class VoiceCaptureService : Service() {
         // text and stops the service. The in-app Stop button
         // shares this code path with the notification action.
         runCatching { speechRecognizer?.stopListening() }
-            .onFailure { e -> Log.w(TAG, "stopListening failed", e) }
+            .onFailure { e -> Log.w(TAG, "stopListening failed (${e.javaClass.simpleName})") }
         // Belt + suspenders: if the listener never fires
         // (some devices are flaky), still tear down within
         // a few hundred ms. The user sees the recording

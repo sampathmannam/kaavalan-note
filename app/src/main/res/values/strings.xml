@@ -365,7 +365,7 @@
         <item quantity="other">%1$d tags</item>
     </plurals>
     <!-- v1.6.8: these were <plurals> with identical one/other
-         items (the words don't actually pluralize � "1 carried
+         items (the words don't actually pluralize — "1 carried
          over" and "5 carried over" are both correct). Converting
          to <string> removes the misleading <plurals> wrapper.
          Call sites in TodaysWinCard now use stringResource

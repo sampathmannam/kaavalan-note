@@ -37,7 +37,7 @@ class FollowUpWorkspaceEndToEndTest {
         compose.onNodeWithTag("instruction_update_text").performTextInput("Inspector confirmed deployment by wireless")
         compose.onNodeWithTag("update_progress").performScrollTo().performClick()
         compose.onNodeWithText("Ready to verify").performClick()
-        compose.onNodeWithText("Today").performScrollTo().performClick()
+        compose.onNodeWithTag("reminder_day_today").performScrollTo().performClick()
         compose.onNodeWithText("In 1 hour").performScrollTo().performClick()
         compose.onNodeWithTag("workspace_editor_save").assertIsDisplayed().performClick()
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("detail_done").fetchSemanticsNodes().isNotEmpty() }

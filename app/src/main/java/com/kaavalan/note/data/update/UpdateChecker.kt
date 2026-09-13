@@ -4,6 +4,7 @@ import com.kaavalan.note.BuildConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -125,8 +126,10 @@ class UpdateChecker(
                 )
                 else -> UpdateInfo.UpToDate(currentVersion = currentVersion)
             }
-        } catch (t: Throwable) {
-            UpdateInfo.Unavailable(t.message ?: t::class.java.simpleName)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            UpdateInfo.Unavailable("Could not check for updates.")
         }
     }
 

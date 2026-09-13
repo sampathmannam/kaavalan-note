@@ -8,7 +8,7 @@
 // `supabase/migrations/0003_enable_realtime_publication.sql` is
 // the durable record.
 
-import { createClient } from "@supabase/supabase-js";
+import { safeTokenEquals } from "../_shared/auth.ts";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     });
   }
   const provided = req.headers.get("Authorization")?.replace("Bearer ", "");
-  if (provided !== expected) {
+  if (!await safeTokenEquals(provided, expected)) {
     return new Response("Unauthorized", {
       status: 401,
       headers: corsHeaders,
@@ -37,13 +37,6 @@ Deno.serve(async (req) => {
       headers: corsHeaders,
     });
   }
-
-  // Service role client: full DB access (bypasses RLS, has BYPASSRLS).
-  const admin = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    { auth: { autoRefreshToken: false, persistSession: false } },
-  );
 
   // Use the PostgREST admin RPC to run raw SQL. The `pg_execute_server_program`
   // function is not exposed by default, but we can use `exec` via the
@@ -107,13 +100,22 @@ async function runSql() {
     `;
     await sql.end();
     return new Response(
-      JSON.stringify({ ok: true, publication_tables: result.map((r) => r.tablename) }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      JSON.stringify({
+        ok: true,
+        publication_tables: result.map((r) => r.tablename),
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
-  } catch (e) {
+  } catch {
     return new Response(
-      JSON.stringify({ ok: false, error: e?.message ?? String(e) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      JSON.stringify({ ok: false, error: "Realtime configuration failed" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 }

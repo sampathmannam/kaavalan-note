@@ -13,7 +13,6 @@ import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -25,9 +24,7 @@ import org.robolectric.annotation.Config
 import java.io.File
 
 /**
- * v2.1.1 (PM rating): the [GoogleOAuthClient.consumeOAuthState]
- * / [GoogleOAuthClient.deleteOAuthStateFile] round-trip
- * tests.
+ * Tests for one-shot OAuth state validation and PKCE verifier consumption.
  *
  * The OAuth `state` + `code_verifier` are persisted to
  * `filesDir/oauth_state.tmp` in [GoogleOAuthClient.signIn] and
@@ -84,58 +81,56 @@ class GoogleOAuthClientStateTest {
     }
 
     @Test
-    fun `consumeOAuthState returns null when the state file is absent`() {
+    fun `consumeOAuthVerifier returns null when the state file is absent`() {
         // No signIn() called — the file should not exist.
-        assertNull(client.consumeOAuthState())
+        assertNull(client.consumeOAuthVerifier(validState('a')))
     }
 
     @Test
-    fun `consumeOAuthState returns null when the state file is malformed`() {
+    fun `consumeOAuthVerifier rejects and removes a malformed state file`() {
         val file = File(context.filesDir, "oauth_state.tmp")
         file.writeText("only-one-line-no-newline")
-        // The file exists but has no `\n` separator, so the
-        // split fails and we return null.
-        assertNull(client.consumeOAuthState())
-    }
-
-    @Test
-    fun `consumeOAuthState returns the state and verifier pair when the file is well formed`() {
-        val expectedState = "abc123-base64url-state"
-        val expectedVerifier = "verifier-base64url-pkce"
-        val file = File(context.filesDir, "oauth_state.tmp")
-        file.writeText("$expectedState\n$expectedVerifier")
-
-        val pair = client.consumeOAuthState()
-        assertNotNull(pair)
-        assertEquals(expectedState, pair!!.first)
-        assertEquals(expectedVerifier, pair.second)
-    }
-
-    @Test
-    fun `deleteOAuthStateFile removes the file`() {
-        val file = File(context.filesDir, "oauth_state.tmp")
-        file.writeText("state\nverifier")
-        assertTrue(file.exists())
-
-        client.deleteOAuthStateFile()
-
+        assertNull(client.consumeOAuthVerifier(validState('a')))
         assertFalse(file.exists())
     }
 
     @Test
-    fun `completeSignIn deletes the state file on success`() = runTest {
-        // v2.1.1: completeSignIn must read the code_verifier
-        // from the state file and include it in the token
-        // POST (PKCE). The state file is deleted on success.
-        val expectedState = "state-for-pkce"
-        val expectedVerifier = "verifier-for-pkce"
-        File(context.filesDir, "oauth_state.tmp")
-            .writeText("$expectedState\n$expectedVerifier")
+    fun `consumeOAuthVerifier returns verifier and removes the one-shot file on match`() {
+        val expectedState = validState('a')
+        val expectedVerifier = validState('v')
+        val file = File(context.filesDir, "oauth_state.tmp")
+        file.writeText("$expectedState\n$expectedVerifier")
 
-        // We can't easily inspect the body the MockEngine
-        // receives, so we just verify that completeSignIn
-        // doesn't throw and that the state file is deleted.
-        client.completeSignIn("dummy-auth-code")
-        assertFalse(File(context.filesDir, "oauth_state.tmp").exists())
+        assertEquals(expectedVerifier, client.consumeOAuthVerifier(expectedState))
+        assertFalse(file.exists())
+        assertNull(client.consumeOAuthVerifier(expectedState))
     }
+
+    @Test
+    fun `state mismatch does not cancel a legitimate pending sign-in`() {
+        val expectedState = validState('a')
+        val expectedVerifier = validState('v')
+        val file = File(context.filesDir, "oauth_state.tmp")
+        file.writeText("$expectedState\n$expectedVerifier")
+
+        assertNull(client.consumeOAuthVerifier(validState('b')))
+        assertTrue(file.exists())
+        assertEquals(expectedVerifier, client.consumeOAuthVerifier(expectedState))
+    }
+
+    @Test
+    fun `invalid oversized inbound state is rejected without reading secrets`() {
+        val file = File(context.filesDir, "oauth_state.tmp")
+        file.writeText("${validState('a')}\n${validState('v')}")
+
+        assertNull(client.consumeOAuthVerifier("x".repeat(10_000)))
+        assertTrue(file.exists())
+    }
+
+    @Test
+    fun `completeSignIn accepts a consumed valid verifier`() = runTest {
+        client.completeSignIn("dummy-auth-code", validState('v'))
+    }
+
+    private fun validState(character: Char): String = character.toString().repeat(43)
 }

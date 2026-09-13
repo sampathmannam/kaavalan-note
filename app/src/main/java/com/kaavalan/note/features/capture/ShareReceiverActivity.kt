@@ -165,8 +165,11 @@ internal suspend fun ocrTextOrEmpty(
     recognize(context, uri)
 } catch (cancellation: CancellationException) {
     throw cancellation
-} catch (failure: Throwable) {
-    Log.w(TAG, "OCR failed for a shared image; forwarding an empty pre-fill", failure)
+} catch (failure: Exception) {
+    Log.w(
+        TAG,
+        "OCR failed (${failure.javaClass.simpleName}); forwarding an empty pre-fill",
+    )
     ""
 }
 

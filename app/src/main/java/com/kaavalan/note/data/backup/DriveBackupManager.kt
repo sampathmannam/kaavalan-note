@@ -166,7 +166,7 @@ class DriveBackupManager @Inject constructor(
         val bytes = driveApi.downloadFile(accessToken, fileId)
         val json = try {
             crypto.decryptWithRecoveryPhrase(bytes, recoveryPhrase)
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
             throw DriveBackupException.WrongPassphrase(e)
         }
         // The crypto output is the JSON bytes; we

@@ -4,10 +4,10 @@ import android.content.Context
 import android.os.Build
 import com.kaavalan.note.BuildConfig
 import java.io.File
-import java.io.PrintWriter
-import java.io.StringWriter
 import java.text.SimpleDateFormat
+import java.util.Collections
 import java.util.Date
+import java.util.IdentityHashMap
 import java.util.Locale
 
 /**
@@ -37,18 +37,12 @@ import java.util.Locale
  *    helper exposes a FileProvider URI for the
  *    share).
  *
- * **v2.1.1 (security): PII redaction in the
- * rendered log.** v1.9.0 wrote the raw
- * [printStackTrace] output to disk. A crash in a
- * function that had a [com.kaavalan.note.data.person.Person]
- * on the stack would render the toString — which
- * includes the user's `displayName`, `phone`,
- * `email` — into the log file. v2.1.1 scrubs the
- * rendered log for common PII patterns (email,
- * phone, name) and replaces them with `[REDACTED]`
- * before writing. The patterns are conservative
- * (false positives are fine; false negatives leak
- * PII); see [redactPii] for the full list.
+     * **Security: exception messages are excluded.**
+     * Messages frequently embed note text, contact names,
+     * URIs, or server responses. The log therefore records
+     * exception classes and stack frames only. Pattern-based
+     * [redactPii] remains as defence in depth for the header
+     * and future format changes.
  *
  * **File format.** Plain text. Each line is a
  * `key=value` pair. Easy to parse, easy to redact.
@@ -103,7 +97,7 @@ object CrashLog {
         file.writeText(redacted)
         prune(dir)
         CrashReport(file = file, timestampMs = timestampMs)
-    } catch (_: Throwable) {
+    } catch (_: Exception) {
         null
     }
 
@@ -139,8 +133,6 @@ object CrashLog {
 
     private fun renderCrashLog(throwable: Throwable, timestampMs: Long): String {
         val timestampStr = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(Date(timestampMs))
-        val sw = StringWriter()
-        throwable.printStackTrace(PrintWriter(sw))
         return buildString {
             appendLine("# Kaavalan note crash log")
             appendLine("timestamp=$timestampStr")
@@ -152,8 +144,30 @@ object CrashLog {
             appendLine("android_release=${Build.VERSION.RELEASE}")
             appendLine()
             appendLine("# Stack trace")
-            append(sw.toString())
+            appendSanitizedThrowable(throwable)
         }
+    }
+
+    /** Render diagnostic stack structure without exception messages or user data. */
+    private fun StringBuilder.appendSanitizedThrowable(throwable: Throwable) {
+        val seen = Collections.newSetFromMap(IdentityHashMap<Throwable, Boolean>())
+
+        fun appendOne(value: Throwable, caption: String, indent: String) {
+            if (!seen.add(value)) {
+                append(indent).append(caption).append("[cycle]").appendLine()
+                return
+            }
+            append(indent).append(caption).append(value::class.java.name).appendLine()
+            value.stackTrace.forEach { frame ->
+                append(indent).append("\tat ").append(frame).appendLine()
+            }
+            value.suppressed.forEach { suppressed ->
+                appendOne(suppressed, "Suppressed: ", "$indent\t")
+            }
+            value.cause?.let { cause -> appendOne(cause, "Caused by: ", indent) }
+        }
+
+        appendOne(throwable, caption = "", indent = "")
     }
 
     /**

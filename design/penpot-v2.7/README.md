@@ -1,9 +1,8 @@
 # KaavalanNote — Field Notebook UI v2.7 (Penpot-ready design kit)
 
-This directory is the design source of truth for the v2.7 field-notebook pass, in a form
-Penpot can import directly. It exists because **Penpot itself could not be reached from
-this session** — see [Penpot status](#penpot-status) below for the exact blocker and the
-one action that unblocks it.
+This directory is the reproducible design source of truth for the v2.7 field-notebook
+pass, in a form Penpot can import directly. The matching editable Penpot cloud file was
+created and verified on 14 September 2026; see [Penpot status](#penpot-status).
 
 Everything here is generated from the shipped Compose theme, not drawn by hand, so a board
 cannot quietly disagree with the app.
@@ -12,7 +11,7 @@ cannot quietly disagree with the app.
 
 | Path | What it is |
 | --- | --- |
-| `tokens/kaavalan-tokens.json` | Design tokens in the Tokens Studio JSON dialect Penpot imports: colour roles (light + dark), spacing, radius, sizing and the type scale. |
+| `tokens/kaavalan-tokens.json` | W3C DTCG design tokens Penpot imports: colour roles (light + dark), spacing, radius, sizing and the type scale. |
 | `tokens/TOKENS.md` | The same tokens documented in prose, with the rule each one encodes. |
 | `components/tokens-sheet.svg` | One board showing every colour role as a light/dark swatch pair, the type scale at real size, and the spacing and radius steps. |
 | `components/components-light.svg`, `components/components-dark.svg` | The component library: top bar, entry row, search field, chips, work card (featured and plain), empty state, note bar, navigation bar. |
@@ -55,34 +54,18 @@ is written down — then re-run the generator.
 
 ## Penpot status
 
-Penpot could **not** be automated from this session. The blocker, precisely:
+The editable cloud project and file are both named **KaavalanNote field notebook UI
+v2.7**. The verified file contains:
 
-- `https://design.penpot.app/` is reachable but serves a Cloudflare interstitial to
-  non-browser clients, and the application itself opens on **“Log into my account”**.
-  No Penpot session, cookie, API token or `PENPOT_*` environment variable exists on this
-  machine.
-- There is no self-hosted Penpot: nothing is listening on the usual local ports and no
-  Penpot container is running.
-- No Penpot MCP server or connector is attached to this session.
-- The Chrome extension that would carry an existing logged-in Penpot session reports no
-  connected browser.
+- **Foundations** — the colour, typography, spacing, radius and target-size reference;
+- **Components** — separate light and dark component boards, arranged side by side;
+- **Screens & states** — all 27 360 × 800 boards arranged in a five-column grid;
+- the six imported token sets (`light`, `dark`, `spacing`, `radius`, `size`,
+  `typography`) and working **Light** / **Dark** themes, with Light active by default.
 
-Creating an account and entering a password are both things this session must not do on
-someone's behalf, so the work stopped at the login wall rather than silently switching to
-Figma (a Figma MCP *is* attached — it was deliberately not used).
-
-**The one action needed from you:** sign in to Penpot — either at
-`https://design.penpot.app/` or on a self-hosted instance — and then either
-
-1. import this directory yourself following `manifest.json` → `importSteps` (about five
-   minutes: create the project and file, add three pages, drag the SVGs in, import the
-   token JSON), **or**
-2. tell this session the instance URL and connect a browser it can drive (the Claude in
-   Chrome extension, with Penpot already signed in), and it will create the project, the
-   pages and the token set and hand back the editable project URL.
-
-Until then, **there is no Penpot project URL** — none was created, and none should be
-quoted.
+The personal-workspace cloud URL is intentionally not committed into this repository;
+the implementation handoff provides it. The generator and SVG/JSON files here remain the
+portable source of truth, so the design is reproducible without access to that account.
 
 ## What the boards encode
 

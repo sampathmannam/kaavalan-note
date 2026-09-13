@@ -417,7 +417,7 @@ enabled = true
 # Edge Functions
 # =============================================================================
 # Baton cloud MCP server. M0: read-only, exposes the `baton://persons` resource.
-# JWT verification is on � Supabase validates the Bearer token against
+# JWT verification is on — Supabase validates the Bearer token against
 # `auth.users`; RLS then applies to the function's data queries.
 [edge_functions.mcp-server]
 verify_jwt = true

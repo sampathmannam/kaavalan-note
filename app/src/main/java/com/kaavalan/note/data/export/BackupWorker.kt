@@ -6,6 +6,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.CancellationException
 
 /**
  * v1.8.0 (PROD-READINESS-P0-#1): the WorkManager-driven daily
@@ -26,18 +27,13 @@ class BackupWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         return try {
-            val file = backupManager.backup()
-            if (file.exists() && file.length() > 0) {
-                Result.success()
-            } else {
-                // v1.8.0: the file was created but is empty
-                // (e.g. the Room DB has no rows yet and the
-                // JSON serialiser wrote {}). That's not a
-                // failure — a first-launch user with no data
-                // has nothing to back up.
-                Result.success()
-            }
-        } catch (e: Throwable) {
+            backupManager.backup()
+            // An empty first-launch snapshot is still a valid backup.
+            Result.success()
+        } catch (e: CancellationException) {
+            // WorkManager cancellation must remain cooperative.
+            throw e
+        } catch (e: Exception) {
             // v1.8.0: log + retry. The user-facing toast /
             // notification lives in the WorkManager observer
             // that the Settings sheet sets up.

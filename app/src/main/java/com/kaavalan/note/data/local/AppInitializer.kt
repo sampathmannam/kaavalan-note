@@ -87,7 +87,7 @@ class AppInitializer @Inject constructor(
             // missing, the Room open fails — the user sees the
             // AuthScreen with a broken sign-in rather than a hard
             // crash. The crash log goes to crash reporting.
-            Log.e(TAG, "loadLibrary(sqlcipher) failed: ${e.message}. " +
+            Log.e(TAG, "loadLibrary(sqlcipher) failed (${e.javaClass.simpleName}). " +
                 "DB reads will fail; check sqlcipher-android packaging.")
             // Still mark as ran so we don't re-attempt on every
             // recomposition (which would just spam the log).

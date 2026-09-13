@@ -208,7 +208,7 @@ object MultiUserKeySharing {
         try {
             val masterKey = try {
                 decrypt(share.ciphertext, kek, share.nonce)
-            } catch (t: Throwable) {
+            } catch (t: Exception) {
                 // AES-GCM AEADBadTagException on a wrong
                 // passphrase; the message is not propagated
                 // to the caller (it's a low-level JCE

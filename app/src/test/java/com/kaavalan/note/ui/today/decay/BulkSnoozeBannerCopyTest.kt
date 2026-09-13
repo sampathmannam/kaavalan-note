@@ -75,9 +75,9 @@ class BulkSnoozeBannerCopyTest {
                 "bulk_snooze_banner's '$quantity' item contains a literal U+FFFD Unicode " +
                     "replacement character -- this is the exact adversarial-QA-found bug " +
                     "that made the Today redistribute banner render as 'N quiet contact(s) " +
-                    "� redistribute?' to every user with more than 5 quiet contacts. " +
+                    "replacement-character redistribute?' to every user with more than 5 quiet contacts. " +
                     "Found:\n$value",
-                value.contains('�'),
+                value.contains('\uFFFD'),
             )
         }
     }

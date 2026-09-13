@@ -55,11 +55,15 @@ class CrashLogTest {
             "crash file should start with the Kaavalan note header",
             content.startsWith("# Kaavalan note crash log"),
         )
-        // The synthetic exception message is in the
-        // stack-trace section.
+        // Diagnostic type and frames remain, but messages can contain
+        // note/contact text and therefore must never be persisted.
         assertTrue(
-            "crash file should contain the exception message",
-            content.contains("synthetic test crash"),
+            "crash file should contain the exception type",
+            content.contains("java.lang.IllegalStateException"),
+        )
+        assertTrue(
+            "crash file should not contain the exception message",
+            !content.contains("synthetic test crash"),
         )
     }
 
@@ -184,5 +188,21 @@ class CrashLogTest {
             "persisted log should not contain the displayName",
             !content.contains("\"Alice\""),
         )
+    }
+
+    @Test
+    fun `write excludes messages from causes and suppressed exceptions`() {
+        val cause = IllegalArgumentException("contact Alice secret note")
+        val ex = IllegalStateException("top-level instruction text", cause).apply {
+            addSuppressed(IllegalStateException("suppressed private value"))
+        }
+
+        val content = CrashLog.write(context, ex)!!.file.readText()
+
+        assertTrue(content.contains("Caused by: java.lang.IllegalArgumentException"))
+        assertTrue(content.contains("Suppressed: java.lang.IllegalStateException"))
+        assertTrue(!content.contains("contact Alice secret note"))
+        assertTrue(!content.contains("top-level instruction text"))
+        assertTrue(!content.contains("suppressed private value"))
     }
 }

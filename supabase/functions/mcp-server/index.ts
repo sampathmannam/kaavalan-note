@@ -38,6 +38,27 @@ function mcpError(message: string) {
   };
 }
 
+function operationError(operation: string) {
+  return mcpError(`${operation} failed. Try again.`);
+}
+
+function resourceError(uri: URL) {
+  return {
+    contents: [
+      {
+        uri: uri.href,
+        text: "Request failed. Try again.",
+        mimeType: "text/plain",
+      },
+    ],
+  };
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    .test(value);
+}
+
 Deno.serve(async (req) => {
   const cors = handleCors(req);
   if (cors) return cors;
@@ -84,11 +105,7 @@ Deno.serve(async (req) => {
         .is("deleted_at", null)
         .order("name", { ascending: true });
       if (error) {
-        return {
-          contents: [
-            { uri: uri.href, text: `Error: ${error.message}`, mimeType: "text/plain" },
-          ],
-        };
+        return resourceError(uri);
       }
       return {
         contents: [
@@ -110,9 +127,13 @@ Deno.serve(async (req) => {
     "baton://person/{personId}",
     async (uri, params) => {
       const personId = (params as { personId?: string })?.personId;
-      if (!personId) {
+      if (!personId || !isUuid(personId)) {
         return {
-          contents: [{ uri: uri.href, text: "Missing personId", mimeType: "text/plain" }],
+          contents: [{
+            uri: uri.href,
+            text: "Invalid personId",
+            mimeType: "text/plain",
+          }],
         };
       }
       const { data: person, error: personErr } = await supabase
@@ -122,15 +143,15 @@ Deno.serve(async (req) => {
         .is("deleted_at", null)
         .maybeSingle();
       if (personErr) {
-        return {
-          contents: [
-            { uri: uri.href, text: `Error: ${personErr.message}`, mimeType: "text/plain" },
-          ],
-        };
+        return resourceError(uri);
       }
       if (!person) {
         return {
-          contents: [{ uri: uri.href, text: "Not found", mimeType: "text/plain" }],
+          contents: [{
+            uri: uri.href,
+            text: "Not found",
+            mimeType: "text/plain",
+          }],
         };
       }
       const { data: instructions, error: insErr } = await supabase
@@ -143,11 +164,7 @@ Deno.serve(async (req) => {
         .order("captured_at", { ascending: false })
         .limit(100);
       if (insErr) {
-        return {
-          contents: [
-            { uri: uri.href, text: `Error: ${insErr.message}`, mimeType: "text/plain" },
-          ],
-        };
+        return resourceError(uri);
       }
       return {
         contents: [
@@ -175,11 +192,7 @@ Deno.serve(async (req) => {
         .order("captured_at", { ascending: false })
         .limit(200);
       if (error) {
-        return {
-          contents: [
-            { uri: uri.href, text: `Error: ${error.message}`, mimeType: "text/plain" },
-          ],
-        };
+        return resourceError(uri);
       }
       return {
         contents: [
@@ -199,9 +212,13 @@ Deno.serve(async (req) => {
     "baton://instruction/{instructionId}",
     async (uri, params) => {
       const id = (params as { instructionId?: string })?.instructionId;
-      if (!id) {
+      if (!id || !isUuid(id)) {
         return {
-          contents: [{ uri: uri.href, text: "Missing instructionId", mimeType: "text/plain" }],
+          contents: [{
+            uri: uri.href,
+            text: "Invalid instructionId",
+            mimeType: "text/plain",
+          }],
         };
       }
       const { data, error } = await supabase
@@ -211,11 +228,7 @@ Deno.serve(async (req) => {
         .is("deleted_at", null)
         .maybeSingle();
       if (error) {
-        return {
-          contents: [
-            { uri: uri.href, text: `Error: ${error.message}`, mimeType: "text/plain" },
-          ],
-        };
+        return resourceError(uri);
       }
       return {
         contents: [
@@ -247,11 +260,7 @@ Deno.serve(async (req) => {
         .order("due_at", { ascending: true, nullsFirst: false })
         .limit(100);
       if (error) {
-        return {
-          contents: [
-            { uri: uri.href, text: `Error: ${error.message}`, mimeType: "text/plain" },
-          ],
-        };
+        return resourceError(uri);
       }
       return {
         contents: [
@@ -275,13 +284,13 @@ Deno.serve(async (req) => {
       // Compute the IST day boundaries in UTC. The server's TZ
       // is set to Asia/Kolkata in supabase/config.toml; this
       // expression uses the same convention.
-      const now = new Date();
-      const istString = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-      const istDate = new Date(istString);
-      const startUtc = new Date(istDate);
-      startUtc.setHours(0, 0, 0, 0);
-      const endUtc = new Date(startUtc);
-      endUtc.setDate(endUtc.getDate() + 1);
+      const nowMs = Date.now();
+      const istOffsetMs = 5.5 * 60 * 60 * 1000;
+      const dayMs = 24 * 60 * 60 * 1000;
+      const startUtc = new Date(
+        Math.floor((nowMs + istOffsetMs) / dayMs) * dayMs - istOffsetMs,
+      );
+      const endUtc = new Date(startUtc.getTime() + dayMs);
       const { data, error } = await supabase
         .from("instructions")
         .select(
@@ -293,11 +302,7 @@ Deno.serve(async (req) => {
         .is("deleted_at", null)
         .order("due_at", { ascending: true });
       if (error) {
-        return {
-          contents: [
-            { uri: uri.href, text: `Error: ${error.message}`, mimeType: "text/plain" },
-          ],
-        };
+        return resourceError(uri);
       }
       return {
         contents: [
@@ -326,24 +331,28 @@ Deno.serve(async (req) => {
         .select("status, priority, captured_at, due_at")
         .is("deleted_at", null);
       if (error) {
-        return {
-          contents: [
-            { uri: uri.href, text: `Error: ${error.message}`, mimeType: "text/plain" },
-          ],
-        };
+        return resourceError(uri);
       }
       const byStatus: Record<string, number> = {};
       const byPriority: Record<string, number> = {};
-      const todayIso = new Date().toISOString().slice(0, 10);
+      const nowMs = Date.now();
+      const istOffsetMs = 5.5 * 60 * 60 * 1000;
+      const todayIso = new Date(nowMs + istOffsetMs).toISOString().slice(0, 10);
       let dueToday = 0;
       let overdue = 0;
       for (const row of data ?? []) {
         byStatus[row.status] = (byStatus[row.status] ?? 0) + 1;
         byPriority[row.priority] = (byPriority[row.priority] ?? 0) + 1;
-        if (row.due_at && row.due_at.slice(0, 10) === todayIso) dueToday += 1;
         if (
           row.due_at &&
-          row.due_at < new Date().toISOString() &&
+          new Date(Date.parse(row.due_at) + istOffsetMs).toISOString().slice(
+              0,
+              10,
+            ) === todayIso
+        ) dueToday += 1;
+        if (
+          row.due_at &&
+          Date.parse(row.due_at) < nowMs &&
           !["DONE", "CARRIED_OVER", "DROPPED"].includes(row.status)
         ) overdue += 1;
       }
@@ -352,7 +361,13 @@ Deno.serve(async (req) => {
           {
             uri: uri.href,
             text: JSON.stringify(
-              { byStatus, byPriority, dueToday, overdue, total: data?.length ?? 0 },
+              {
+                byStatus,
+                byPriority,
+                dueToday,
+                overdue,
+                total: data?.length ?? 0,
+              },
               null,
               2,
             ),
@@ -375,10 +390,18 @@ Deno.serve(async (req) => {
     "create_person",
     "Create a new person in the user's Baton address book. Returns the new person id.",
     {
-      name: z.string().min(1).describe("The person's full name, e.g. 'SHO Ramu'"),
-      designation: z.string().optional().describe("Rank or post, e.g. 'SHO', 'DSP', 'SP'"),
-      station: z.string().optional().describe("Police station, e.g. 'Bandipora'"),
-      phone: z.string().optional().describe("Phone number, e.g. '+91 98765 43210'"),
+      name: z.string().trim().min(1).max(160).describe(
+        "The person's full name, e.g. 'SHO Ramu'",
+      ),
+      designation: z.string().trim().max(120).optional().describe(
+        "Rank or post, e.g. 'SHO', 'DSP', 'SP'",
+      ),
+      station: z.string().trim().max(160).optional().describe(
+        "Police station, e.g. 'Bandipora'",
+      ),
+      phone: z.string().trim().max(32).optional().describe(
+        "Phone number, e.g. '+91 98765 43210'",
+      ),
     },
     async ({ name, designation, station, phone }) => {
       const { data, error } = await supabase
@@ -392,7 +415,7 @@ Deno.serve(async (req) => {
         .select("id")
         .single();
       if (error) {
-        return mcpError(`create_person failed: ${error.message}`);
+        return operationError("create_person");
       }
       return {
         content: [
@@ -409,14 +432,22 @@ Deno.serve(async (req) => {
     "create_instruction",
     "Create a new instruction. Returns the new instruction id.",
     {
-      title: z.string().min(1).describe("5-7 word human-readable label"),
-      raw_text: z.string().min(1).describe("The full instruction verbatim"),
-      person_name: z.string().optional().describe(
+      title: z.string().trim().min(1).max(200).describe(
+        "5-7 word human-readable label",
+      ),
+      raw_text: z.string().trim().min(1).max(20_000).describe(
+        "The full instruction verbatim",
+      ),
+      person_name: z.string().trim().max(160).optional().describe(
         "Person the instruction is about. If a person with this exact name exists for the user, the instruction is linked. Otherwise a new person is auto-created.",
       ),
-      due_at: z.string().optional().describe("ISO 8601 timestamp, e.g. '2026-08-15T17:00:00+05:30'"),
+      due_at: z.string().datetime({ offset: true }).optional().describe(
+        "ISO 8601 timestamp, e.g. '2026-08-15T17:00:00+05:30'",
+      ),
       priority: z.enum(["LOW", "NORMAL", "HIGH"]).optional().default("NORMAL"),
-      direction: z.enum(["INCOMING", "OUTGOING", "SELF"]).optional().default("OUTGOING"),
+      direction: z.enum(["INCOMING", "OUTGOING", "SELF"]).optional().default(
+        "OUTGOING",
+      ),
     },
     async ({ title, raw_text, person_name, due_at, priority, direction }) => {
       // Resolve the person. If a name is given and a row exists
@@ -426,13 +457,16 @@ Deno.serve(async (req) => {
       // calls from the user's chat assistant.
       let personId: string | null = null;
       if (person_name) {
-        const { data: existing } = await supabase
+        const { data: existing, error: lookupError } = await supabase
           .from("persons")
           .select("id")
           .eq("name", person_name)
           .is("deleted_at", null)
           .limit(1)
           .maybeSingle();
+        if (lookupError) {
+          return operationError("create_instruction");
+        }
         if (existing) {
           personId = existing.id;
         } else {
@@ -442,7 +476,7 @@ Deno.serve(async (req) => {
             .select("id")
             .single();
           if (personErr) {
-            return mcpError(`create_instruction: person insert failed: ${personErr.message}`);
+            return operationError("create_instruction");
           }
           personId = created.id;
         }
@@ -463,7 +497,7 @@ Deno.serve(async (req) => {
         .select("id")
         .single();
       if (error) {
-        return mcpError(`create_instruction failed: ${error.message}`);
+        return operationError("create_instruction");
       }
       return {
         content: [
@@ -505,11 +539,14 @@ Deno.serve(async (req) => {
         .update(update)
         .eq("id", id);
       if (error) {
-        return mcpError(`update_instruction_status failed: ${error.message}`);
+        return operationError("update_instruction_status");
       }
       return {
         content: [
-          { type: "text" as const, text: `Updated instruction id=${id} status=${status}` },
+          {
+            type: "text" as const,
+            text: `Updated instruction id=${id} status=${status}`,
+          },
         ],
       };
     },
@@ -522,22 +559,33 @@ Deno.serve(async (req) => {
     "search_instructions",
     "Search the user's instructions by free-text query. Returns up to 50 matches.",
     {
-      query: z.string().min(1).describe("Free-text query, matched against title and raw_text"),
+      query: z.string().trim().min(1).max(200).describe(
+        "Free-text query, matched against title and raw_text",
+      ),
     },
     async ({ query }) => {
-      const like = `%${query}%`;
-      const { data, error } = await supabase
-        .from("instructions")
-        .select(
-          "id, person_id, title, raw_text, status, priority, direction, due_at, captured_at",
-        )
-        .or(`title.ilike.${like},raw_text.ilike.${like}`)
-        .is("deleted_at", null)
-        .order("captured_at", { ascending: false })
-        .limit(50);
-      if (error) {
-        return mcpError(`search_instructions failed: ${error.message}`);
+      const like = `%${query.replace(/[\\%_]/g, String.raw`\$&`)}%`;
+      const fields =
+        "id, person_id, title, raw_text, status, priority, direction, due_at, captured_at";
+      const [titleResult, textResult] = await Promise.all([
+        supabase.from("instructions").select(fields).ilike("title", like)
+          .is("deleted_at", null).order("captured_at", { ascending: false })
+          .limit(50),
+        supabase.from("instructions").select(fields).ilike("raw_text", like)
+          .is("deleted_at", null).order("captured_at", { ascending: false })
+          .limit(50),
+      ]);
+      if (titleResult.error || textResult.error) {
+        return operationError("search_instructions");
       }
+      const data = [...(titleResult.data ?? []), ...(textResult.data ?? [])]
+        .filter((row, index, rows) =>
+          rows.findIndex((candidate) => candidate.id === row.id) === index
+        )
+        .sort((left, right) =>
+          Date.parse(right.captured_at) - Date.parse(left.captured_at)
+        )
+        .slice(0, 50);
       return {
         content: [
           {
@@ -562,7 +610,9 @@ Deno.serve(async (req) => {
     {
       instruction_id: z.string().uuid().describe("The instruction's UUID"),
       tone: z.enum(["polite", "urgent", "casual"]).optional().default("polite")
-        .describe("The draft tone. polite is the default; the user's voice in the on-device path overrides this."),
+        .describe(
+          "The draft tone. polite is the default; the user's voice in the on-device path overrides this.",
+        ),
     },
     async ({ instruction_id, tone }) => {
       // Fetch the instruction + person for context.
@@ -575,7 +625,7 @@ Deno.serve(async (req) => {
         .is("deleted_at", null)
         .maybeSingle();
       if (insErr) {
-        return mcpError(`draft_nudge failed: ${insErr.message}`);
+        return operationError("draft_nudge");
       }
       if (!ins) {
         return mcpError(`draft_nudge: instruction ${instruction_id} not found`);
@@ -601,21 +651,24 @@ Deno.serve(async (req) => {
       let draftText: string;
       switch (tone) {
         case "urgent":
-          draftText = `${name} — I need the "${title}" by end of day. Let me know what's blocking.`;
+          draftText =
+            `${name} — I need the "${title}" by end of day. Let me know what's blocking.`;
           break;
         case "casual":
-          draftText = `Hey ${name}, gentle reminder on the "${title}" — any update when you get a moment?`;
+          draftText =
+            `Hey ${name}, gentle reminder on the "${title}" — any update when you get a moment?`;
           break;
         case "polite":
         default:
-          draftText = `Hi ${name} — following up on "${title}". Let me know if you need anything from me.`;
+          draftText =
+            `Hi ${name} — following up on "${title}". Let me know if you need anything from me.`;
           break;
       }
       // Persist a nudge_drafts row so the user's local mirror
       // (and the on-device sheet) sees the draft on next sync.
       // The RLS policy on nudge_drafts restricts to the calling
       // user, so this insert is safe.
-      const { error: ndErr } = await supabase
+      await supabase
         .from("nudge_drafts")
         .insert({
           instruction_id,
@@ -625,7 +678,6 @@ Deno.serve(async (req) => {
       // Non-fatal: if the local mirror doesn't have nudge_drafts
       // wired in v1 the insert errors; we still return the draft
       // text to the caller.
-      void ndErr;
       return {
         content: [
           {

@@ -36,6 +36,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -122,11 +123,13 @@ fun ReminderPicker(
                     selected = dateWindow == ReminderDateWindow.TODAY,
                     onClick = { chooseDate(today, ReminderDateWindow.TODAY) },
                     label = { Text(stringResource(R.string.reminder_day_today)) },
+                    modifier = Modifier.testTag("reminder_day_today"),
                 )
                 FilterChip(
                     selected = dateWindow == ReminderDateWindow.TOMORROW,
                     onClick = { chooseDate(today.plusDays(1), ReminderDateWindow.TOMORROW) },
                     label = { Text(stringResource(R.string.reminder_day_tomorrow)) },
+                    modifier = Modifier.testTag("reminder_day_tomorrow"),
                 )
                 FilterChip(
                     selected = dateWindow == ReminderDateWindow.THIS_WEEK,
@@ -135,6 +138,7 @@ fun ReminderPicker(
                         selectedEpochDay = null
                     },
                     label = { Text(stringResource(R.string.reminder_day_this_week)) },
+                    modifier = Modifier.testTag("reminder_day_this_week"),
                 )
                 FilterChip(
                     selected = dateWindow == ReminderDateWindow.THIS_MONTH,
@@ -143,6 +147,7 @@ fun ReminderPicker(
                         showDatePicker = true
                     },
                     label = { Text(stringResource(R.string.reminder_day_this_month)) },
+                    modifier = Modifier.testTag("reminder_day_this_month"),
                 )
             }
             AssistChip(

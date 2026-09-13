@@ -10,8 +10,10 @@ import com.kaavalan.note.data.auth.SecurePreferences
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -137,6 +139,42 @@ class DriveBackupWorkerTest {
         val result = worker.doWork()
 
         assertEquals(ListenableWorker.Result.retry(), result)
+    }
+
+    @Test
+    fun `doWork returns a generic failure reason without exception content`() = runTest {
+        every { securePreferences.getBackupEncryptionKeyHash() } returns "hash"
+        coEvery { driveBackupManager.backUpWithKeyMaterial(any()) } throws
+            IllegalStateException("private instruction content")
+
+        val worker = TestListenableWorkerBuilder<DriveBackupWorker>(context)
+            .setWorkerFactory(testWorkerFactory())
+            .build()
+
+        assertEquals(
+            ListenableWorker.Result.failure(workDataOf("reason" to "backup-failed")),
+            worker.doWork(),
+        )
+    }
+
+    @Test
+    fun `doWork propagates coroutine cancellation`() = runTest {
+        every { securePreferences.getBackupEncryptionKeyHash() } returns "hash"
+        coEvery { driveBackupManager.backUpWithKeyMaterial(any()) } throws
+            CancellationException("worker stopped")
+
+        val worker = TestListenableWorkerBuilder<DriveBackupWorker>(context)
+            .setWorkerFactory(testWorkerFactory())
+            .build()
+        var cancellationObserved = false
+
+        try {
+            worker.doWork()
+        } catch (_: CancellationException) {
+            cancellationObserved = true
+        }
+
+        assertTrue("cancellation must not be converted to failure", cancellationObserved)
     }
 
     private fun testWorkerFactory(): WorkerFactory = object : WorkerFactory() {

@@ -146,10 +146,10 @@ class BackupCrypto @Inject constructor() {
     fun decryptWithRecoveryPhrase(blob: ByteArray, recoveryPhrase: CharArray): ByteArray {
         return try {
             decrypt(blob, keyMaterialFor(recoveryPhrase))
-        } catch (canonicalFailure: Throwable) {
+        } catch (canonicalFailure: Exception) {
             try {
                 decrypt(blob, recoveryPhrase)
-            } catch (_: Throwable) {
+            } catch (_: Exception) {
                 // Report the canonical failure: for anything
                 // written by a current build, that is the real one.
                 throw canonicalFailure

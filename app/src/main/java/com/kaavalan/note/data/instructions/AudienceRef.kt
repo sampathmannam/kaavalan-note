@@ -30,7 +30,7 @@ fun audienceFromColumns(kind: String?, target: String?, label: String?): Audienc
             // `null` demotes the row to the pre-v2.0 single-person path,
             // which is a silent UX regression. Log so the migration
             // drift is visible in logcat.
-            Log.w("AudienceRef", "unknown audienceKind=$kind target=$target; treating as pre-v2.0 single-person")
+            Log.w("AudienceRef", "unknown audience kind; treating as pre-v2.0 single-person")
             null
         }
     }

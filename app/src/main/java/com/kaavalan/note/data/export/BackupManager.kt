@@ -408,7 +408,7 @@ private fun <T> parseAll(arr: JSONArray?, what: String, transform: (JSONObject) 
             )
         try {
             transform(obj)
-        } catch (failure: Throwable) {
+        } catch (failure: Exception) {
             throw IllegalArgumentException(
                 "This backup has a " + what + " entry that could not be read. Nothing has been changed.",
                 failure,

@@ -72,7 +72,7 @@ class HomeEmptyStateCopyTest {
                 "this is the exact adversarial-QA-found bug that made the empty Home screen's " +
                 "subtitle (the very first screen a brand-new user sees) render a visible " +
                 "tofu/replacement glyph in place of an em dash. Found:\n$value",
-            value!!.contains('�'),
+            value!!.contains('\uFFFD'),
         )
         assertTrue(
             "home_empty_subtitle must read 'Add the first person you coordinate with — your " +
@@ -91,7 +91,7 @@ class HomeEmptyStateCopyTest {
             RegexOption.DOT_MATCHES_ALL,
         ).findAll(text).forEach { match ->
             val (name, value) = match.destructured
-            if (value.contains('�')) offenders += "string/$name"
+            if (value.contains('\uFFFD')) offenders += "string/$name"
         }
 
         Regex(
@@ -104,7 +104,7 @@ class HomeEmptyStateCopyTest {
                 RegexOption.DOT_MATCHES_ALL,
             ).findAll(block).forEach { itemMatch ->
                 val (quantity, value) = itemMatch.destructured
-                if (value.contains('�')) offenders += "plurals/$pluralsName[$quantity]"
+                if (value.contains('\uFFFD')) offenders += "plurals/$pluralsName[$quantity]"
             }
         }
 

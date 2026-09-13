@@ -250,7 +250,7 @@ def _instructions(b, state):
     y += SPACING["sm"]
     y = b.chips(y, ["All records", "All open", "Closed"], 0)
     y += SPACING["sm"]
-    size, line, _ = b.sp("labelLarge")
+    size, _, _ = b.sp("labelLarge")
     b.text(INSET, y + SIZE["touchTarget"] / 2 + size * 0.36, "All responsibilities", "labelLarge", b.c["primary"])
     b.glyph(INSET + len("All responsibilities") * size * 0.62 + 10, y + SIZE["touchTarget"] / 2,
             "caret", b.c["primary"])
@@ -442,7 +442,6 @@ def _instruction_editor(b):
     y += SPACING["lg"]
     y = b.field(y, "Deadline", "20 Sep 2026, 17:00")
     y += SPACING["sm"]
-    size, _, _ = b.sp("bodyMedium")
     b.paragraph(INSET, y, "The deadline is when the work must finish. Your next follow-up "
                           "reminder is separate and is not changed by editing this.",
                 "bodyMedium", b.c["onSurfaceVariant"])
@@ -602,8 +601,6 @@ def write_component_sheet():
         b.ground()
         b.text(INSET, 40, f"KaavalanNote v2.7 · components · {theme}", "headlineSmall", palette["onSurface"])
         y = 70
-        rows = []
-
         def label(txt, yy):
             b.text(INSET, yy, txt, "labelMedium", palette["onSurfaceVariant"])
 
@@ -699,9 +696,10 @@ def write_tokens_json():
     def colour_set(palette):
         return {k: {"$value": v, "$type": "color"} for k, v in palette.items()}
 
+    # Penpot treats every first-level key in a single-file import as either a
+    # token-set name or a reserved metadata key. `$description` is valid DTCG
+    # inside an individual token, but is not valid at the document root.
     doc = {
-        "$description": "KaavalanNote — Field Notebook UI v2.7. Transcribed from "
-                        "app/src/main/java/com/kaavalan/note/ui/theme/.",
         "light": {"color": colour_set(LIGHT)},
         "dark": {"color": colour_set(DARK)},
         "spacing": {k: {"$value": f"{v}px", "$type": "spacing"} for k, v in SPACING.items()},

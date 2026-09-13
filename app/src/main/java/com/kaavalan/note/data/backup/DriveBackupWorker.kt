@@ -6,6 +6,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.CancellationException
 
 /**
  * v2.1.0 (PM rating): the WorkManager-driven daily
@@ -80,9 +81,10 @@ class DriveBackupWorker @AssistedInject constructor(
                     "reason" to "no-passphrase-set",
                 ),
             )
+        val keyMaterial = passphraseHash.toCharArray()
         return try {
             val file = driveBackupManager.backUpWithKeyMaterial(
-                keyMaterial = passphraseHash.toCharArray(),
+                keyMaterial = keyMaterial,
             )
             if (file.sizeBytes > 0) Result.success() else Result.retry()
         } catch (e: DriveBackupManager.DriveBackupException.NotSignedIn) {
@@ -103,12 +105,16 @@ class DriveBackupWorker @AssistedInject constructor(
                     "reason" to "not-signed-in",
                 ),
             )
-        } catch (e: Throwable) {
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             Result.failure(
                 androidx.work.workDataOf(
-                    "error" to (e.message ?: e::class.java.simpleName),
+                    "reason" to "backup-failed",
                 ),
             )
+        } finally {
+            keyMaterial.fill('\u0000')
         }
     }
 

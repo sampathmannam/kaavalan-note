@@ -1,6 +1,7 @@
 package com.kaavalan.note.data.backup
 
 import io.ktor.client.HttpClient
+import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.headers
@@ -14,7 +15,6 @@ import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -67,6 +67,9 @@ class DriveRestApi(
         fileName: String,
         content: ByteArray,
     ): String = withContext(Dispatchers.IO) {
+        require(fileName.isNotBlank() && fileName.length <= MAX_FILE_NAME_LENGTH) {
+            "Invalid Drive backup filename"
+        }
         // v3 multipart upload: POST
         // /upload/drive/v3/files?uploadType=multipart
         // with a "metadata" part + a "media" part.
@@ -92,7 +95,7 @@ class DriveRestApi(
             setBody(body)
         }
         require(response.status == HttpStatusCode.OK) {
-            "Drive upload failed: ${response.status} ${response.bodyAsText()}"
+            "Drive upload failed: ${response.status}"
         }
         val obj = json.parseToJsonElement(response.bodyAsText()).jsonObject
         require("id" in obj) { "Drive upload response missing file id" }
@@ -109,6 +112,7 @@ class DriveRestApi(
         accessToken: String,
         pageSize: Int = 50,
     ): List<DriveFile> = withContext(Dispatchers.IO) {
+        require(pageSize in 1..MAX_PAGE_SIZE) { "Drive page size must be 1..$MAX_PAGE_SIZE" }
         val response: HttpResponse = httpClient.get(
             "https://www.googleapis.com/drive/v3/files"
         ) {
@@ -128,7 +132,7 @@ class DriveRestApi(
             )
         }
         require(response.status == HttpStatusCode.OK) {
-            "Drive list failed: ${response.status} ${response.bodyAsText()}"
+            "Drive list failed: ${response.status}"
         }
         val obj = json.parseToJsonElement(response.bodyAsText()).jsonObject
         val files = obj["files"]?.jsonArray ?: return@withContext emptyList()
@@ -150,6 +154,7 @@ class DriveRestApi(
         accessToken: String,
         fileId: String,
     ): ByteArray = withContext(Dispatchers.IO) {
+        requireValidFileId(fileId)
         val response: HttpResponse = httpClient.get(
             "https://www.googleapis.com/drive/v3/files/$fileId"
         ) {
@@ -159,9 +164,11 @@ class DriveRestApi(
             url.parameters.append("alt", "media")
         }
         require(response.status == HttpStatusCode.OK) {
-            "Drive download failed: ${response.status} ${response.bodyAsText()}"
+            "Drive download failed: ${response.status}"
         }
-        response.bodyAsText().toByteArray(Charsets.UTF_8)
+        // Encrypted backups are arbitrary bytes, not UTF-8 text. Decoding
+        // and re-encoding corrupts non-text byte sequences on restore.
+        response.body<ByteArray>()
     }
 
     /**
@@ -172,6 +179,7 @@ class DriveRestApi(
         accessToken: String,
         fileId: String,
     ): Unit = withContext(Dispatchers.IO) {
+        requireValidFileId(fileId)
         val response: HttpResponse = httpClient.delete(
             "https://www.googleapis.com/drive/v3/files/$fileId",
         ) {
@@ -179,10 +187,8 @@ class DriveRestApi(
                 append(HttpHeaders.Authorization, "Bearer $accessToken")
             }
         }
-        if (response.status != HttpStatusCode.NoContent && response.status != HttpStatusCode.NotFound) {
-            throw IllegalStateException(
-                "Drive delete failed: ${response.status} ${response.bodyAsText()}",
-            )
+        check(response.status == HttpStatusCode.NoContent || response.status == HttpStatusCode.NotFound) {
+            "Drive delete failed: ${response.status}"
         }
     }
 
@@ -215,7 +221,10 @@ class DriveRestApi(
         sb.append(metadataJson).append(nl)
         sb.append("--").append(boundary).append(nl)
         sb.append("Content-Type: application/octet-stream").append(nl)
-        sb.append("Content-Disposition: attachment; filename=\"$fileName\"").append(nl)
+        sb.append("Content-Disposition: attachment; filename=\"")
+            .append(sanitizeHeaderFileName(fileName))
+            .append("\"")
+            .append(nl)
         sb.append(nl)
         val head = sb.toString().toByteArray(Charsets.UTF_8)
         val tail = (nl + "--" + boundary + "--" + nl).toByteArray(Charsets.UTF_8)
@@ -232,6 +241,14 @@ class DriveRestApi(
         .replace("\n", "\\n")
         .replace("\r", "\\r")
         .replace("\t", "\\t")
+
+    /** Prevent CRLF/header injection in the multipart filename parameter. */
+    private fun sanitizeHeaderFileName(value: String): String = value
+        .replace(Regex("[^A-Za-z0-9._ -]"), "_")
+
+    private fun requireValidFileId(fileId: String) {
+        require(DRIVE_FILE_ID_RE.matches(fileId)) { "Invalid Drive file id" }
+    }
 
     /**
      * Parse Google's RFC 3339 timestamp ("2026-08-24T15:00:00.000Z")
@@ -254,7 +271,7 @@ class DriveRestApi(
                 set(year, month - 1, day, hour, minute, second)
                 set(java.util.Calendar.MILLISECOND, ms)
             }.timeInMillis
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
             0L
         }
     }
@@ -265,4 +282,10 @@ class DriveRestApi(
         val sizeBytes: Long,
         val createdTimeMs: Long,
     )
+
+    private companion object {
+        const val MAX_FILE_NAME_LENGTH = 255
+        const val MAX_PAGE_SIZE = 1000
+        val DRIVE_FILE_ID_RE = Regex("[A-Za-z0-9_-]{1,200}")
+    }
 }

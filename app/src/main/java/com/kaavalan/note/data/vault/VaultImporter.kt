@@ -101,7 +101,7 @@ class VaultImporter @Inject constructor(
     private fun replaceActiveDatabase(plaintext: ByteArray) {
         try {
             db.close()
-        } catch (_: Throwable) { /* best-effort */ }
+        } catch (_: Exception) { /* best-effort */ }
         val dbFile = File(context.getDatabasePath(AppDatabase.NAME).absolutePath)
         try {
             dbFile.parentFile?.mkdirs()

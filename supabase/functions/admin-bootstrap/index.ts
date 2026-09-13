@@ -5,6 +5,7 @@
 // Plan: remove this function once we have a real signup flow in production.
 
 import { createClient } from "@supabase/supabase-js";
+import { safeTokenEquals } from "../_shared/auth.ts";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 
 interface CreateUserRequest {
@@ -27,7 +28,7 @@ Deno.serve(async (req) => {
     });
   }
   const provided = req.headers.get("Authorization")?.replace("Bearer ", "");
-  if (provided !== expected) {
+  if (!await safeTokenEquals(provided, expected)) {
     return new Response("Unauthorized", {
       status: 401,
       headers: corsHeaders,
@@ -65,6 +66,12 @@ Deno.serve(async (req) => {
       headers: corsHeaders,
     });
   }
+  if (email.length > 254 || password.length > 128) {
+    return new Response("credentials exceed allowed length", {
+      status: 400,
+      headers: corsHeaders,
+    });
+  }
 
   // Service role client: bypasses RLS and the public signup rate limit.
   const admin = createClient(
@@ -81,13 +88,11 @@ Deno.serve(async (req) => {
   });
 
   if (error) {
-    const isExists = /already been registered|already exists/i.test(
-      error.message,
-    );
+    const isExists = error.code === "email_exists";
     return new Response(
       JSON.stringify({
         ok: false,
-        error: error.message,
+        error: isExists ? "User already exists" : "User creation failed",
         code: isExists ? "user_exists" : "create_failed",
       }),
       {

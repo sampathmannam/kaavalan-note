@@ -106,7 +106,10 @@ open class DeliveryService @Inject constructor(@ApplicationContext private val c
         if (intent.resolveActivity(context.packageManager) == null) return false
         return try { context.startActivity(intent); true }
         catch (e: ActivityNotFoundException) { false }
-        catch (e: SecurityException) { Log.w("DeliveryService", "startActivity SecurityException for ${intent.action}", e); false }
+        catch (_: SecurityException) {
+            Log.w("DeliveryService", "startActivity rejected for ${intent.action}")
+            false
+        }
     }
     private fun receipt(instructionId: String, person: Person, channel: Channel, status: DeliveryReceipt.Status, error: String?, at: Instant): DeliveryReceiptEntity = DeliveryReceiptEntity(id = newDeliveryReceiptId(), instructionId = instructionId, recipientPersonId = person.id, recipientName = person.name, recipientDesignation = person.designation, recipientPhone = person.phone, channel = channel.name, status = status.name, errorMessage = error, sentAt = at.toString())
 }

@@ -3,9 +3,9 @@ package com.kaavalan.note.data.backup
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
-import io.ktor.client.engine.mock.respondError
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import io.ktor.http.content.OutgoingContent
 import io.ktor.utils.io.ByteReadChannel
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -77,6 +77,10 @@ class DriveRestApiTest {
             "the exception should mention the 401 status",
             (ex.message ?: "").contains("401"),
         )
+        assertTrue(
+            "the server response body must not be exposed",
+            !(ex.message ?: "").contains("Invalid token"),
+        )
     }
 
     @Test
@@ -130,7 +134,7 @@ class DriveRestApiTest {
 
     @Test
     fun `downloadFile returns the response body as bytes`() = runTest {
-        val expected = "the encrypted blob bytes".toByteArray()
+        val expected = byteArrayOf(0, 1, 127, -1, -2, 0xC3.toByte(), 0x28)
         val client = mockClient { _ ->
             respond(
                 content = ByteReadChannel(expected),
@@ -141,6 +145,46 @@ class DriveRestApiTest {
         val api = DriveRestApi(client)
         val bytes = api.downloadFile(accessToken = "fake-token", fileId = "f-1")
         assertArrayEquals(expected, bytes)
+    }
+
+    @Test
+    fun `upload sanitizes multipart filename header delimiters`() = runTest {
+        val client = mockClient { request ->
+            val body = (request.body as OutgoingContent.ByteArrayContent)
+                .bytes()
+                .toString(Charsets.UTF_8)
+            assertTrue(body.contains("filename=\"backup__Injected__bad.json.enc\""))
+            assertTrue(!body.contains("\r\nInjected:"))
+            respond(
+                content = """{"id":"safe-id"}""",
+                status = HttpStatusCode.OK,
+                headers = headersOf("Content-Type", "application/json"),
+            )
+        }
+
+        DriveRestApi(client).uploadToAppFolder(
+            accessToken = "fake-token",
+            fileName = "backup\r\nInjected:\"bad.json.enc",
+            content = byteArrayOf(1),
+        )
+    }
+
+    @Test
+    fun `listBackups rejects an out of range page size`() = runTest {
+        val api = DriveRestApi(mockClient { error("HTTP must not be called") })
+        assertThrows(IllegalArgumentException::class.java) {
+            kotlinx.coroutines.runBlocking { api.listBackups("fake-token", pageSize = 0) }
+        }
+    }
+
+    @Test
+    fun `download rejects a file id that could alter the request path`() = runTest {
+        val api = DriveRestApi(mockClient { error("HTTP must not be called") })
+        assertThrows(IllegalArgumentException::class.java) {
+            kotlinx.coroutines.runBlocking {
+                api.downloadFile("fake-token", "../files/other?alt=media")
+            }
+        }
     }
 
     @Test

@@ -50,6 +50,7 @@ import com.kaavalan.note.ui.theme.KaavalanNoteTheme
 import com.kaavalan.note.ui.util.SafeError
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -269,7 +270,9 @@ class QuickNoteViewModel @Inject constructor(
         try {
             captureRepository.create(trimmed, CaptureMode.TEXT)
             _state.value = SaveState.Saved
-        } catch (e: Throwable) {
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             // v1.9.10: the first implementation surfaced
             // `e.message` directly, which leaked internal
             // details (URLs, error codes, stack-trace text)

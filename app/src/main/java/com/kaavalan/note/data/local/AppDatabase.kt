@@ -220,16 +220,16 @@ abstract class AppDatabase : RoomDatabase() {
             // schema that pre-empted the v8 split.
             try {
                 db.execSQL("ALTER TABLE persons ADD COLUMN vaultMode TEXT NOT NULL DEFAULT 'visible'")
-            } catch (_: Throwable) {}
+            } catch (_: Exception) {}
             try {
                 db.execSQL("ALTER TABLE instructions ADD COLUMN vaultMode TEXT NOT NULL DEFAULT 'visible'")
-            } catch (_: Throwable) {}
+            } catch (_: Exception) {}
             try {
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_persons_vaultMode ON persons(vaultMode)")
-            } catch (_: Throwable) {}
+            } catch (_: Exception) {}
             try {
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_instructions_vaultMode ON instructions(vaultMode)")
-            } catch (_: Throwable) {}
+            } catch (_: Exception) {}
 
             // The v8-era tables that didn't exist before.
             // CREATE TABLE IF NOT EXISTS is idempotent.

@@ -16,6 +16,8 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.Parameters
 import org.json.JSONObject
+import java.io.File
+import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -195,7 +197,7 @@ class GoogleOAuthClient @Inject constructor(
         intent.launchUrl(context, authUrl)
     }
 
-    private fun generateState(): String {
+    private fun randomOAuthToken(): String {
         val bytes = ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }
         return android.util.Base64.encodeToString(
             bytes,
@@ -203,14 +205,10 @@ class GoogleOAuthClient @Inject constructor(
         )
     }
 
-    private fun generatePkceVerifier(): String {
-        // RFC 7636: 43-128 chars, [A-Z][a-z][0-9]-._~
-        val bytes = ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }
-        return android.util.Base64.encodeToString(
-            bytes,
-            android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING,
-        )
-    }
+    private fun generateState(): String = randomOAuthToken()
+
+    // RFC 7636: 43-128 chars, [A-Z][a-z][0-9]-._~
+    private fun generatePkceVerifier(): String = randomOAuthToken()
 
     private fun sha256Base64Url(input: String): String {
         val digest = java.security.MessageDigest.getInstance("SHA-256")
@@ -225,45 +223,67 @@ class GoogleOAuthClient @Inject constructor(
      * Persist the OAuth `state` and `code_verifier` to a
      * private file in the app's filesDir so the
      * OAuthCallbackActivity (a separate Activity) can
-     * read them. The file is deleted on
-     * [completeSignIn] success.
+     * read them. Android creates the file in app-private
+     * storage with `MODE_PRIVATE`; starting a new flow
+     * replaces any stale state from an abandoned flow.
      */
     private fun persistOAuthState(state: String, verifier: String) {
-        val file = java.io.File(context.filesDir, "oauth_state.tmp")
-        file.writeText("$state\n$verifier")
+        context.openFileOutput(OAUTH_STATE_FILE, Context.MODE_PRIVATE).bufferedWriter().use {
+            it.write(state)
+            it.newLine()
+            it.write(verifier)
+        }
     }
 
     /**
-     * Read + consume the persisted OAuth state. Returns
-     * (state, verifier) on hit, or null if the file
-     * doesn't exist / is malformed. The caller is
-     * expected to [deleteOAuthStateFile] on success.
+     * Validate [inboundState] and atomically consume the
+     * persisted PKCE verifier. A mismatch leaves the file
+     * intact so a forged deep link cannot cancel a real
+     * sign-in that is still open in the browser. A match
+     * deletes the one-shot secret before the token request,
+     * preventing callback replay even if the request fails.
      */
-    fun consumeOAuthState(): Pair<String, String>? {
-        val file = java.io.File(context.filesDir, "oauth_state.tmp")
-        if (!file.exists()) return null
-        val text = runCatching { file.readText() }.getOrNull() ?: return null
-        val parts = text.split("\n", limit = 2)
-        if (parts.size != 2) return null
-        return parts[0] to parts[1]
-    }
-
-    fun deleteOAuthStateFile() {
-        java.io.File(context.filesDir, "oauth_state.tmp").delete()
+    internal fun consumeOAuthVerifier(inboundState: String): String? = synchronized(OAUTH_STATE_LOCK) {
+        if (!isValidState(inboundState)) return@synchronized null
+        val file = File(context.filesDir, OAUTH_STATE_FILE)
+        if (!file.isFile) return@synchronized null
+        val parts = runCatching {
+            file.readText(Charsets.US_ASCII).split('\n', limit = 2)
+        }.getOrNull()
+        if (parts == null || parts.size != 2) {
+            file.delete()
+            return@synchronized null
+        }
+        val expectedState = parts[0]
+        val verifier = parts[1].trimEnd('\r', '\n')
+        if (!isValidState(expectedState) || !isValidVerifier(verifier)) {
+            file.delete()
+            return@synchronized null
+        }
+        val matches = MessageDigest.isEqual(
+            expectedState.toByteArray(Charsets.US_ASCII),
+            inboundState.toByteArray(Charsets.US_ASCII),
+        )
+        if (!matches) return@synchronized null
+        if (!file.delete()) {
+            // Do not exchange a code while its verifier remains replayable.
+            return@synchronized null
+        }
+        verifier
     }
 
     /**
      * Called by [com.kaavalan.note.features.auth.OAuthCallbackActivity]
      * once the user has been redirected back with
      * `?code=...&state=...`. The activity has already
-     * validated `state` against the persisted value
-     * (see [consumeOAuthState]); this function
-     * exchanges the code + PKCE verifier for an
+     * validated and consumed `state` via
+     * [consumeOAuthVerifier]; this function exchanges
+     * the code + supplied PKCE verifier for an
      * access + refresh token. The refresh token is
      * stored in [SecurePreferences] for next-time
      * silent sign-in.
      */
-    suspend fun completeSignIn(authCode: String) {
+    suspend fun completeSignIn(authCode: String, codeVerifier: String) {
         // v2.1.1 (security): PKCE. The token endpoint
         // receives the `code_verifier` we generated in
         // [signIn] and persisted. Google hashes it and
@@ -272,8 +292,10 @@ class GoogleOAuthClient @Inject constructor(
         // rejected. This binds the code to this device —
         // a stolen code redeemed from a different device
         // would fail the challenge comparison.
-        val (_, verifier) = consumeOAuthState()
-            ?: error("OAuth state file missing — sign-in flow was not initiated on this device")
+        require(authCode.isNotBlank() && authCode.length <= MAX_AUTH_CODE_LENGTH) {
+            "Invalid OAuth authorization code"
+        }
+        require(isValidVerifier(codeVerifier)) { "Invalid OAuth PKCE verifier" }
         // v2.1.1 (security): never log the full response
         // body. Google's error responses can echo the
         // offending `client_id` and the malformed
@@ -286,7 +308,7 @@ class GoogleOAuthClient @Inject constructor(
                 append("client_id", CLIENT_ID)
                 append("redirect_uri", REDIRECT_URI)
                 append("grant_type", "authorization_code")
-                append("code_verifier", verifier)
+                append("code_verifier", codeVerifier)
             },
         )
         require(response.status.value in 200..299) {
@@ -304,10 +326,6 @@ class GoogleOAuthClient @Inject constructor(
             securePreferences.setGoogleRefreshToken(refreshToken)
         }
         securePreferences.setGoogleAccessTokenExpiry(System.currentTimeMillis() + expiresIn * 1000)
-        // v2.1.1: delete the state file once the exchange
-        // is done. The file contains the `code_verifier`
-        // (a one-shot secret) and should not persist.
-        deleteOAuthStateFile()
     }
 
     /**
@@ -388,6 +406,15 @@ class GoogleOAuthClient @Inject constructor(
         securePreferences.getGoogleRefreshToken() != null
 
     companion object {
+        private const val OAUTH_STATE_FILE = "oauth_state.tmp"
+        private const val MAX_AUTH_CODE_LENGTH = 4096
+        private val OAUTH_STATE_LOCK = Any()
+        private val OAUTH_TOKEN_RE = Regex("[A-Za-z0-9._~-]{43,128}")
+
+        private fun isValidState(value: String): Boolean = OAUTH_TOKEN_RE.matches(value)
+
+        private fun isValidVerifier(value: String): Boolean = OAUTH_TOKEN_RE.matches(value)
+
         // v2.1.1 (security): the client ID + redirect URI
         // are read from `BuildConfig` (which is populated
         // by `app/build.gradle.kts` from `local.properties`

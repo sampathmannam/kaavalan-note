@@ -397,13 +397,25 @@ class SettingsViewModel @Inject constructor(
                 val hash = com.kaavalan.note.data.vault.IdentityCrypto
                     .sha256Hex(passphrase)
                 securePreferences.setBackupEncryptionKeyHash(hash)
-                val file = driveBackupManager.backUpNow(passphrase.toCharArray())
+                val phraseChars = passphrase.toCharArray()
+                val file = try {
+                    driveBackupManager.backUpNow(phraseChars)
+                } finally {
+                    phraseChars.fill('\u0000')
+                }
                 _driveBackupEvent.emit(
                     DriveBackupEvent.BackUpSuccess(file.id, file.name),
                 )
-            } catch (e: Throwable) {
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
                 _driveBackupEvent.emit(
-                    DriveBackupEvent.BackUpFailed(e.message ?: e::class.java.simpleName),
+                    DriveBackupEvent.BackUpFailed(
+                        com.kaavalan.note.ui.util.SafeError.forUser(
+                            e,
+                            "Drive backup failed. Try again.",
+                        ),
+                    ),
                 )
             }
         }
@@ -423,9 +435,11 @@ class SettingsViewModel @Inject constructor(
                 }
                 val files = driveBackupManager.listBackups()
                 _driveBackupEvent.emit(DriveBackupEvent.BackupsListed(files))
-            } catch (e: Throwable) {
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
                 _driveBackupEvent.emit(
-                    DriveBackupEvent.BackUpFailed(e.message ?: e::class.java.simpleName),
+                    DriveBackupEvent.BackUpFailed("Could not list Drive backups. Try again."),
                 )
             }
         }
@@ -444,15 +458,27 @@ class SettingsViewModel @Inject constructor(
                     _driveBackupEvent.emit(DriveBackupEvent.PassphraseRequired)
                     return@launch
                 }
-                val report = driveBackupManager.restore(fileId, passphrase.toCharArray())
+                val phraseChars = passphrase.toCharArray()
+                val report = try {
+                    driveBackupManager.restore(fileId, phraseChars)
+                } finally {
+                    phraseChars.fill('\u0000')
+                }
                 _driveBackupEvent.emit(
                     DriveBackupEvent.RestoreSucceeded(report.total),
                 )
             } catch (e: com.kaavalan.note.data.backup.DriveBackupManager.DriveBackupException.WrongPassphrase) {
-                _driveBackupEvent.emit(DriveBackupEvent.WrongPassphrase(e.message ?: "wrong passphrase"))
-            } catch (e: Throwable) {
+                _driveBackupEvent.emit(DriveBackupEvent.WrongPassphrase("The recovery phrase is incorrect."))
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
                 _driveBackupEvent.emit(
-                    DriveBackupEvent.RestoreFailed(e.message ?: e::class.java.simpleName),
+                    DriveBackupEvent.RestoreFailed(
+                        com.kaavalan.note.ui.util.SafeError.forUser(
+                            e,
+                            "Drive restore failed. Nothing was changed.",
+                        ),
+                    ),
                 )
             }
         }
@@ -1565,5 +1591,4 @@ data class AppVersion(
 
 
 )
-
 
