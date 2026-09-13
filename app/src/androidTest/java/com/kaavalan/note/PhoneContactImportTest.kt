@@ -62,26 +62,36 @@ class PhoneContactImportTest {
         } finally { instrumentation.uiAutomation.dropShellPermissionIdentity() }
     }
 
-    @Test fun searchBeyondFifty_importsExactNumber_andSurvivesRecreation_withoutChangingPhoneContacts() {
-        repeat(65) { seed("Import QA ${it.toString().padStart(3, '0')}", "555${it.toString().padStart(7, '0')}") }
+    @Test fun bulkImportsSelectedNumbers_andSurvivesRecreation_withoutChangingPhoneContacts() {
+        // Large-address-book loading is covered by ContactSyncServiceTest with
+        // 2,000 rows. Keep this device test small so it exercises selection,
+        // persistence and provider safety instead of benchmarking ContactsProvider.
+        seed("Import QA 063", "5550000063")
+        seed("Import QA 064", "5550000064")
         seed("Import QA name only தமிழ்")
         seed("Import QA shared one", "5550200000", "5550200001")
         seed("Import QA shared two", "5550200000")
         val service = ContactSyncService(instrumentation.targetContext)
         val before = runBlocking { service.fetchContactCandidates() } as ContactSyncService.LoadResult.Loaded
-        assertEquals(69, before.contacts.count { it.displayName.startsWith("Import QA") })
+        assertEquals(6, before.contacts.count { it.displayName.startsWith("Import QA") })
 
         compose.openWorkspace()
         compose.onNodeWithTag("nav_contacts").performClick()
         openPicker()
         compose.onNodeWithTag("phone_contacts_search").performTextInput("5550000064")
         compose.waitUntil(15_000) { compose.onAllNodesWithText("Import QA 064").fetchSemanticsNodes().isNotEmpty() }
-        screenshot("beyond-fifty")
         compose.onNodeWithText("Import QA 064").performClick()
+        compose.onNodeWithTag("phone_contacts_search").performTextReplacement("5550000063")
+        compose.waitUntil(15_000) { compose.onAllNodesWithText("Import QA 063").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Import QA 063").performClick()
+        compose.onNodeWithText("2 selected").assertIsDisplayed()
+        screenshot("multi-select")
+        compose.onNodeWithText("Import 2 contacts").performClick()
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("phone_contacts_list").fetchSemanticsNodes().isEmpty() }
         val graph = EntryPointAccessors.fromApplication(compose.activity.applicationContext, WorkspaceTestEntryPoint::class.java)
         val saved = runBlocking { graph.contacts().snapshot().single { it.name == "Import QA 064" } }
         assertEquals("5550000064", saved.phone)
+        assertEquals("5550000063", runBlocking { graph.contacts().snapshot().single { it.name == "Import QA 063" }.phone })
         compose.activityRule.scenario.recreate()
         compose.openWorkspace()
         compose.onNodeWithTag("nav_contacts").performClick()
@@ -92,6 +102,7 @@ class PhoneContactImportTest {
         compose.waitUntil(15_000) { compose.onAllNodesWithText("Import QA name only தமிழ்").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("No phone number").assertIsDisplayed()
         compose.onNodeWithText("Import QA name only தமிழ்").performClick()
+        compose.onNodeWithText("Import 1 contact").performClick()
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("phone_contacts_list").fetchSemanticsNodes().isEmpty() }
         assertNull(runBlocking { graph.contacts().snapshot().single { it.name == "Import QA name only தமிழ்" }.phone })
 

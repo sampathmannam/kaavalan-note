@@ -363,7 +363,7 @@ fun HomeScreen(
     if (showContactPicker) {
         com.kaavalan.note.ui.hierarchy.ContactPickerSheet(
             contactSyncService = viewModel.contactSyncService(),
-            onPicked = { name, phone -> viewModel.importContact(name, phone); showContactPicker = false },
+            onPicked = { contacts -> viewModel.importContacts(contacts); showContactPicker = false },
             onDismiss = { showContactPicker = false },
         )
     }

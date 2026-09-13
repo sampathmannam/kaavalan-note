@@ -38,11 +38,11 @@ import java.util.Locale
  *  2. Service starts as a foreground service with
  *     `foregroundServiceType=microphone`, posts a sticky
  *     notification, and calls `SpeechRecognizer.startListening`.
- *  3. The [RecognitionListener] receives partial results
- *     (logged, not surfaced) and a final result. The final
- *     text is delivered to the [ResultReceiver] via
- *     `RESULT_OK` + a `KEY_TEXT` bundle. Errors are delivered
- *     as `RESULT_ERROR` with a `KEY_ERROR` message.
+ *  3. The [RecognitionListener] streams partial results and
+ *     delivers a final result to the [ResultReceiver]. Text
+ *     is sent in a `KEY_TEXT` bundle; partials use
+ *     `RESULT_PARTIAL`, finals use `RESULT_OK`, and errors use
+ *     `RESULT_ERROR` with a `KEY_ERROR` message.
  *  4. The service stops itself and tears down the notification.
  *
  * **Why keep a Service at all:** the system SpeechRecognizer
@@ -67,6 +67,7 @@ class VoiceCaptureService : Service() {
 
     private var speechRecognizer: SpeechRecognizer? = null
     private var resultReceiver: ResultReceiver? = null
+    private var lastPartialText: String = ""
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -135,7 +136,14 @@ class VoiceCaptureService : Service() {
             )
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+            // Ask for the device's on-device recognizer first. Android may still
+            // use its configured network recognizer when offline support is absent.
+            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+            // Field notes often contain short pauses between names, ranks and
+            // places. Give those pauses room without leaving the mic open for long.
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1_200L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2_000L)
         }
         runCatching { recognizer.startListening(listenIntent) }
             .onFailure { e ->
@@ -249,6 +257,12 @@ class VoiceCaptureService : Service() {
         receiver.send(RESULT_OK, bundle)
     }
 
+    private fun deliverPartialText(text: String) {
+        val receiver = resultReceiver ?: return
+        val bundle = Bundle().apply { putString(KEY_TEXT, text) }
+        receiver.send(RESULT_PARTIAL, bundle)
+    }
+
     private fun deliverError(message: String) {
         val receiver = resultReceiver ?: return
         val bundle = Bundle().apply { putString(KEY_ERROR, message) }
@@ -282,24 +296,21 @@ class VoiceCaptureService : Service() {
         override fun onEndOfSpeech() {}
         override fun onEvent(eventType: Int, params: Bundle?) {}
         override fun onPartialResults(partialResults: Bundle?) {
-            // v1.6.1: partial results are not surfaced to
-            // the capture sheet. The TextField is updated
-            // only when the final transcript arrives so the
-            // user sees a single, clean "your speech as
-            // text" event rather than flickering partial
-            // strings.
+            val text = bestTranscript(partialResults)
+            if (text.isNotBlank() && text != lastPartialText) {
+                lastPartialText = text
+                deliverPartialText(text)
+            }
         }
         override fun onResults(results: Bundle?) {
-            val text = results
-                ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                ?.firstOrNull()
-                .orEmpty()
+            val text = bestTranscript(results)
             if (text.isBlank()) {
                 deliverError("No speech detected.")
             } else {
                 deliverText(text)
             }
             VoiceCaptureState.setRecording(false)
+            lastPartialText = ""
             stopForegroundCompat()
             stopSelf()
         }
@@ -318,10 +329,17 @@ class VoiceCaptureService : Service() {
             }
             deliverError(message)
             VoiceCaptureState.setRecording(false)
+            lastPartialText = ""
             stopForegroundCompat()
             stopSelf()
         }
     }
+
+    private fun bestTranscript(results: Bundle?): String =
+        results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+            ?.firstOrNull { it.isNotBlank() }
+            ?.trim()
+            .orEmpty()
 
     companion object {
         private const val TAG = "KaavalanNoteVoice"
@@ -343,6 +361,7 @@ class VoiceCaptureService : Service() {
 
         const val RESULT_OK = 1
         const val RESULT_ERROR = 2
+        const val RESULT_PARTIAL = 3
 
         const val CHANNEL_ID = "voice_capture"
         const val NOTIFICATION_ID = 1011

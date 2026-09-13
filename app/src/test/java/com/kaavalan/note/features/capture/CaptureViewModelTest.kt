@@ -378,6 +378,22 @@ class CaptureViewModelTest {
         assertEquals("Existing detail\n\nSpoken addition", vm.state.value.text)
     }
 
+    @Test fun `voice partial results replace the previous partial and final keeps the original draft once`() = runTest(testDispatcher) {
+        val f = fakes()
+        val vm = makeVm(f.first, f.second, f.third)
+        vm.onTextChanged("Existing detail")
+
+        vm.onVoicePartialTranscript("Spoken")
+        assertEquals("Existing detail\n\nSpoken", vm.state.value.text)
+
+        vm.onVoicePartialTranscript("Spoken addition")
+        assertEquals("Existing detail\n\nSpoken addition", vm.state.value.text)
+
+        vm.onVoiceTranscript("Spoken addition is final")
+        assertEquals("Existing detail\n\nSpoken addition is final", vm.state.value.text)
+        assertEquals(CaptureMode.VOICE, vm.state.value.mode)
+    }
+
     private fun makeVm(
         repo: FakeCaptureRepository,
         person: FakePersonRepository,

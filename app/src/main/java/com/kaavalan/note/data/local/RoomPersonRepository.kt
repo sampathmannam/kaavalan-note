@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
+data class ImportedContact(val name: String, val phone: String?)
+
 /**
  * v2.0.0 (drop Supabase): local-only person repository.
  *
@@ -61,6 +63,35 @@ class RoomPersonRepository @Inject constructor(
         vaultMode: String = "visible",
         clientId: String? = null,
     ): Person = db.withTransaction {
+        createContactRow(name, designation, station, phone, vaultMode, clientId)
+    }
+
+    /** One button press imports the selected directory rows as one Room transaction. */
+    suspend fun importContacts(
+        contacts: List<ImportedContact>,
+        vaultMode: String = "visible",
+    ): List<Person> = db.withTransaction {
+        require(contacts.isNotEmpty())
+        contacts.map { contact ->
+            createContactRow(
+                name = contact.name,
+                designation = null,
+                station = null,
+                phone = contact.phone,
+                vaultMode = vaultMode,
+                clientId = null,
+            )
+        }
+    }
+
+    private suspend fun createContactRow(
+        name: String,
+        designation: String?,
+        station: String?,
+        phone: String?,
+        vaultMode: String,
+        clientId: String?,
+    ): Person {
         val nowIso = nowIso()
         val id = clientId ?: java.util.UUID.randomUUID().toString()
         val local = PersonEntity(
@@ -81,7 +112,7 @@ class RoomPersonRepository @Inject constructor(
         // still enqueued (forward-compat) but no drain will
         // ever run. A future v2.x pass that adds cloud sync
         // would re-insert the drain call here.
-        local.toDomain()
+        return local.toDomain()
     }
 
     override suspend fun findByName(name: String): Person? {

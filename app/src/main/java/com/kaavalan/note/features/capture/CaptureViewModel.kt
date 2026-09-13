@@ -90,6 +90,7 @@ class CaptureViewModel @Inject constructor(
     )
     val state: StateFlow<CaptureUiState> = _state.asStateFlow()
     private var allowedContactIds: Set<String>? = null
+    private var voiceDraftBaseText: String? = null
 
     fun onWorkspaceChanged(contactIds: Set<String>, privateMode: Boolean, ready: Boolean) {
         allowedContactIds = contactIds
@@ -459,12 +460,18 @@ class CaptureViewModel @Inject constructor(
      * text into the capture sheet's field.
      */
     fun onVoiceStart(context: Context) {
+        voiceDraftBaseText = _state.value.text
+        _state.update { it.copy(error = null, isVisible = true) }
         val receiver = object : ResultReceiver(android.os.Handler(android.os.Looper.getMainLooper())) {
             override fun onReceiveResult(resultCode: Int, resultData: Bundle?) {
                 when (resultCode) {
                     VoiceCaptureService.RESULT_OK -> {
                         val text = resultData?.getString(VoiceCaptureService.KEY_TEXT) ?: ""
                         onVoiceTranscript(text)
+                    }
+                    VoiceCaptureService.RESULT_PARTIAL -> {
+                        val text = resultData?.getString(VoiceCaptureService.KEY_TEXT) ?: ""
+                        onVoicePartialTranscript(text)
                     }
                     VoiceCaptureService.RESULT_ERROR -> {
                         val err = resultData?.getString(VoiceCaptureService.KEY_ERROR) ?: "Unknown"
@@ -491,8 +498,27 @@ class CaptureViewModel @Inject constructor(
      */
     fun onVoiceTranscript(text: String) {
         if (text.isBlank()) return
-        _state.update { it.copy(text = listOf(it.text, text).filter(String::isNotBlank).joinToString("\n\n"),
-            mode = CaptureMode.VOICE, error = null, isVisible = true) }
+        applyVoiceTranscript(text)
+        voiceDraftBaseText = null
+    }
+
+    /** Replace the recognizer's previous partial phrase instead of duplicating it. */
+    fun onVoicePartialTranscript(text: String) {
+        if (text.isBlank()) return
+        if (voiceDraftBaseText == null) voiceDraftBaseText = _state.value.text
+        applyVoiceTranscript(text)
+    }
+
+    private fun applyVoiceTranscript(text: String) {
+        val base = voiceDraftBaseText ?: _state.value.text
+        _state.update {
+            it.copy(
+                text = listOf(base, text.trim()).filter(String::isNotBlank).joinToString("\n\n"),
+                mode = CaptureMode.VOICE,
+                error = null,
+                isVisible = true,
+            )
+        }
     }
 
     /**
@@ -500,6 +526,7 @@ class CaptureViewModel @Inject constructor(
      * inline on the capture sheet.
      */
     fun onVoiceError(message: String) {
+        voiceDraftBaseText = null
         _state.update { it.copy(error = "Voice capture failed: $message", isVisible = true) }
     }
 

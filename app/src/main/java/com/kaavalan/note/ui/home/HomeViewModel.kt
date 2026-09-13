@@ -97,18 +97,26 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /**
-     * v2.0 (Hierarchy): the ContactPickerSheet calls this on every
-     * picked candidate. The user's `READ_CONTACTS` permission is
-     * already granted at this point (the sheet asks for it before
-     * showing the list). We create the person with the contact's
-     * `displayName` as the name, no designation, and no station.
-     * Phone is stored but the `Person` domain model doesn't carry
-     * it; that's a v2.x follow-up.
-     */
+    /** Compatibility path for callers that still submit one directory row. */
     fun importContact(displayName: String, phone: String) {
+        importContacts(
+            listOf(com.kaavalan.note.data.person.ContactSyncService.ContactCandidate("manual:0", displayName, phone)),
+        )
+    }
+
+    fun importContacts(contacts: List<com.kaavalan.note.data.person.ContactSyncService.ContactCandidate>) {
         viewModelScope.launch {
-            runCatching { personRepository.create(displayName, designation = null, station = null) }
+            runCatching {
+                personRepository.importContacts(
+                    contacts.map {
+                        com.kaavalan.note.data.local.ImportedContact(
+                            name = it.displayName.trim(),
+                            phone = it.phone.trim().ifBlank { null },
+                        )
+                    },
+                    vaultModeHolder.mode.value.storageKey,
+                )
+            }
                 .onFailure { e -> _state.value = HomeUiState.Error(SafeError.forUser(e, "Could not import contact.")) }
         }
     }

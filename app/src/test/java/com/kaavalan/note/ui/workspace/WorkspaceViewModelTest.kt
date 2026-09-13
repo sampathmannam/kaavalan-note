@@ -99,8 +99,18 @@ class WorkspaceViewModelTest {
             advanceUntilIdle()
             vm.importContact("Name only", "") { successes++ }
             advanceUntilIdle()
-            coVerify(exactly = 1) { people.createContact("Officer", null, null, "+91 5550100", "hidden") }
-            coVerify(exactly = 1) { people.createContact("Name only", null, null, null, "hidden") }
+            coVerify(exactly = 1) {
+                people.importContacts(
+                    listOf(com.kaavalan.note.data.local.ImportedContact("Officer", "+91 5550100")),
+                    "hidden",
+                )
+            }
+            coVerify(exactly = 1) {
+                people.importContacts(
+                    listOf(com.kaavalan.note.data.local.ImportedContact("Name only", null)),
+                    "hidden",
+                )
+            }
             assertEquals(2, successes)
         } finally {
             backgroundScope.cancel()
@@ -118,7 +128,7 @@ class WorkspaceViewModelTest {
             val people = mockk<RoomPersonRepository>(relaxed = true) {
                 every { observeAllInMode(any()) } returns flowOf(emptyList())
             }
-            coEvery { people.createContact(any(), any(), any(), any(), any(), any()) } throws IllegalStateException()
+            coEvery { people.importContacts(any(), any()) } throws IllegalStateException()
             val vm = WorkspaceViewModel(dao, people, mockk(), mockk(), VaultModeHolder(), mockk(), users(), mockk()).also { model = it }
             var dismissed = false
             vm.importContact("Officer", "5550100") { dismissed = true }
@@ -126,6 +136,42 @@ class WorkspaceViewModelTest {
             assertFalse(dismissed)
             assertFalse(vm.busy.value)
             assertTrue(vm.messages.first().contains("try again"))
+        } finally {
+            backgroundScope.cancel()
+            model?.viewModelScope?.cancel()
+            advanceUntilIdle()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test fun `multi-contact import is submitted as one batch and closes once`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        var model: WorkspaceViewModel? = null
+        try {
+            val dao = mockk<InstructionDao> { every { observeAll() } returns flowOf(emptyList()) }
+            val people = mockk<RoomPersonRepository>(relaxed = true) {
+                every { observeAllInMode(any()) } returns flowOf(emptyList())
+            }
+            val vm = WorkspaceViewModel(dao, people, mockk(), mockk(), VaultModeHolder(), mockk(), users(), mockk()).also { model = it }
+            var closes = 0
+            vm.importContacts(
+                listOf(
+                    com.kaavalan.note.data.person.ContactSyncService.ContactCandidate("1:a", "First", "55501"),
+                    com.kaavalan.note.data.person.ContactSyncService.ContactCandidate("2:b", "Second", "55502"),
+                ),
+            ) { closes++ }
+            advanceUntilIdle()
+
+            coVerify(exactly = 1) {
+                people.importContacts(
+                    listOf(
+                        com.kaavalan.note.data.local.ImportedContact("First", "55501"),
+                        com.kaavalan.note.data.local.ImportedContact("Second", "55502"),
+                    ),
+                    "visible",
+                )
+            }
+            assertEquals(1, closes)
         } finally {
             backgroundScope.cancel()
             model?.viewModelScope?.cancel()

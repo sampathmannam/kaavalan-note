@@ -594,7 +594,7 @@ internal fun OfficerAppRoot(
     if (showImportContact) {
         com.kaavalan.note.ui.hierarchy.ContactPickerSheet(
             contactSyncService = workspace.contactSyncService,
-            onPicked = { name, phone -> workspace.importContact(name, phone) { showImportContact = false } },
+            onPicked = { contacts -> workspace.importContacts(contacts) { showImportContact = false } },
             onDismiss = { showImportContact = false },
             isSaving = workspaceBusy,
         )

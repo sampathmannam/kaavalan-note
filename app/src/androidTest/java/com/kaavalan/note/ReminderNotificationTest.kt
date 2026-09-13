@@ -40,8 +40,13 @@ class ReminderNotificationTest {
         assertEquals(Notification.VISIBILITY_PRIVATE, notification!!.visibility)
         assertNotNull(notification.publicVersion)
         assertEquals(2, notification.actions.size)
-        assertEquals("Done", notification.actions[0].title.toString())
-        assertEquals("Snooze 1 hour", notification.actions[1].title.toString())
+        assertEquals("Snooze 1 hour", notification.actions[0].title.toString())
+        assertEquals("Done", notification.actions[1].title.toString())
+        assertEquals(Notification.PRIORITY_HIGH, notification.priority)
+        val channel = context.getSystemService(NotificationManager::class.java)
+            .getNotificationChannel(ReminderNotifier.CHANNEL_ID)
+        assertEquals(NotificationManager.IMPORTANCE_HIGH, channel.importance)
+        assertNotNull(channel.sound)
     }
 
     private fun awaitActiveNotification(): Notification? {

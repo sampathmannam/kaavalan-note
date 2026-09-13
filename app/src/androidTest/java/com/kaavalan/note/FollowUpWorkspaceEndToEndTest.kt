@@ -28,15 +28,16 @@ class FollowUpWorkspaceEndToEndTest {
         compose.onNodeWithText(text).assertIsDisplayed().performClick()
         compose.onNodeWithTag("detail_edit").performClick()
         compose.onNodeWithTag("edit_instruction_text").performTextReplacement("QA revised patrol deployment")
-        compose.onNodeWithText("Pick date & time").performScrollTo().performClick()
+        compose.onNodeWithText("Pick a date").performScrollTo().performClick()
         compose.onNodeWithText("OK").performClick()
-        compose.onNodeWithText("OK").performClick()
+        compose.onNodeWithText("09:00").performScrollTo().performClick()
         compose.onNodeWithTag("workspace_editor_save").assertIsDisplayed().performClick()
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("detail_add_update").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("detail_add_update").performClick()
         compose.onNodeWithTag("instruction_update_text").performTextInput("Inspector confirmed deployment by wireless")
         compose.onNodeWithTag("update_progress").performScrollTo().performClick()
         compose.onNodeWithText("Ready to verify").performClick()
+        compose.onNodeWithText("Today").performScrollTo().performClick()
         compose.onNodeWithText("In 1 hour").performScrollTo().performClick()
         compose.onNodeWithTag("workspace_editor_save").assertIsDisplayed().performClick()
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("detail_done").fetchSemanticsNodes().isNotEmpty() }

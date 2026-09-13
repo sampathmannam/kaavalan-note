@@ -27,7 +27,8 @@ class OfficerWorkflowPersistenceTest {
         compose.onNodeWithText("Received").performScrollTo().performClick()
         compose.onNodeWithText("Link a contact (optional)").performScrollTo().performClick()
         compose.onNodeWithTag("capture_contact_Inspector QA").performClick()
-        compose.onNodeWithText("Tomorrow at 9:00").performScrollTo().performClick()
+        compose.onNodeWithText("Tomorrow").performScrollTo().performClick()
+        compose.onNodeWithText("09:00").performScrollTo().performClick()
         compose.onNodeWithText("Save").performClick()
         compose.awaitCaptureSaved()
 

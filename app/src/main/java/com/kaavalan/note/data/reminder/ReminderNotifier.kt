@@ -8,6 +8,8 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.RingtoneManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -57,6 +59,7 @@ class ReminderNotifier @Inject constructor(
             instructionId = instructionId,
         )
 
+        val notificationSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_voice_notification)
             .setContentTitle(context.getString(R.string.reminder_notification_title))
@@ -64,19 +67,14 @@ class ReminderNotifier @Inject constructor(
             .setStyle(NotificationCompat.BigTextStyle().bigText(instructionTitle))
             .setContentIntent(openPendingIntent)
             .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .addAction(
-                0,
-                context.getString(R.string.reminder_action_done),
-                PendingIntent.getBroadcast(
-                    context,
-                    requestCode(instructionId, DONE_REQUEST_SALT),
-                    doneIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-                ),
-            )
+            // PRIORITY_HIGH is the pre-Android 8 heads-up path. Android 8+
+            // uses the high-importance channel created below.
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setSound(notificationSound)
+            .setVibrate(longArrayOf(0L, SOFT_VIBRATION_MS))
             .addAction(
                 0,
                 context.getString(R.string.reminder_action_snooze),
@@ -84,6 +82,16 @@ class ReminderNotifier @Inject constructor(
                     context,
                     requestCode(instructionId, SNOOZE_REQUEST_SALT),
                     snoozeIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                ),
+            )
+            .addAction(
+                0,
+                context.getString(R.string.reminder_action_done),
+                PendingIntent.getBroadcast(
+                    context,
+                    requestCode(instructionId, DONE_REQUEST_SALT),
+                    doneIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                 ),
             )
@@ -113,16 +121,28 @@ class ReminderNotifier @Inject constructor(
         val channel = NotificationChannel(
             CHANNEL_ID,
             context.getString(R.string.reminder_channel_name),
-            NotificationManager.IMPORTANCE_DEFAULT,
+            NotificationManager.IMPORTANCE_HIGH,
         ).apply {
             description = context.getString(R.string.reminder_channel_description)
             lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+            setSound(
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build(),
+            )
+            enableVibration(true)
+            vibrationPattern = longArrayOf(0L, SOFT_VIBRATION_MS)
         }
         manager.createNotificationChannel(channel)
     }
 
     companion object {
-        const val CHANNEL_ID = "instruction-reminders"
+        // A new ID is intentional: Android does not let an app raise the
+        // importance of an already-created channel during an upgrade.
+        const val CHANNEL_ID = "instruction-reminders-heads-up-v2"
+        private const val SOFT_VIBRATION_MS = 120L
         private const val OPEN_REQUEST_SALT = 1
         private const val DONE_REQUEST_SALT = 2
         private const val SNOOZE_REQUEST_SALT = 3

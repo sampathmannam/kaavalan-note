@@ -426,8 +426,12 @@ android {
         // surfaces now cover light/dark, empty/populated/error, keyboard, landscape and
         // enlarged-text states. Same application ID, Room schema 18 and backup schema 4;
         // versionCode 52 -> 53.
-        versionCode = 53
-        versionName = "2.7.0"
+        // v2.7.1: faster reminder day/time selection, heads-up reminder alerts with
+        // Snooze, streaming voice partials, compact status-coloured work cards, and
+        // transactional multi-contact import. Same application ID and schemas;
+        // versionCode 53 -> 54.
+        versionCode = 54
+        versionName = "2.7.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // v2.2.2 (test-infra): wipe app state between instrumented

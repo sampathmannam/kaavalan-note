@@ -19,7 +19,8 @@ class ReminderCaptureFlowTest {
         composeRule.onNodeWithTag("capture_open").performClick()
         val note = "Review tomorrow duty chart"
         composeRule.onNodeWithText("Note").performTextInput(note)
-        composeRule.onNodeWithText("Tomorrow at 9:00").performScrollTo().performClick()
+        composeRule.onNodeWithText("Tomorrow").performScrollTo().performClick()
+        composeRule.onNodeWithText("09:00").performScrollTo().performClick()
         composeRule.onNodeWithText("Save").performClick()
         composeRule.awaitCaptureSaved()
         composeRule.onNodeWithTag("nav_home").performClick()

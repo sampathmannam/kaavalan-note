@@ -114,6 +114,25 @@ class RoomPersonRepositoryTest {
     }
 
     @Test
+    fun `contact batch import retains every selected phone in one vault`() = runTest {
+        val imported = repo.importContacts(
+            listOf(
+                ImportedContact("First officer", "5550101"),
+                ImportedContact("Name only", null),
+                ImportedContact("Second officer", "5550102"),
+            ),
+            vaultMode = "visible",
+        )
+
+        assertEquals(3, imported.size)
+        assertEquals(
+            listOf("First officer" to "5550101", "Name only" to null, "Second officer" to "5550102"),
+            personDao.snapshot().map { it.name to it.phone },
+        )
+        assertTrue(personDao.snapshot().all { it.vaultMode == "visible" })
+    }
+
+    @Test
     fun `observeAllInMode filters by the vault mode (visible vs hidden)`() = runTest {
         personDao.upsert(
             PersonEntity(

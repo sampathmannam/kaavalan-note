@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.kaavalan.note.data.instructions.Instruction
 import com.kaavalan.note.data.instructions.Direction
 import com.kaavalan.note.data.instructions.Priority
+import com.kaavalan.note.data.instructions.Status
 import com.kaavalan.note.data.person.Person
 import com.kaavalan.note.features.reminder.formatReminderTime
 import com.kaavalan.note.ui.components.KaavalanBadge
@@ -334,28 +335,44 @@ fun WorkCard(
     footer: (@Composable () -> Unit)? = null,
 ) {
     val contact = contacts.firstOrNull { it.id == instruction.personId }
+    val statusContainer = when (instruction.status) {
+        Status.OPEN -> MaterialTheme.colorScheme.primaryContainer
+        Status.IN_PROGRESS -> MaterialTheme.colorScheme.secondaryContainer
+        Status.ACK_PENDING, Status.WAITING_ON_OTHER -> MaterialTheme.colorScheme.tertiaryContainer
+        Status.REPORTED_DONE -> MaterialTheme.colorScheme.tertiaryContainer
+        Status.DONE, Status.CARRIED_OVER, Status.DROPPED -> MaterialTheme.colorScheme.surfaceContainerHigh
+    }
+    val statusContent = when (instruction.status) {
+        Status.OPEN -> MaterialTheme.colorScheme.onPrimaryContainer
+        Status.IN_PROGRESS -> MaterialTheme.colorScheme.onSecondaryContainer
+        Status.ACK_PENDING, Status.WAITING_ON_OTHER, Status.REPORTED_DONE -> MaterialTheme.colorScheme.onTertiaryContainer
+        Status.DONE, Status.CARRIED_OVER, Status.DROPPED -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().testTag("instruction_${instruction.id}"),
         colors = CardDefaults.cardColors(
-            containerColor = if (featured) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLowest,
-            contentColor = if (featured) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+            containerColor = statusContainer.copy(alpha = if (featured) .72f else .34f),
+            contentColor = MaterialTheme.colorScheme.onSurface,
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(
             1.dp,
-            if (featured) MaterialTheme.colorScheme.primary.copy(alpha = .28f)
-            else MaterialTheme.colorScheme.outlineVariant,
+            if (featured) statusContent.copy(alpha = .42f) else MaterialTheme.colorScheme.outlineVariant,
         ),
-        shape = MaterialTheme.shapes.large,
+        shape = MaterialTheme.shapes.medium,
     ) {
-        Column(Modifier.padding(if (featured) 20.dp else 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.padding(if (featured) 14.dp else 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 KaavalanBadge(
+                    instruction.status.officerLabel(),
+                    containerColor = statusContainer,
+                    contentColor = statusContent,
+                )
+                Text(
                     instruction.direction.officerLabel(),
-                    containerColor = if (featured) MaterialTheme.colorScheme.surface.copy(alpha = .55f)
-                    else MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.weight(1f))
                 if (instruction.priority == Priority.HIGH || instruction.priority == Priority.URGENT) {
@@ -367,26 +384,24 @@ fun WorkCard(
                 }
             }
             Text(instruction.rawText.ifBlank { instruction.title },
-                style = if (featured) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium,
-                maxLines = if (featured) 5 else 3, overflow = TextOverflow.Ellipsis)
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = if (featured) 4 else 3, overflow = TextOverflow.Ellipsis)
             val context = contact?.let { listOfNotNull(it.name, it.station).joinToString(" · ") }
                 ?: instruction.audience?.label
-            if (context != null) Text(context, style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (context != null) Text(context, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val reminder = instruction.reminderMillis
             if (reminder != null) {
                 val day = java.time.Instant.ofEpochMilli(reminder).atZone(ZoneId.systemDefault()).toLocalDate()
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.Schedule, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text((if (day < date && !instruction.isClosed) "Carried over · " else "Follow-up · ") + formatReminderTime(reminder),
-                        style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            instruction.deadlineAtMs?.let { Text("Deadline · ${formatReminderTime(it)}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            if (instruction.status != com.kaavalan.note.data.instructions.Status.OPEN) Text(instruction.status.officerLabel(), style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            instruction.updates.lastOrNull()?.let { update -> Text("Latest · ${update.text}", maxLines = 2, overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            instruction.deadlineAtMs?.let { Text("Deadline · ${formatReminderTime(it)}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            instruction.updates.lastOrNull()?.let { update -> Text("Latest · ${update.text}", maxLines = 1, overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             footer?.invoke()
             if (onDone != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onDone, enabled = !busy, modifier = Modifier.weight(1f)) {

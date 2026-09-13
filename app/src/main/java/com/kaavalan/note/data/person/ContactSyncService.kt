@@ -20,6 +20,7 @@ import javax.inject.Singleton
 open class ContactSyncService @Inject constructor(@ApplicationContext private val context: Context) {
     data class ContactCandidate(val key: String, val displayName: String, val phone: String) {
         private val phoneDigits = phone.filter(Char::isDigit)
+        val sourceContactId: String get() = key.substringBefore(':')
 
         fun matches(query: String): Boolean {
             val text = query.trim()

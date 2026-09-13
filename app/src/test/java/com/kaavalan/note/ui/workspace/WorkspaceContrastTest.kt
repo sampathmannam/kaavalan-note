@@ -16,7 +16,9 @@ class WorkspaceContrastTest {
                 "button" to (scheme.onPrimary to scheme.primary),
                 "next action" to (scheme.onPrimaryContainer to scheme.primaryContainer),
                 "card metadata" to (scheme.onSurfaceVariant to scheme.primaryContainer),
-                "navigation" to (scheme.onSecondaryContainer to scheme.secondaryContainer),
+                "in progress" to (scheme.onSecondaryContainer to scheme.secondaryContainer),
+                "waiting" to (scheme.onTertiaryContainer to scheme.tertiaryContainer),
+                "closed" to (scheme.onSurfaceVariant to scheme.surfaceContainerHigh),
             ).forEach { (label, pair) ->
                 val ratio = contrast(pair.first, pair.second)
                 assertTrue("$label contrast $ratio is below 4.5:1", ratio >= 4.5)

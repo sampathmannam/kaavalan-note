@@ -1,6 +1,18 @@
 {
   "changelog": [
     {
+      "version": "2.7.1",
+      "code": 54,
+      "date": "2026-09-14",
+      "highlights": [
+        "Set reminders in two simple steps: choose Today, Tomorrow, This week or This month, then pick a practical time or an exact date and time.",
+        "Reminder alerts now request an on-screen banner with a short notification sound and put Snooze before Done for faster follow-up.",
+        "Voice capture shows partial speech in the note while you are talking and allows longer natural pauses between names, ranks and places.",
+        "Instruction cards are thinner and use restrained status colours so open, in-progress, waiting and closed work are easier to scan.",
+        "Select several phone contacts across different searches and import them together. Your phone address book is never changed."
+      ]
+    },
+    {
       "version": "2.7.0",
       "code": 53,
       "date": "2026-09-13",

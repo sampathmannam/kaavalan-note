@@ -108,9 +108,26 @@ class WorkspaceViewModel @Inject constructor(
         people.createContact(name.trim(), designation, station, vaultMode = if (state.value.hidden) "hidden" else "visible")
     }
 
-    fun importContact(name: String, phone: String, onSuccess: () -> Unit) = mutate("Contact imported", onSuccess) {
-        people.createContact(name.trim(), null, null, phone.trim().ifBlank { null }, if (state.value.hidden) "hidden" else "visible")
+    fun importContacts(
+        contacts: List<com.kaavalan.note.data.person.ContactSyncService.ContactCandidate>,
+        onSuccess: () -> Unit,
+    ) = mutate(if (contacts.size == 1) "Contact imported" else "${contacts.size} contacts imported", onSuccess) {
+        require(contacts.isNotEmpty())
+        people.importContacts(
+            contacts.map {
+                com.kaavalan.note.data.local.ImportedContact(
+                    name = it.displayName.trim(),
+                    phone = it.phone.trim().ifBlank { null },
+                )
+            },
+            if (state.value.hidden) "hidden" else "visible",
+        )
     }
+
+    fun importContact(name: String, phone: String, onSuccess: () -> Unit) = importContacts(
+        listOf(com.kaavalan.note.data.person.ContactSyncService.ContactCandidate("manual:0", name, phone)),
+        onSuccess,
+    )
 
     private fun requireVisible(id: String): Instruction = state.value.instructions.first { it.id == id }
 
