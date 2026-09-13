@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="800" viewBox="0 0 360 800">
+  <title>Quick capture · dark</title>
+  <desc>KaavalanNote — Field Notebook UI v2.7. Generated from the shipped Compose theme by design/penpot-v2.7/tools/generate_boards.py. 1 unit = 1dp.</desc>
+  <rect x="0.0" y="0.0" width="360.0" height="800.0" rx="0.0" fill="#0C161D"/>
+  <text x="20.0" y="15.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="12.0" font-weight="500" fill="#B7C7D0" text-anchor="start">12:00</text>
+  <rect x="0.0" y="0.0" width="360.0" height="800.0" rx="0.0" fill="#0C161D"/>
+  <rect x="0.0" y="0.0" width="360.0" height="800.0" rx="28.0" fill="#13232C"/>
+  <rect x="164.0" y="10.0" width="32.0" height="4.0" rx="2.0" fill="#3A515E"/>
+  <rect x="20.0" y="28.0" width="40.0" height="40.0" rx="12.0" fill="#203F53"/>
+  <rect x="35.5" y="43.5" width="9.0" height="9.0" rx="2" fill="none" stroke="#DDEFFA" stroke-width="1.6"/>
+  <text x="72.0" y="42.4" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="12.0" font-weight="500" fill="#A8D2EC" text-anchor="start">Quick capture</text>
+  <text x="72.0" y="69.6" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="24.0" font-weight="500" fill="#E4EDF2" text-anchor="start">New note</text>
+  <rect x="329.5" y="43.5" width="9.0" height="9.0" rx="2" fill="none" stroke="#B7C7D0" stroke-width="1.6"/>
+  <rect x="20.0" y="88.0" width="320.0" height="72.0" rx="12.0" fill="#091218" stroke="#3A515E" stroke-width="1"/>
+  <rect x="30.0" y="81.0" width="32.8" height="14.0" rx="0.0" fill="#13232C"/>
+  <text x="32.0" y="92.32" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="12.0" font-weight="500" fill="#B7C7D0" text-anchor="start">Note</text>
+  <text x="20.0" y="197.6" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="16.0" font-weight="600" fill="#E4EDF2" text-anchor="start">Who will act on this?</text>
+  <rect x="20.0" y="214.0" width="72.72" height="36.0" rx="8.0" fill="#2A4251"/>
+  <text x="56.36" y="237.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#E4EDF2" text-anchor="middle">For me</text>
+  <rect x="100.72" y="214.0" width="137.68" height="36.0" rx="8.0" fill="none" stroke="#8CA0AB" stroke-width="1"/>
+  <text x="169.56" y="237.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#E4EDF2" text-anchor="middle">Assigned by me</text>
+  <rect x="246.4" y="214.0" width="88.96" height="36.0" rx="8.0" fill="none" stroke="#8CA0AB" stroke-width="1"/>
+  <text x="290.88" y="237.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#E4EDF2" text-anchor="middle">Received</text>
+  <text x="20.0" y="276.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="400" fill="#B7C7D0" text-anchor="start">A task or decision for you.</text>
+  <text x="20.0" y="325.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#A8D2EC" text-anchor="start">Link a contact (optional)</text>
+  <rect x="23.5" y="360.7" width="9.0" height="9.0" rx="2" fill="none" stroke="#B7C7D0" stroke-width="1.6"/>
+  <text x="48.0" y="369.6" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="16.0" font-weight="600" fill="#E4EDF2" text-anchor="start">Reminder</text>
+  <text x="48.0" y="390.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="400" fill="#B7C7D0" text-anchor="start">Get a private notification when this note</text>
+  <text x="48.0" y="410.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="400" fill="#B7C7D0" text-anchor="start">needs you.</text>
+  <rect x="20.0" y="426.0" width="97.08" height="36.0" rx="8.0" fill="none" stroke="#8CA0AB" stroke-width="1"/>
+  <text x="68.54" y="449.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#E4EDF2" text-anchor="middle">In 1 hour</text>
+  <rect x="125.08" y="426.0" width="153.92" height="36.0" rx="8.0" fill="none" stroke="#8CA0AB" stroke-width="1"/>
+  <text x="202.04" y="449.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#E4EDF2" text-anchor="middle">Tomorrow at 9:00</text>
+  <rect x="20.0" y="470.0" width="97.08" height="36.0" rx="8.0" fill="none" stroke="#8CA0AB" stroke-width="1"/>
+  <text x="68.54" y="493.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#E4EDF2" text-anchor="middle">Next week</text>
+  <rect x="20.0" y="514.0" width="153.92" height="36.0" rx="8.0" fill="none" stroke="#8CA0AB" stroke-width="1"/>
+  <text x="96.96" y="537.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#E4EDF2" text-anchor="middle">Pick date &amp; time</text>
+  <text x="20.0" y="599.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#A8D2EC" text-anchor="start">Add labels (optional)</text>
+  <line x1="20.0" y1="716.0" x2="340.0" y2="716.0" stroke="#3A515E" stroke-width="1"/>
+  <rect x="20.0" y="728.0" width="320.0" height="48.0" rx="24.0" fill="#233844"/>
+  <text x="180.0" y="757.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#B7C7D0" text-anchor="middle">Save</text>
+</svg>

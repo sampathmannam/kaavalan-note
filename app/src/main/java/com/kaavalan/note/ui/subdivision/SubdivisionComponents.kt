@@ -27,6 +27,12 @@ import androidx.compose.ui.unit.dp
 import com.kaavalan.note.data.person.Person
 import com.kaavalan.note.data.subdivision.Matter
 import com.kaavalan.note.data.subdivision.Station
+import com.kaavalan.note.ui.components.KaavalanEmptyState
+import com.kaavalan.note.ui.components.KaavalanIconTile
+import com.kaavalan.note.ui.components.KaavalanPanel
+import com.kaavalan.note.ui.components.KaavalanSearchField
+import com.kaavalan.note.ui.components.KaavalanSectionHeading
+import com.kaavalan.note.ui.components.KaavalanTopBarTitle
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -49,8 +55,9 @@ fun SubdivisionEntryRow(
     testTag: String,
 ) {
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
         shape = MaterialTheme.shapes.large,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = modifier.fillMaxWidth().testTag(testTag),
     ) {
         Row(
@@ -58,7 +65,7 @@ fun SubdivisionEntryRow(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            KaavalanIconTile(icon)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(label, style = MaterialTheme.typography.titleSmall)
                 Text(
@@ -102,7 +109,14 @@ fun SubdivisionScaffold(
         contentWindowInsets = WindowInsets.navigationBars.only(WindowInsetsSides.Bottom),
         topBar = {
             TopAppBar(
-                title = { Text(title, modifier = Modifier.testTag("subdivision_title")) },
+                title = {
+                    KaavalanTopBarTitle(
+                        title = title,
+                        context = "Subdivision record",
+                        compact = true,
+                        modifier = Modifier.testTag("subdivision_title"),
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack, modifier = Modifier.testTag("subdivision_back")) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -110,7 +124,10 @@ fun SubdivisionScaffold(
                 },
                 actions = actions,
                 windowInsets = WindowInsets(0),
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                ),
             )
         },
     ) { padding ->
@@ -152,17 +169,16 @@ fun SubdivisionNotice(
     action: String?,
     onAction: () -> Unit,
     testTag: String = "subdivision_notice",
+    actionTestTag: String? = null,
 ) {
-    Column(
-        ReadableColumn.fillMaxWidth().padding(24.dp).testTag(testTag),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(title, style = MaterialTheme.typography.titleLarge)
-        Text(body, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (action != null) {
-            TextButton(onClick = onAction, modifier = Modifier.heightIn(min = 48.dp)) { Text(action) }
-        }
-    }
+    KaavalanEmptyState(
+        title = title,
+        body = body,
+        actionLabel = action,
+        onAction = onAction,
+        modifier = ReadableColumn.testTag(testTag),
+        actionTestTag = actionTestTag,
+    )
 }
 
 /**
@@ -180,9 +196,10 @@ fun SubdivisionNoticeScreen(
     action: String?,
     onAction: () -> Unit,
     testTag: String = "subdivision_notice",
+    actionTestTag: String? = null,
 ) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        SubdivisionNotice(title, body, action, onAction, testTag)
+        SubdivisionNotice(title, body, action, onAction, testTag, actionTestTag)
     }
 }
 
@@ -209,34 +226,18 @@ fun MutationErrorBanner(message: String?, onDismiss: () -> Unit) {
 
 @Composable
 fun SubdivisionSearch(query: String, onQuery: (String) -> Unit, hint: String, testTag: String = "subdivision_search") {
-    OutlinedTextField(
+    KaavalanSearchField(
         value = query,
         onValueChange = onQuery,
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp).testTag(testTag),
-        label = { Text(hint) },
-        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-        trailingIcon = if (query.isNotEmpty()) {
-            {
-                IconButton(onClick = { onQuery("") }) {
-                    Icon(Icons.Outlined.Close, contentDescription = "Clear search")
-                }
-            }
-        } else {
-            null
-        },
-        shape = MaterialTheme.shapes.large,
+        hint = hint,
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+        testTag = testTag,
     )
 }
 
 @Composable
 fun SubdivisionSectionHeading(title: String, subtitle: String? = null, modifier: Modifier = Modifier) {
-    Column(modifier.semantics { heading() }, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        subtitle?.let {
-            Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
+    KaavalanSectionHeading(title = title, modifier = modifier, subtitle = subtitle)
 }
 
 /** A list row with a label, supporting lines and a chevron. Used by the station, staff and matter lists. */
@@ -247,14 +248,26 @@ fun SubdivisionListRow(
     onClick: () -> Unit,
     testTag: String,
     trailing: String? = null,
+    // The row leads with the icon of the kind of record it is. An unlabelled
+    // decorative marker would add a surface without adding information.
+    icon: ImageVector? = null,
 ) {
-    Column {
+    KaavalanPanel(
+        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 5.dp).testTag(testTag),
+    ) {
         Row(
             Modifier.fillMaxWidth().clickable(onClick = onClick).heightIn(min = 64.dp)
-                .padding(horizontal = 20.dp, vertical = 12.dp).testTag(testTag),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            icon?.let {
+                KaavalanIconTile(
+                    it,
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(headline, style = MaterialTheme.typography.titleMedium)
                 supporting.filter { it.isNotBlank() }.forEach {
@@ -275,7 +288,6 @@ fun SubdivisionListRow(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        HorizontalDivider(Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 

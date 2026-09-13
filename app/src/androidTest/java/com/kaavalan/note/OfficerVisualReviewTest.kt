@@ -17,6 +17,7 @@ class OfficerVisualReviewTest {
 
     @Test fun officerWorkspace_lightDarkAndCapture_visualReview() {
         compose.openWorkspace()
+        compose.chooseDisplayTheme("Light")
         screenshot("01-today-empty")
         compose.saveNote("Review station diary before the evening briefing")
         compose.saveNote("Confirm traffic deployment with the patrol team", "Assigned by me")
@@ -63,6 +64,7 @@ class OfficerVisualReviewTest {
         val oldScale = shell("settings get system font_scale")
         try {
             compose.openWorkspace()
+            compose.chooseDisplayTheme("Light")
             compose.addContact("Inspector Large Text")
             shell("settings put system font_scale 1.5")
             compose.waitUntil(15_000) { compose.activity.resources.configuration.fontScale >= 1.5f }

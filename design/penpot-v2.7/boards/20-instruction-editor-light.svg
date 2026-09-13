@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="800" viewBox="0 0 360 800">
+  <title>Instruction editor · light</title>
+  <desc>KaavalanNote — Field Notebook UI v2.7. Generated from the shipped Compose theme by design/penpot-v2.7/tools/generate_boards.py. 1 unit = 1dp.</desc>
+  <rect x="0.0" y="0.0" width="360.0" height="800.0" rx="0.0" fill="#F6F8FA"/>
+  <text x="20.0" y="15.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="12.0" font-weight="500" fill="#4B5E6A" text-anchor="start">12:00</text>
+  <rect x="0.0" y="0.0" width="360.0" height="800.0" rx="0.0" fill="#F6F8FA"/>
+  <rect x="0.0" y="0.0" width="360.0" height="800.0" rx="28.0" fill="#F0F4F6"/>
+  <rect x="164.0" y="10.0" width="32.0" height="4.0" rx="2.0" fill="#CAD7DE"/>
+  <rect x="20.0" y="28.0" width="40.0" height="40.0" rx="12.0" fill="#D8EBF6"/>
+  <rect x="35.5" y="43.5" width="9.0" height="9.0" rx="2" fill="none" stroke="#113A53" stroke-width="1.6"/>
+  <text x="72.0" y="42.4" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="12.0" font-weight="500" fill="#174D6C" text-anchor="start">Field notebook</text>
+  <text x="72.0" y="69.6" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="24.0" font-weight="500" fill="#15242E" text-anchor="start">Edit instruction</text>
+  <rect x="329.5" y="43.5" width="9.0" height="9.0" rx="2" fill="none" stroke="#4B5E6A" stroke-width="1.6"/>
+  <rect x="20.0" y="88.0" width="320.0" height="120.0" rx="12.0" fill="#FFFFFF" stroke="#CAD7DE" stroke-width="1"/>
+  <rect x="30.0" y="81.0" width="83.2" height="14.0" rx="0.0" fill="#F0F4F6"/>
+  <text x="32.0" y="92.32" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="12.0" font-weight="500" fill="#4B5E6A" text-anchor="start">Instruction</text>
+  <text x="36.0" y="116.8" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="16.0" font-weight="400" fill="#15242E" text-anchor="start">Daily diary report — need it subm…</text>
+  <text x="20.0" y="244.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#15242E" text-anchor="start">Responsibility</text>
+  <rect x="20.0" y="260.0" width="72.72" height="36.0" rx="8.0" fill="none" stroke="#687D8B" stroke-width="1"/>
+  <text x="56.36" y="283.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#15242E" text-anchor="middle">For me</text>
+  <rect x="100.72" y="260.0" width="137.68" height="36.0" rx="8.0" fill="#DFE9EF"/>
+  <text x="169.56" y="283.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#15242E" text-anchor="middle">Assigned by me</text>
+  <rect x="246.4" y="260.0" width="88.96" height="36.0" rx="8.0" fill="none" stroke="#687D8B" stroke-width="1"/>
+  <text x="290.88" y="283.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#15242E" text-anchor="middle">Received</text>
+  <rect x="20.0" y="316.0" width="320.0" height="48.0" rx="12.0" fill="#FFFFFF" stroke="#CAD7DE" stroke-width="1"/>
+  <rect x="30.0" y="309.0" width="104.8" height="14.0" rx="0.0" fill="#F0F4F6"/>
+  <text x="32.0" y="320.32" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="12.0" font-weight="500" fill="#4B5E6A" text-anchor="start">Linked contact</text>
+  <text x="36.0" y="344.8" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="16.0" font-weight="400" fill="#15242E" text-anchor="start">K. Mahesh · Jangaon Circle</text>
+  <rect x="20.0" y="380.0" width="320.0" height="48.0" rx="12.0" fill="#FFFFFF" stroke="#CAD7DE" stroke-width="1"/>
+  <rect x="30.0" y="373.0" width="61.6" height="14.0" rx="0.0" fill="#F0F4F6"/>
+  <text x="32.0" y="384.32" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="12.0" font-weight="500" fill="#4B5E6A" text-anchor="start">Deadline</text>
+  <text x="36.0" y="408.8" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="16.0" font-weight="400" fill="#15242E" text-anchor="start">20 Sep 2026, 17:00</text>
+  <text x="20.0" y="451.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="400" fill="#4B5E6A" text-anchor="start">The deadline is when the work must finish.</text>
+  <text x="20.0" y="471.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="400" fill="#4B5E6A" text-anchor="start">Your next follow-up reminder is separate</text>
+  <text x="20.0" y="491.0" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="400" fill="#4B5E6A" text-anchor="start">and is not changed by editing this.</text>
+  <line x1="20.0" y1="716.0" x2="340.0" y2="716.0" stroke="#CAD7DE" stroke-width="1"/>
+  <rect x="20.0" y="728.0" width="320.0" height="48.0" rx="24.0" fill="#174D6C"/>
+  <text x="180.0" y="757.04" font-family="Roboto, Noto Sans, Helvetica Neue, Arial, sans-serif" font-size="14.0" font-weight="500" fill="#FFFFFF" text-anchor="middle">Save</text>
+</svg>

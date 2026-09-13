@@ -1,0 +1,388 @@
+{
+  "project": "KaavalanNote \u2014 Field Notebook UI v2.7",
+  "file": "KaavalanNote \u2014 Field Notebook UI v2.7",
+  "generatedBy": "design/penpot-v2.7/tools/generate_boards.py",
+  "sourceOfTruth": [
+    "app/src/main/java/com/kaavalan/note/ui/theme/Theme.kt",
+    "app/src/main/java/com/kaavalan/note/ui/theme/Type.kt",
+    "app/src/main/java/com/kaavalan/note/ui/components/KaavalanSurfaces.kt",
+    "DESIGN.md",
+    "PRODUCT.md",
+    "docs/architecture/officer-workspace.md"
+  ],
+  "units": "1 SVG user unit = 1 dp. Boards are 360 x 800 dp (Pixel 6 class).",
+  "iconography": {
+    "family": "Material Symbols Outlined",
+    "note": "Boards draw schematic marks, not the real glyphs. The shipped icons are listed per screen below so they can be placed from Penpot's icon plugin.",
+    "perScreen": {
+      "Today": [
+        "today",
+        "account_balance",
+        "edit_note",
+        "schedule",
+        "check"
+      ],
+      "Instructions": [
+        "checklist",
+        "folder",
+        "search",
+        "arrow_drop_down"
+      ],
+      "Contacts": [
+        "people",
+        "groups",
+        "person_add",
+        "chevron_right"
+      ],
+      "Quick capture": [
+        "edit_note",
+        "photo_camera",
+        "mic",
+        "schedule",
+        "close"
+      ],
+      "Settings": [
+        "settings",
+        "label",
+        "shield",
+        "cloud_upload",
+        "contrast",
+        "folder_zip",
+        "info",
+        "construction",
+        "delete"
+      ],
+      "Stations & staff": [
+        "account_balance",
+        "badge",
+        "folder"
+      ]
+    }
+  },
+  "pages": [
+    {
+      "name": "01 Tokens",
+      "boards": [
+        "components/tokens-sheet.svg"
+      ]
+    },
+    {
+      "name": "02 Components",
+      "boards": [
+        "components/components-light.svg",
+        "components/components-dark.svg"
+      ]
+    },
+    {
+      "name": "03 Screens",
+      "boards": [
+        "boards/01-onboarding-light.svg",
+        "boards/02-onboarding-dark.svg",
+        "boards/03-onboarding-large-text.svg",
+        "boards/04-today-first-use-light.svg",
+        "boards/05-today-populated-light.svg",
+        "boards/06-today-populated-dark.svg",
+        "boards/07-today-populated-large-text.svg",
+        "boards/08-today-private-workspace.svg",
+        "boards/09-instructions-populated-light.svg",
+        "boards/10-instructions-populated-dark.svg",
+        "boards/11-instructions-first-use-light.svg",
+        "boards/12-instructions-no-results-light.svg",
+        "boards/13-contacts-populated-light.svg",
+        "boards/14-contacts-populated-dark.svg",
+        "boards/15-contacts-first-use-light.svg",
+        "boards/16-workspace-error-light.svg",
+        "boards/17-capture-light.svg",
+        "boards/18-capture-dark.svg",
+        "boards/19-capture-keyboard-light.svg",
+        "boards/20-instruction-editor-light.svg",
+        "boards/21-contact-editor-light.svg",
+        "boards/22-subdivision-review-light.svg",
+        "boards/23-subdivision-review-dark.svg",
+        "boards/24-stations-staff-light.svg",
+        "boards/25-matters-first-use-light.svg",
+        "boards/26-settings-light.svg",
+        "boards/27-settings-dark.svg"
+      ]
+    }
+  ],
+  "boards": [
+    {
+      "file": "boards/01-onboarding-light.svg",
+      "board": "Onboarding \u00b7 light",
+      "screen": "Onboarding",
+      "theme": "light",
+      "state": "first use",
+      "textScale": 1.0,
+      "notes": "One screen, no roster and no permission prompt before the first note."
+    },
+    {
+      "file": "boards/02-onboarding-dark.svg",
+      "board": "Onboarding \u00b7 dark",
+      "screen": "Onboarding",
+      "theme": "dark",
+      "state": "first use",
+      "textScale": 1.0,
+      "notes": ""
+    },
+    {
+      "file": "boards/03-onboarding-large-text.svg",
+      "board": "Onboarding \u00b7 150% text",
+      "screen": "Onboarding",
+      "theme": "light",
+      "state": "first use",
+      "textScale": 1.5,
+      "notes": "At 150% the hero wraps to three lines and the privacy panel moves below the fold; the column scrolls and the two actions stay pinned."
+    },
+    {
+      "file": "boards/04-today-first-use-light.svg",
+      "board": "Today \u00b7 first use \u00b7 light",
+      "screen": "Today",
+      "theme": "light",
+      "state": "first use",
+      "textScale": 1.0,
+      "notes": "The one labelled subdivision action sits immediately below the top bar; the local date is the title block's eyebrow rather than a card of its own."
+    },
+    {
+      "file": "boards/05-today-populated-light.svg",
+      "board": "Today \u00b7 populated \u00b7 light",
+      "screen": "Today",
+      "theme": "light",
+      "state": "populated",
+      "textScale": 1.0,
+      "notes": "Follow-ups first, then the officer's own next action."
+    },
+    {
+      "file": "boards/06-today-populated-dark.svg",
+      "board": "Today \u00b7 populated \u00b7 dark",
+      "screen": "Today",
+      "theme": "dark",
+      "state": "populated",
+      "textScale": 1.0,
+      "notes": ""
+    },
+    {
+      "file": "boards/07-today-populated-large-text.svg",
+      "board": "Today \u00b7 populated \u00b7 150% text",
+      "screen": "Today",
+      "theme": "light",
+      "state": "populated",
+      "textScale": 1.5,
+      "notes": "At 150% each card takes roughly half the viewport; the list scrolls and the note bar and navigation stay fixed."
+    },
+    {
+      "file": "boards/08-today-private-workspace.svg",
+      "board": "Today \u00b7 private workspace",
+      "screen": "Today",
+      "theme": "light",
+      "state": "private workspace",
+      "textScale": 1.0,
+      "notes": "Subdivision records are normal-workspace only, so no entry row appears here; the Private badge sits in the top bar on every tab."
+    },
+    {
+      "file": "boards/09-instructions-populated-light.svg",
+      "board": "Instructions \u00b7 populated \u00b7 light",
+      "screen": "Instructions",
+      "theme": "light",
+      "state": "populated",
+      "textScale": 1.0,
+      "notes": ""
+    },
+    {
+      "file": "boards/10-instructions-populated-dark.svg",
+      "board": "Instructions \u00b7 populated \u00b7 dark",
+      "screen": "Instructions",
+      "theme": "dark",
+      "state": "populated",
+      "textScale": 1.0,
+      "notes": ""
+    },
+    {
+      "file": "boards/11-instructions-first-use-light.svg",
+      "board": "Instructions \u00b7 first use \u00b7 light",
+      "screen": "Instructions",
+      "theme": "light",
+      "state": "first use",
+      "textScale": 1.0,
+      "notes": "Every left edge sits on the 20dp page inset, including the empty-state action."
+    },
+    {
+      "file": "boards/12-instructions-no-results-light.svg",
+      "board": "Instructions \u00b7 no results \u00b7 light",
+      "screen": "Instructions",
+      "theme": "light",
+      "state": "no results",
+      "textScale": 1.0,
+      "notes": "A no-results state is distinct from first use and from a load failure."
+    },
+    {
+      "file": "boards/13-contacts-populated-light.svg",
+      "board": "Contacts \u00b7 populated \u00b7 light",
+      "screen": "Contacts",
+      "theme": "light",
+      "state": "populated",
+      "textScale": 1.0,
+      "notes": ""
+    },
+    {
+      "file": "boards/14-contacts-populated-dark.svg",
+      "board": "Contacts \u00b7 populated \u00b7 dark",
+      "screen": "Contacts",
+      "theme": "dark",
+      "state": "populated",
+      "textScale": 1.0,
+      "notes": ""
+    },
+    {
+      "file": "boards/15-contacts-first-use-light.svg",
+      "board": "Contacts \u00b7 first use \u00b7 light",
+      "screen": "Contacts",
+      "theme": "light",
+      "state": "first use",
+      "textScale": 1.0,
+      "notes": "One Add action, not two: the count row is hidden while the first-use block is the only thing on screen."
+    },
+    {
+      "file": "boards/16-workspace-error-light.svg",
+      "board": "Workspace \u00b7 retryable failure",
+      "screen": "Today",
+      "theme": "light",
+      "state": "error",
+      "textScale": 1.0,
+      "notes": "A retryable failure is stated plainly and offers the retry \u2014 never a red alert, never a dead end."
+    },
+    {
+      "file": "boards/17-capture-light.svg",
+      "board": "Quick capture \u00b7 light",
+      "screen": "Quick capture",
+      "theme": "light",
+      "state": "empty",
+      "textScale": 1.0,
+      "notes": ""
+    },
+    {
+      "file": "boards/18-capture-dark.svg",
+      "board": "Quick capture \u00b7 dark",
+      "screen": "Quick capture",
+      "theme": "dark",
+      "state": "empty",
+      "textScale": 1.0,
+      "notes": ""
+    },
+    {
+      "file": "boards/19-capture-keyboard-light.svg",
+      "board": "Quick capture \u00b7 keyboard",
+      "screen": "Quick capture",
+      "theme": "light",
+      "state": "keyboard",
+      "textScale": 1.0,
+      "notes": "Save is pinned outside the scrolling form and above the IME; the heading is dropped while typing rather than shrinking the officer's text."
+    },
+    {
+      "file": "boards/20-instruction-editor-light.svg",
+      "board": "Instruction editor \u00b7 light",
+      "screen": "Instruction editor",
+      "theme": "light",
+      "state": "populated",
+      "textScale": 1.0,
+      "notes": "Deadline and next follow-up are named separately and never overwrite each other."
+    },
+    {
+      "file": "boards/21-contact-editor-light.svg",
+      "board": "Contact editor \u00b7 light",
+      "screen": "Contact editor",
+      "theme": "light",
+      "state": "populated",
+      "textScale": 1.0,
+      "notes": ""
+    },
+    {
+      "file": "boards/22-subdivision-review-light.svg",
+      "board": "Subdivision review \u00b7 light",
+      "screen": "Subdivision review",
+      "theme": "light",
+      "state": "populated",
+      "textScale": 1.0,
+      "notes": "Saved counts read 'At this review'; recording a review completes nothing and sends nothing. Record context belongs inside its card."
+    },
+    {
+      "file": "boards/23-subdivision-review-dark.svg",
+      "board": "Subdivision review \u00b7 dark",
+      "screen": "Subdivision review",
+      "theme": "dark",
+      "state": "populated",
+      "textScale": 1.0,
+      "notes": ""
+    },
+    {
+      "file": "boards/24-stations-staff-light.svg",
+      "board": "Stations & staff \u00b7 light",
+      "screen": "Stations & staff",
+      "theme": "light",
+      "state": "populated",
+      "textScale": 1.0,
+      "notes": "Stations and Staff are local segments, not a fourth tab."
+    },
+    {
+      "file": "boards/25-matters-first-use-light.svg",
+      "board": "Matters \u00b7 first use \u00b7 light",
+      "screen": "Matters",
+      "theme": "light",
+      "state": "first use",
+      "textScale": 1.0,
+      "notes": ""
+    },
+    {
+      "file": "boards/26-settings-light.svg",
+      "board": "Settings \u00b7 light",
+      "screen": "Settings",
+      "theme": "light",
+      "state": "populated",
+      "textScale": 1.0,
+      "notes": "Named categories before controls; each category leads with the same icon tile the workspace entry rows use. Settings is a top-bar action, never a fourth tab."
+    },
+    {
+      "file": "boards/27-settings-dark.svg",
+      "board": "Settings \u00b7 dark",
+      "screen": "Settings",
+      "theme": "dark",
+      "state": "populated",
+      "textScale": 1.0,
+      "notes": ""
+    },
+    {
+      "file": "components/components-light.svg",
+      "board": "Components \u00b7 light",
+      "screen": "Component library",
+      "theme": "light",
+      "state": "reference",
+      "textScale": 1.0,
+      "notes": "Every primitive in ui/components/KaavalanSurfaces.kt plus the shared shells."
+    },
+    {
+      "file": "components/components-dark.svg",
+      "board": "Components \u00b7 dark",
+      "screen": "Component library",
+      "theme": "dark",
+      "state": "reference",
+      "textScale": 1.0,
+      "notes": "Every primitive in ui/components/KaavalanSurfaces.kt plus the shared shells."
+    },
+    {
+      "file": "components/tokens-sheet.svg",
+      "board": "Tokens",
+      "screen": "Token reference",
+      "theme": "both",
+      "state": "reference",
+      "textScale": 1.0,
+      "notes": "Light / dark swatch pairs for every Material 3 role the app sets, plus the type, spacing and radius scales."
+    }
+  ],
+  "importSteps": [
+    "In Penpot, create a project named 'KaavalanNote \u2014 Field Notebook UI v2.7'.",
+    "Create a file with the same name and add the three pages listed under 'pages'.",
+    "On each page use File > Import > SVG and select the listed .svg files. Penpot imports each SVG as an editable board with live text and vector shapes.",
+    "Open the Design tokens panel and import tokens/kaavalan-tokens.json (Tokens Studio JSON). The 'Light' and 'Dark' themes map the same role names the Compose theme uses, so a role renamed in one place is visibly wrong in the other.",
+    "Optional: replace the schematic marks with real Material Symbols Outlined glyphs using the names under 'iconography.perScreen'."
+  ]
+}

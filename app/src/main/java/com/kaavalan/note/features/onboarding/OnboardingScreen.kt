@@ -17,6 +17,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kaavalan.note.ui.components.KaavalanIconTile
+import com.kaavalan.note.ui.components.KaavalanPanel
 
 /** One short introduction, no roster setup or permissions required to start writing. */
 @Composable
@@ -25,20 +27,49 @@ fun OnboardingScreen(onDone: () -> Unit, viewModel: OnboardingViewModel = hiltVi
     Column(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp)) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(24.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Icon(Icons.Outlined.Shield, null, Modifier.size(28.dp), tint = MaterialTheme.colorScheme.primary)
-                Text("Kaavalan note", style = MaterialTheme.typography.titleMedium)
+            KaavalanPanel(Modifier.fillMaxWidth(), emphasized = true) {
+                Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        KaavalanIconTile(
+                            Icons.Outlined.Shield,
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = .62f),
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                            Text("Private field notebook", style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text("Kaavalan note", style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                    }
+                    Text("A clear head.\nA clear record.", style = MaterialTheme.typography.headlineLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text("Your working notebook for instructions, decisions and follow-ups on duty.",
+                        style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                }
             }
-            Text("A clear head.\nA clear record.", style = MaterialTheme.typography.headlineLarge)
-            Text("Your working notebook for instructions, decisions and follow-ups on duty.",
-                style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Built around your duty", style = MaterialTheme.typography.titleLarge)
             IntroRow(Icons.Outlined.Today, "Today", "See your next action and follow up with your team.")
             IntroRow(Icons.Outlined.Checklist, "Instructions", "Record work for yourself, assigned by you, or received.")
             IntroRow(Icons.Outlined.People, "Contacts", "Link officers and staff when useful. You can start without adding anyone.")
-            HorizontalDivider()
-            Text("Private by default", style = MaterialTheme.typography.titleMedium)
-            Text("Notes are encrypted on this phone. No account is needed. Google Drive backup is optional; system voice recognition may use an online service.",
-                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            KaavalanPanel(Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    KaavalanIconTile(
+                        Icons.Outlined.Shield,
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    )
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Private by default", style = MaterialTheme.typography.titleMedium)
+                        Text("Notes are encrypted on this phone. No account is needed. Google Drive backup is optional; system voice recognition may use an online service.",
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
             state.error?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
         }
         Button(onClick = { viewModel.finish(onDone) }, enabled = !state.working,
@@ -52,9 +83,11 @@ fun OnboardingScreen(onDone: () -> Unit, viewModel: OnboardingViewModel = hiltVi
 
 @Composable
 private fun IntroRow(icon: ImageVector, title: String, description: String) {
-    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Icon(icon, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    // Top-aligned so the tile sits beside the title rather than floating halfway down a
+    // three-line description at 150% text.
+    Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Top) {
+        KaavalanIconTile(icon)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

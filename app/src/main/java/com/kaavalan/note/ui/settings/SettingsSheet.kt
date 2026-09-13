@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,12 +23,21 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.outlined.CloudUpload
+import androidx.compose.material.icons.outlined.Construction
+import androidx.compose.material.icons.outlined.Contrast
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.FolderZip
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -68,6 +78,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kaavalan.note.R
+import com.kaavalan.note.ui.components.KaavalanIconTile
 import com.kaavalan.note.data.preferences.ThemeMode
 import com.kaavalan.note.data.preferences.KaavalanPreferences
 import com.kaavalan.note.data.tags.Tag
@@ -373,6 +384,7 @@ fun SettingsSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         com.kaavalan.note.ui.theme.DialogSystemBars()
         // v1.9.0 (PROD-READINESS-P3-P1-#3): the
@@ -396,7 +408,7 @@ fun SettingsSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 8.dp)
+                .padding(horizontal = 20.dp, vertical = 8.dp)
                 .verticalScroll(settingsScroll),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -412,6 +424,8 @@ fun SettingsSheet(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                KaavalanIconTile(Icons.Outlined.Settings)
+                Spacer(Modifier.width(12.dp))
                 Text(
                     text = stringResource(R.string.settings_title),
                     style = MaterialTheme.typography.headlineSmall,
@@ -439,14 +453,14 @@ fun SettingsSheet(
                 }
             }
 
-            SettingsCategory("Labels", "Organise notes with optional labels", settingsSection, { settingsSection = it }) {
+            SettingsCategory("Labels", "Organise notes with optional labels", settingsSection, { settingsSection = it }, icon = Icons.AutoMirrored.Outlined.Label) {
             TagsSection(
                 tags = tags,
                 onAdd = viewModel::addFreeTag,
             )
 
             }
-            SettingsCategory("Privacy & security", "Private contacts, PIN and recovery", settingsSection, { settingsSection = it }) {
+            SettingsCategory("Privacy & security", "Private contacts, PIN and recovery", settingsSection, { settingsSection = it }, icon = Icons.Outlined.Shield) {
             // v2.0 T3-1 + T3-2 + T3-3: the Privacy section.
             // Four rows: vault mode, vault PIN, recovery
             // phrase, threat model. Each row is a tappable
@@ -455,10 +469,6 @@ fun SettingsSheet(
             // phrase, threat model). The vault-mode row is
             // the only one that takes effect immediately;
             // the others navigate.
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant,
-                modifier = Modifier.padding(vertical = 4.dp),
-            )
             Text(
                 text = stringResource(R.string.settings_section_privacy),
                 style = MaterialTheme.typography.titleSmall,
@@ -543,7 +553,7 @@ fun SettingsSheet(
 
 
             }
-            SettingsCategory("Google Drive backup", "Optional encrypted off-device backup", settingsSection, { settingsSection = it }) {
+            SettingsCategory("Google Drive backup", "Optional encrypted off-device backup", settingsSection, { settingsSection = it }, icon = Icons.Outlined.CloudUpload) {
             // v2.1.0 (PM rating): the Google Drive backup
             // surface. The "WhatsApp-style" daily auto-backup
             // + cross-device restore. The user signs in to
@@ -641,7 +651,7 @@ fun SettingsSheet(
             )
 
             }
-            SettingsCategory("Display theme", "Follow your phone, light or dark", settingsSection, { settingsSection = it }) {
+            SettingsCategory("Display theme", "Follow your phone, light or dark", settingsSection, { settingsSection = it }, icon = Icons.Outlined.Contrast) {
             // v2.0 (Tier 1.4): the theme switcher. A segmented
             // button row that maps `ThemeMode` to the user's
             // choice (System / Light / Dark). The selection
@@ -664,7 +674,7 @@ fun SettingsSheet(
             )
 
             }
-            SettingsCategory("Export & restore", "Save a copy or move to another phone", settingsSection, { settingsSection = it }) {
+            SettingsCategory("Export & restore", "Save a copy or move to another phone", settingsSection, { settingsSection = it }, icon = Icons.Outlined.FolderZip) {
             // v2.0 (Tier 1.1 + 1.7): the Data section. Three
             // rows: Export encrypted vault (opens a sheet that
             // collects a passphrase), Import encrypted vault
@@ -842,7 +852,7 @@ fun SettingsSheet(
                 )
             }
             }
-            SettingsCategory("About & support", "Updates, app information and help", settingsSection, { settingsSection = it }) {
+            SettingsCategory("About & support", "Updates, app information and help", settingsSection, { settingsSection = it }, icon = Icons.Outlined.Info) {
             PrivacyRow(
                 label = stringResource(R.string.settings_changelog),
                 value = "v${viewModel.appVersion.name} (build ${viewModel.appVersion.code})",
@@ -1191,7 +1201,7 @@ fun SettingsSheet(
 
             }
             if (com.kaavalan.note.BuildConfig.DEBUG) {
-            SettingsCategory("Development tools", "Sample records for testing — debug builds only", settingsSection, { settingsSection = it }) {
+            SettingsCategory("Development tools", "Sample records for testing — debug builds only", settingsSection, { settingsSection = it }, icon = Icons.Outlined.Construction) {
             // v1.6.2: developer section. Only shown in debug
             // builds. The "Load test data" button calls
             // [SettingsViewModel.loadFixture], which delegates to
@@ -1336,7 +1346,7 @@ fun SettingsSheet(
 
             }
             }
-            SettingsCategory("Erase local data", "Remove all records from this phone", settingsSection, { settingsSection = it }) {
+            SettingsCategory("Erase local data", "Remove all records from this phone", settingsSection, { settingsSection = it }, icon = Icons.Outlined.Delete) {
             Text(
                 text = stringResource(R.string.settings_subtitle),
                 style = MaterialTheme.typography.bodyMedium,

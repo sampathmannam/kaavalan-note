@@ -3,6 +3,8 @@ package com.kaavalan.note.ui.subdivision
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -45,6 +47,7 @@ fun MattersScreen(
     var showArchived by rememberSaveable { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
     val rows = remember(state, showArchived, query) { matterRows(state, showArchived, query) }
+    val firstUse = rows.isEmpty() && query.isBlank() && !showArchived
     val archivedCount = state.matters.count { it.archived }
 
     SubdivisionScaffold("Matters", state, onBack, onRetry) {
@@ -62,26 +65,31 @@ fun MattersScreen(
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
                     )
                     SubdivisionSearch(query, { query = it }, "Search matters and references", "matters_search")
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            "${rows.size} ${if (showArchived) "archived" else "active"} " +
-                                if (rows.size == 1) "matter" else "matters",
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.weight(1f),
-                        )
-                        TextButton(
-                            onClick = { adding = true },
-                            enabled = !busy,
-                            modifier = Modifier.heightIn(min = 48.dp).testTag("add_matter"),
+                    // With an empty list the first-use block below carries the same Add
+                    // action; showing both put two identical controls on one screen.
+                    if (!firstUse) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                         ) {
-                            Text("Add matter")
+                            Text(
+                                "${rows.size} ${if (showArchived) "archived" else "active"} " +
+                                    if (rows.size == 1) "matter" else "matters",
+                                style = MaterialTheme.typography.labelLarge,
+                                modifier = Modifier.weight(1f),
+                            )
+                            TextButton(
+                                onClick = { adding = true },
+                                enabled = !busy,
+                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+                                modifier = Modifier.heightIn(min = 48.dp).testTag("add_matter"),
+                            ) {
+                                Text("Add matter")
+                            }
                         }
                     }
                     if (archivedCount > 0 || showArchived) {
-                        Row(Modifier.padding(horizontal = 12.dp)) {
+                        Row(Modifier.padding(horizontal = 20.dp)) {
                             FilterChip(
                                 selected = showArchived,
                                 onClick = { showArchived = !showArchived },
@@ -109,6 +117,7 @@ fun MattersScreen(
                         action = if (query.isNotBlank()) "Clear search" else if (showArchived) null else "Add matter",
                         onAction = if (query.isNotBlank()) ({ query = "" }) else ({ adding = true }),
                         testTag = "matters_empty",
+                        actionTestTag = if (firstUse) "add_matter" else null,
                     )
                 }
             } else {
@@ -125,6 +134,7 @@ fun MattersScreen(
                         ),
                         onClick = { onOpenMatter(row.id) },
                         testTag = "matter_row_${row.matter.title}",
+                        icon = Icons.Outlined.Folder,
                         trailing = if (row.matter.archived) "Archived" else null,
                     )
                 }
@@ -291,9 +301,12 @@ fun MatterDetailScreen(
                 }
             } else {
                 items(results, key = { "linked:${it.id}" }) { item ->
-                    Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        WorkCard(item, state.contacts, today, onClick = { onOpenInstruction(item.id) })
-                        RecordedContextLine(state, item)
+                    Box(Modifier.padding(horizontal = 20.dp)) {
+                        WorkCard(
+                            item, state.contacts, today,
+                            onClick = { onOpenInstruction(item.id) },
+                            footer = { RecordedContextLine(state, item) },
+                        )
                     }
                 }
             }

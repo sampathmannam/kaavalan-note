@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -17,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -64,6 +66,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kaavalan.note.R
 import com.kaavalan.note.features.reminder.ReminderPicker
 import com.kaavalan.note.features.tags.TagPicker
+import com.kaavalan.note.ui.components.KaavalanIconTile
+import com.kaavalan.note.ui.components.kaavalanOutlinedFieldColors
 
 /**
  * Modal bottom sheet shown when the user taps the note bar.
@@ -161,6 +165,7 @@ fun CaptureSheet(
         sheetState = sheetState,
         // In a short window the handle consumes space needed for the editor.
         dragHandle = if (landscape) null else ({ BottomSheetDefaults.DragHandle() }),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         com.kaavalan.note.ui.theme.DialogSystemBars()
         CaptureSheetContent(
@@ -317,7 +322,12 @@ private fun CaptureSheetContent(
                 Direction.OUTGOING -> "An instruction you gave. Keep it here to follow up."
                 Direction.INCOMING -> "An instruction you received and need to act on."
             }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            TextButton(onClick = { showContacts = true }, enabled = !state.isSaving) {
+            TextButton(
+                onClick = { showContacts = true },
+                enabled = !state.isSaving,
+                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
                 Text(contacts.firstOrNull { it.id == state.personId }?.let { "Linked to ${it.name} · Change" }
                     ?: "Link a contact (optional)")
             }
@@ -374,7 +384,11 @@ private fun CaptureSheetContent(
                     onAddToCalendarChange = onAddToCalendarChange,
                 )
             }
-            TextButton(onClick = { showTags = !showTags }) {
+            TextButton(
+                onClick = { showTags = !showTags },
+                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
                 Text(if (showTags) "Hide labels" else if (state.selectedTagIds.isEmpty()) "Add labels (optional)" else "Labels (${state.selectedTagIds.size})")
             }
             if (showTags) TagPicker(
@@ -440,6 +454,7 @@ private fun WorkContextRow(label: String, enabled: Boolean, onClear: () -> Unit)
             TextButton(
                 onClick = onClear,
                 enabled = enabled,
+                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
                 modifier = Modifier.heightIn(min = 48.dp).testTag("capture_context_clear"),
             ) {
                 Text("Save without a matter")
@@ -494,11 +509,11 @@ private fun SheetHeader(onClose: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = stringResource(R.string.capture_sheet_title),
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.weight(1f),
-        )
+        KaavalanIconTile(Icons.Outlined.EditNote)
+        Column(Modifier.weight(1f).padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text("Quick capture", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            Text(text = stringResource(R.string.capture_sheet_title), style = MaterialTheme.typography.titleLarge)
+        }
         IconButton(onClick = onClose) {
             Icon(
                 imageVector = Icons.Default.Close,
@@ -526,6 +541,7 @@ private fun CaptureTextField(
         label = { Text(stringResource(R.string.capture_sheet_text_label)) },
         placeholder = { Text(stringResource(R.string.capture_sheet_text_placeholder)) },
         shape = RoundedCornerShape(12.dp),
+        colors = kaavalanOutlinedFieldColors(),
         enabled = !isSaving,
     )
 }

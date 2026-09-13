@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -16,6 +18,8 @@ import com.kaavalan.note.data.person.Person
 import com.kaavalan.note.data.subdivision.Matter
 import com.kaavalan.note.data.subdivision.Station
 import com.kaavalan.note.data.subdivision.SubdivisionProfile
+import com.kaavalan.note.ui.components.KaavalanIconTile
+import com.kaavalan.note.ui.components.kaavalanOutlinedFieldColors
 
 /**
  * The shared editor frame for every subdivision form.
@@ -45,15 +49,22 @@ private fun SubdivisionEditorFrame(
         onDismissRequest = requestDismiss,
         dragHandle = if (landscape) null else ({ BottomSheetDefaults.DragHandle() }),
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         com.kaavalan.note.ui.theme.DialogSystemBars()
         Column(Modifier.fillMaxHeight(.94f).imePadding().padding(horizontal = 20.dp)) {
             if (!compactTyping) {
-                Text(
-                    title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.padding(bottom = 16.dp).testTag("subdivision_editor_title"),
-                )
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 16.dp).testTag("subdivision_editor_title"),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                ) {
+                    KaavalanIconTile(Icons.Outlined.EditNote)
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("Subdivision record", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(title, style = MaterialTheme.typography.headlineSmall)
+                    }
+                }
             }
             Column(
                 Modifier.weight(1f).verticalScroll(rememberScrollState()),
@@ -138,6 +149,8 @@ fun SubdivisionProfileEditor(
             label = { Text("Subdivision name") },
             enabled = !busy,
             isError = error != null,
+            shape = MaterialTheme.shapes.medium,
+            colors = kaavalanOutlinedFieldColors(),
             modifier = Modifier.fillMaxWidth().focusRequester(nameFocus).testTag("profile_name"),
         )
         OutlinedTextField(
@@ -145,6 +158,8 @@ fun SubdivisionProfileEditor(
             onValueChange = { district = it },
             label = { Text("District (optional)") },
             enabled = !busy,
+            shape = MaterialTheme.shapes.medium,
+            colors = kaavalanOutlinedFieldColors(),
             modifier = Modifier.fillMaxWidth().testTag("profile_district"),
         )
         OutlinedTextField(
@@ -152,6 +167,8 @@ fun SubdivisionProfileEditor(
             onValueChange = { officer = it },
             label = { Text("Your display name (optional)") },
             enabled = !busy,
+            shape = MaterialTheme.shapes.medium,
+            colors = kaavalanOutlinedFieldColors(),
             modifier = Modifier.fillMaxWidth().testTag("profile_officer"),
         )
     }
@@ -197,6 +214,8 @@ fun StationEditor(
             label = { Text("Station or unit name") },
             enabled = !busy,
             isError = error != null,
+            shape = MaterialTheme.shapes.medium,
+            colors = kaavalanOutlinedFieldColors(),
             modifier = Modifier.fillMaxWidth().focusRequester(nameFocus).testTag("station_name"),
         )
         OutlinedTextField(
@@ -204,6 +223,8 @@ fun StationEditor(
             onValueChange = { kind = it; error = null },
             label = { Text("Unit type") },
             supportingText = { Text("For example Station, Outpost, Wing or Cell.") },
+            shape = MaterialTheme.shapes.medium,
+            colors = kaavalanOutlinedFieldColors(),
             enabled = !busy,
             modifier = Modifier.fillMaxWidth().testTag("station_kind"),
         )
@@ -212,6 +233,8 @@ fun StationEditor(
             onValueChange = { notes = it },
             label = { Text("Notes (optional)") },
             minLines = 3,
+            shape = MaterialTheme.shapes.medium,
+            colors = kaavalanOutlinedFieldColors(),
             enabled = !busy,
             modifier = Modifier.fillMaxWidth().testTag("station_notes"),
         )
@@ -263,6 +286,8 @@ fun MatterEditor(
             label = { Text("Matter title") },
             enabled = !busy,
             isError = error != null,
+            shape = MaterialTheme.shapes.medium,
+            colors = kaavalanOutlinedFieldColors(),
             modifier = Modifier.fillMaxWidth().focusRequester(titleFocus).testTag("matter_title"),
         )
         Text("Station or unit", style = MaterialTheme.typography.titleSmall)
@@ -285,6 +310,8 @@ fun MatterEditor(
             value = reference,
             onValueChange = { reference = it },
             label = { Text("Reference (optional)") },
+            shape = MaterialTheme.shapes.medium,
+            colors = kaavalanOutlinedFieldColors(),
             enabled = !busy,
             modifier = Modifier.fillMaxWidth().testTag("matter_reference"),
         )
@@ -293,6 +320,8 @@ fun MatterEditor(
             onValueChange = { description = it },
             label = { Text("Context (optional)") },
             minLines = 4,
+            shape = MaterialTheme.shapes.medium,
+            colors = kaavalanOutlinedFieldColors(),
             enabled = !busy,
             modifier = Modifier.fillMaxWidth().testTag("matter_description"),
         )
@@ -372,6 +401,8 @@ fun StaffEditor(
             onValueChange = { responsibilities = it },
             label = { Text("Responsibilities") },
             supportingText = { Text("What this officer looks after. One line or several.") },
+            shape = MaterialTheme.shapes.medium,
+            colors = kaavalanOutlinedFieldColors(),
             minLines = 4,
             enabled = !busy,
             modifier = Modifier.fillMaxWidth().testTag("staff_responsibilities"),
@@ -435,6 +466,8 @@ fun ReviewEditor(
             minLines = 6,
             enabled = !busy,
             isError = error != null,
+            shape = MaterialTheme.shapes.medium,
+            colors = kaavalanOutlinedFieldColors(),
             modifier = Modifier.fillMaxWidth().focusRequester(notesFocus).testTag("review_notes"),
         )
         Text(

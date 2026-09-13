@@ -1,6 +1,18 @@
 {
   "changelog": [
     {
+      "version": "2.7.0",
+      "code": 53,
+      "date": "2026-09-13",
+      "highlights": [
+        "A calmer field-notebook layout now gives Today, Instructions, People and subdivision work a clearer reading order in both light and dark themes.",
+        "The note bar, editors and setup screens stay reachable with the keyboard open, larger text and landscape layouts.",
+        "Search, badges, row actions and empty or error states now use consistent surfaces, spacing and a single clear next action.",
+        "The main navigation remains focused on three tabs, while subdivision stations, staff, matters and reviews keep their own clear local hierarchy.",
+        "Staff records remain private to your device: staff do not need an account, and adding or editing them does not send a message."
+      ]
+    },
+    {
       "version": "2.6.0",
       "code": 52,
       "date": "2026-09-10",

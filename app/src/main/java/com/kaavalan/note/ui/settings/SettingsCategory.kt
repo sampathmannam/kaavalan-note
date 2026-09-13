@@ -9,13 +9,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import com.kaavalan.note.ui.components.KaavalanIconTile
 import androidx.compose.ui.unit.dp
 
 /** Progressive disclosure with a single selected section; no nested settings sheets. */
 @Composable
 internal fun SettingsCategory(
     title: String, description: String, selected: String?, onSelect: (String?) -> Unit,
+    // Each category leads with the same icon tile the subdivision entry rows use, so
+    // Settings reads as part of the same workspace rather than a plain text list.
+    icon: ImageVector? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     if (selected != null && selected != title) return
@@ -25,6 +30,7 @@ internal fun SettingsCategory(
             .padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (selected == title) Icon(Icons.AutoMirrored.Outlined.ArrowBack, "All settings")
+            else if (icon != null) KaavalanIconTile(icon)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(if (selected == title) "All settings" else title, style = MaterialTheme.typography.titleMedium)
                 Text(if (selected == title) title else description, style = MaterialTheme.typography.bodyMedium,

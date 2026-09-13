@@ -7,6 +7,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -15,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import com.kaavalan.note.data.instructions.*
 import com.kaavalan.note.data.person.Person
 import com.kaavalan.note.features.reminder.ReminderPicker
+import com.kaavalan.note.ui.components.KaavalanIconTile
+import com.kaavalan.note.ui.components.kaavalanOutlinedFieldColors
 
 /** Shared editor frame: content scrolls, the save action stays above the keyboard. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -27,10 +31,21 @@ private fun WorkspaceEditor(title: String, busy: Boolean, valid: Boolean, onDism
     val requestDismiss = { if (!busy) discard = true }
     ModalBottomSheet(onDismissRequest = requestDismiss,
         dragHandle = if (landscape) null else ({ BottomSheetDefaults.DragHandle() }),
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
         com.kaavalan.note.ui.theme.DialogSystemBars()
         Column(Modifier.fillMaxHeight(.94f).imePadding().padding(horizontal = 20.dp)) {
-            if (!compactTyping) Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(bottom = 16.dp))
+            if (!compactTyping) Row(
+                Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            ) {
+                KaavalanIconTile(Icons.Outlined.EditNote)
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("Field notebook", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text(title, style = MaterialTheme.typography.headlineSmall)
+                }
+            }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp), content = content)
             HorizontalDivider(Modifier.padding(top = if (compactTyping) 0.dp else 12.dp))
             Row(Modifier.fillMaxWidth().padding(vertical = if (compactTyping) 0.dp else 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -59,7 +74,8 @@ fun InstructionEditSheet(instruction: Instruction, contacts: List<Person>, priva
     WorkspaceEditor("Edit instruction", busy, text.isNotBlank() && (!privateMode || personId != null), onDismiss,
         { onSave(text, direction, personId, deadline) }) {
         OutlinedTextField(text, { text = it }, label = { Text("Instruction") }, minLines = 4,
-            enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("edit_instruction_text"))
+            enabled = !busy, shape = MaterialTheme.shapes.medium, colors = kaavalanOutlinedFieldColors(),
+            modifier = Modifier.fillMaxWidth().testTag("edit_instruction_text"))
         Text("Responsibility", style = MaterialTheme.typography.titleSmall)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Direction.entries.forEach { item -> FilterChip(selected = direction == item, enabled = !busy,
@@ -88,6 +104,7 @@ fun InstructionUpdateSheet(instruction: Instruction, busy: Boolean, onDismiss: (
         Text("A private record of your call, review or follow-up. Nothing is sent to the contact.", style = MaterialTheme.typography.bodyMedium)
         OutlinedTextField(text, { text = it }, enabled = !busy, label = { Text("What happened?") },
             placeholder = { Text("Spoke to the inspector. Report expected tomorrow.") }, minLines = 4,
+            shape = MaterialTheme.shapes.medium, colors = kaavalanOutlinedFieldColors(),
             modifier = Modifier.fillMaxWidth().testTag("instruction_update_text"))
         Box {
             OutlinedButton(onClick = { chooseStatus = true }, enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("update_progress")) {
@@ -114,10 +131,14 @@ fun EditContactSheet(person: Person, busy: Boolean, onDismiss: () -> Unit, onSav
     var phone by rememberSaveable(person.id) { mutableStateOf(person.phone.orEmpty()) }
     WorkspaceEditor("Edit contact", busy, name.isNotBlank(), onDismiss, { onSave(name, rank, station, phone) }) {
         Text("Changes apply only in KaavalanNote, not to your phone’s address book.", style = MaterialTheme.typography.bodyMedium)
-        OutlinedTextField(name, { name = it }, label = { Text("Name") }, enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("edit_contact_name"))
-        OutlinedTextField(rank, { rank = it }, label = { Text("Rank / designation") }, enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("edit_contact_rank"))
-        OutlinedTextField(station, { station = it }, label = { Text("Station / office") }, enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("edit_contact_station"))
+        OutlinedTextField(name, { name = it }, label = { Text("Name") }, enabled = !busy,
+            shape = MaterialTheme.shapes.medium, colors = kaavalanOutlinedFieldColors(), modifier = Modifier.fillMaxWidth().testTag("edit_contact_name"))
+        OutlinedTextField(rank, { rank = it }, label = { Text("Rank / designation") }, enabled = !busy,
+            shape = MaterialTheme.shapes.medium, colors = kaavalanOutlinedFieldColors(), modifier = Modifier.fillMaxWidth().testTag("edit_contact_rank"))
+        OutlinedTextField(station, { station = it }, label = { Text("Station / office") }, enabled = !busy,
+            shape = MaterialTheme.shapes.medium, colors = kaavalanOutlinedFieldColors(), modifier = Modifier.fillMaxWidth().testTag("edit_contact_station"))
         OutlinedTextField(phone, { phone = it }, label = { Text("Phone") }, enabled = !busy,
+            shape = MaterialTheme.shapes.medium, colors = kaavalanOutlinedFieldColors(),
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone), modifier = Modifier.fillMaxWidth())
     }
 }
@@ -127,7 +148,8 @@ private fun ContactLinkDialog(contacts: List<Person>, privateMode: Boolean, onPi
     var query by rememberSaveable { mutableStateOf("") }
     AlertDialog(onDismissRequest = onDismiss, title = { Text("Link a contact") }, text = {
         Column {
-            OutlinedTextField(query, { query = it }, label = { Text("Search contacts") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(query, { query = it }, label = { Text("Search contacts") },
+                shape = MaterialTheme.shapes.medium, colors = kaavalanOutlinedFieldColors(), modifier = Modifier.fillMaxWidth())
             LazyColumn(Modifier.heightIn(max = 320.dp)) {
                 if (!privateMode) item { ListItem(headlineContent = { Text("No contact") }, modifier = Modifier.clickable { onPick(null) }) }
                 val matches = contacts.filter { listOfNotNull(it.name, it.designation, it.station).joinToString(" ").contains(query.trim(), true) }

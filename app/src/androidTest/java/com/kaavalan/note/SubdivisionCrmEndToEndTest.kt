@@ -224,19 +224,19 @@ class SubdivisionCrmEndToEndTest {
         compose.onNodeWithText("No earlier review for this scope").assertIsDisplayed()
         compose.onNodeWithTag("review_filter_OPEN").performClick()
 
-        // Scroll the lazy list itself, then let it settle before clicking. On a
-        // software-rendered device the list is still laying out when performScrollToNode
-        // returns, and a click injected at that moment lands on whatever occupied the
-        // coordinate a frame earlier. Verified by hand: the button itself works.
-        compose.onNodeWithTag("subdivision_review_list").performScrollToNode(hasTestTag("review_record"))
-        compose.waitForIdle()
-        android.os.SystemClock.sleep(1_000)
-        compose.onNodeWithTag("review_record").assertIsEnabled().performClick()
+        // Ask the target to scroll itself fully into the viewport. Scrolling the parent
+        // only until the last item barely intersects the viewport leaves its click point
+        // in the gesture-inset edge on some software-rendered devices.
+        compose.onNodeWithTag("review_record").performScrollTo().assertIsDisplayed().assertIsEnabled()
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         awaitTag("review_notes")
         compose.onNodeWithTag("review_scope").assertTextEquals("Whole subdivision")
         compose.onNodeWithTag("review_notes").performTextInput("QA monthly review note.")
         compose.onNodeWithTag("subdivision_editor_save").performClick()
-        awaitText("At this review · 1 open · 0 ready to verify")
+        compose.onNodeWithTag("subdivision_review_list").performScrollToNode(
+            hasText("At this review · 1 open · 0 ready to verify"),
+        )
+        compose.onNodeWithText("At this review · 1 open · 0 ready to verify").assertIsDisplayed()
 
         val review = runBlocking { graph().subdivision().reviews().single() }
         assertEquals("Whole subdivision", review.scopeTitle)

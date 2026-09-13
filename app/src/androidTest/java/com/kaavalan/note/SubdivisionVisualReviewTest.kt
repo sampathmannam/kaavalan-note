@@ -54,6 +54,7 @@ class SubdivisionVisualReviewTest {
 
     @Test fun subdivisionRecord_emptyPopulatedAndDark_visualReview() {
         compose.openWorkspace()
+        compose.chooseDisplayTheme("Light")
 
         // 1. The three entry rows, and every destination while it is still empty.
         compose.onNodeWithTag("nav_today").performClick()
@@ -176,15 +177,16 @@ class SubdivisionVisualReviewTest {
         awaitTag("review_no_prior")
         screenshot("19-review-no-prior-review")
         compose.onNodeWithTag("review_filter_OPEN").performClick()
-        compose.onNodeWithTag("subdivision_review_list").performScrollToNode(hasTestTag("review_record"))
-        compose.waitForIdle()
-        android.os.SystemClock.sleep(1_000)
-        compose.onNodeWithTag("review_record").performClick()
+        compose.onNodeWithTag("review_record").performScrollTo().assertIsDisplayed().assertIsEnabled()
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         awaitTag("review_notes")
         compose.onNodeWithTag("review_notes").performTextInput("QA monthly review note.")
         screenshot("20-review-editor")
         compose.onNodeWithTag("subdivision_editor_save").performClick()
-        awaitText("At this review · 1 open · 0 ready to verify")
+        compose.onNodeWithTag("subdivision_review_list").performScrollToNode(
+            hasText("At this review · 1 open · 0 ready to verify"),
+        )
+        compose.onNodeWithText("At this review · 1 open · 0 ready to verify").assertIsDisplayed()
         screenshot("21-review-recorded")
 
         // 6. The same record in dark mode.
@@ -214,6 +216,7 @@ class SubdivisionVisualReviewTest {
         val oldScale = shell("settings get system font_scale")
         try {
             compose.openWorkspace()
+            compose.chooseDisplayTheme("Light")
             compose.onNodeWithTag("nav_contacts").performClick()
             awaitTag("entry_stations_staff")
             compose.onNodeWithTag("entry_stations_staff").performClick()
