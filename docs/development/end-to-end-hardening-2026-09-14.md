@@ -3,8 +3,9 @@
 ## Status
 
 Completed on branch `feat/end-to-end-hardening-and-polish`, based on the released
-v2.7.1 commit `ae268fbffa8d21e8732be3f24f076251bbaf01a3`. This pass does not change the
-application version, sign an APK, create a tag, push a branch or publish a release.
+v2.7.1 commit `ae268fbffa8d21e8732be3f24f076251bbaf01a3`. The verified changes are being
+prepared as the in-place v2.7.2/code-55 hardening release with the same application
+identity, Room schema and manual-backup schema.
 
 The cloud Penpot file is named **KaavalanNote field notebook UI v2.7**. It contains
 Foundations, Components and Screens & states pages, all 27 screen/state boards,
@@ -92,7 +93,7 @@ and the share alias is the user-selected Android share target. AES-GCM encryptio
 generate fresh random 12-byte nonces (and fresh salts where key derivation is used);
 decrypt paths consume the nonce stored with the authenticated ciphertext.
 
-## Artifacts and remaining release boundary
+## Validation artifacts and release boundary
 
 - Debug universal APK: `app/build/outputs/apk/debug/app-universal-debug.apk`
 - Unsigned optimized universal APK:
@@ -101,9 +102,9 @@ decrypt paths consume the nonce stored with the authenticated ciphertext.
 - Device-test report: `app/build/reports/androidTests/connected/debug/index.html`
 
 The unsigned release APK is a build-validation artifact only. It cannot safely update
-the installed `com.kaavalan.note` application and must not be published. A real release
-still requires an explicit release decision, a version/code increment, the existing
-pinned signing identity, signed-upgrade validation, commit/tag/push and publication.
+the installed `com.kaavalan.note` application and must not be published. Only the final
+v2.7.2 universal APK produced by the release process with the existing pinned signing
+identity is eligible for the Obtainium release channel.
 
 This pass does not claim a physical-phone matrix, TalkBack certification, live Google
 Drive account exchange, or real speech-recognition accuracy across OEM recognizers.

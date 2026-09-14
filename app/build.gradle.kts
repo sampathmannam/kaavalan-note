@@ -430,8 +430,12 @@ android {
         // Snooze, streaming voice partials, compact status-coloured work cards, and
         // transactional multi-contact import. Same application ID and schemas;
         // versionCode 53 -> 54.
-        versionCode = 54
-        versionName = "2.7.1"
+        // v2.7.2: end-to-end security hardening for OAuth/PKCE, Drive backup,
+        // crash privacy, Android component/data-transfer policy, Supabase edge
+        // inputs and CI supply-chain pinning. Same application ID and schemas;
+        // versionCode 54 -> 55.
+        versionCode = 55
+        versionName = "2.7.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // v2.2.2 (test-infra): wipe app state between instrumented

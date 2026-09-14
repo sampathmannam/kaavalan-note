@@ -1,6 +1,18 @@
 {
   "changelog": [
     {
+      "version": "2.7.2",
+      "code": 55,
+      "date": "2026-09-14",
+      "highlights": [
+        "Google sign-in callbacks now enforce the exact configured destination and consume each login verifier only once, closing replay and redirect-confusion paths.",
+        "Encrypted Google Drive backups preserve their original bytes, reject malformed identifiers and filenames, and no longer expose remote service errors.",
+        "Crash records keep useful stack structure without saving exception messages that may contain private field-note text.",
+        "Cleartext network traffic and Android device-transfer backup of private app data are disabled, while required entry points remain narrowly scoped.",
+        "Release automation, administrative edge functions and free-text search received stricter input handling, secret comparison and immutable dependency pinning."
+      ]
+    },
+    {
       "version": "2.7.1",
       "code": 54,
       "date": "2026-09-14",
