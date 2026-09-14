@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import com.kaavalan.note.ui.theme.KaavalanWidgetColors
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
@@ -84,7 +85,7 @@ class KaavalanTodayWidget : GlanceAppWidget() {
         ).appDatabase()
         val openCount = runCatching { db.instructionDao().countOpen() }.getOrDefault(0)
         provideContent {
-            GlanceTheme {
+            GlanceTheme(colors = KaavalanWidgetColors) {
                 TodayWidgetBody(openCount = openCount)
             }
         }
@@ -142,7 +143,7 @@ class KaavalanDecayWidget : GlanceAppWidget() {
             db.personDao().countQuietSince(thresholdMs)
         }.getOrDefault(0)
         provideContent {
-            GlanceTheme {
+            GlanceTheme(colors = KaavalanWidgetColors) {
                 DecayWidgetBody(quietCount = quietCount)
             }
         }

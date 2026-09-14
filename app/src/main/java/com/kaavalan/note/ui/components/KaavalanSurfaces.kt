@@ -95,6 +95,7 @@ fun KaavalanBadge(
     modifier: Modifier = Modifier,
     containerColor: Color = MaterialTheme.colorScheme.secondaryContainer,
     contentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
+    leadingIcon: ImageVector? = null,
 ) {
     Surface(
         modifier = modifier,
@@ -102,13 +103,19 @@ fun KaavalanBadge(
         color = containerColor,
         contentColor = contentColor,
     ) {
-        Text(
-            label,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.labelMedium,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Row(
+            Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            leadingIcon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(14.dp)) }
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 

@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="kaavalan_note_background">#FAF8F4</color>
+    <color name="kaavalan_note_background">#F8F7F8</color>
+    <color name="kaavalan_primary">#633F5A</color>
 
     <!-- M2-T5 widget palette: dark surface so the mic reads on both
          light and dark home-screen wallpapers. -->
-    <color name="widget_background">#1F1B16</color>
-    <color name="widget_text">#E5E1DA</color>
+    <color name="widget_background">#201B21</color>
+    <color name="widget_text">#EEE7EF</color>
 </resources>

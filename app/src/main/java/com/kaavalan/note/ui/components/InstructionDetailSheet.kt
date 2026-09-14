@@ -3,6 +3,8 @@ package com.kaavalan.note.ui.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -16,6 +18,7 @@ import com.kaavalan.note.data.person.Person
 import com.kaavalan.note.features.reminder.ReminderPicker
 import com.kaavalan.note.features.reminder.formatReminderTime
 import com.kaavalan.note.ui.workspace.*
+import com.kaavalan.note.ui.theme.instructionColors
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -69,7 +72,13 @@ fun InstructionDetailSheet(
         Column(Modifier.fillMaxWidth().fillMaxHeight(.94f).padding(horizontal = 20.dp)) {
             Text("Instruction", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(bottom = 12.dp))
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text(instruction.status.officerLabel(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                val statusColors = instructionColors(instruction.status, MaterialTheme.colorScheme)
+                KaavalanBadge(
+                    instruction.status.officerLabel(),
+                    containerColor = statusColors.container,
+                    contentColor = statusColors.content,
+                    leadingIcon = if (instruction.status == Status.DONE) Icons.Outlined.Check else null,
+                )
                 Text(listOfNotNull(instruction.direction.officerLabel(), contactName ?: instruction.audience?.label).joinToString(" · "),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(instruction.rawText.ifBlank { instruction.title }, style = MaterialTheme.typography.bodyLarge,

@@ -6,6 +6,7 @@ import androidx.compose.ui.unit.dp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import com.kaavalan.note.ui.theme.KaavalanWidgetColors
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
@@ -111,7 +112,7 @@ class KaavalanQuickNoteWidget : GlanceAppWidget() {
             db.captureDao().recentText(limit = MAX_RECENT_VISIBLE)
         }.getOrDefault(emptyList())
         provideContent {
-            GlanceTheme {
+            GlanceTheme(colors = KaavalanWidgetColors) {
                 QuickNoteWidgetBody(
                     todayCount = todayCount,
                     recent = recent,

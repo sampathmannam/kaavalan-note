@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import com.kaavalan.note.ui.theme.KaavalanWidgetColors
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.action.actionStartActivity
@@ -60,7 +61,7 @@ class KaavalanCaptureWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
-            GlanceTheme {
+            GlanceTheme(colors = KaavalanWidgetColors) {
                 CaptureWidgetBody()
             }
         }

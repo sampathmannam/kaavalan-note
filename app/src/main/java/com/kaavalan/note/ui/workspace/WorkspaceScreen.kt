@@ -36,6 +36,7 @@ import com.kaavalan.note.ui.components.KaavalanPanel
 import com.kaavalan.note.ui.components.KaavalanSearchField
 import com.kaavalan.note.ui.components.KaavalanSectionHeading
 import com.kaavalan.note.ui.components.KaavalanTopBarTitle
+import com.kaavalan.note.ui.theme.instructionColors
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -335,30 +336,19 @@ fun WorkCard(
     footer: (@Composable () -> Unit)? = null,
 ) {
     val contact = contacts.firstOrNull { it.id == instruction.personId }
-    val statusContainer = when (instruction.status) {
-        Status.OPEN -> MaterialTheme.colorScheme.primaryContainer
-        Status.IN_PROGRESS -> MaterialTheme.colorScheme.secondaryContainer
-        Status.ACK_PENDING, Status.WAITING_ON_OTHER -> MaterialTheme.colorScheme.tertiaryContainer
-        Status.REPORTED_DONE -> MaterialTheme.colorScheme.tertiaryContainer
-        Status.DONE, Status.CARRIED_OVER, Status.DROPPED -> MaterialTheme.colorScheme.surfaceContainerHigh
-    }
-    val statusContent = when (instruction.status) {
-        Status.OPEN -> MaterialTheme.colorScheme.onPrimaryContainer
-        Status.IN_PROGRESS -> MaterialTheme.colorScheme.onSecondaryContainer
-        Status.ACK_PENDING, Status.WAITING_ON_OTHER, Status.REPORTED_DONE -> MaterialTheme.colorScheme.onTertiaryContainer
-        Status.DONE, Status.CARRIED_OVER, Status.DROPPED -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
+    val scheme = MaterialTheme.colorScheme
+    val statusColors = instructionColors(instruction.status, scheme)
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().testTag("instruction_${instruction.id}"),
         colors = CardDefaults.cardColors(
-            containerColor = statusContainer.copy(alpha = if (featured) .72f else .34f),
+            containerColor = statusColors.cardSurface(scheme, featured),
             contentColor = MaterialTheme.colorScheme.onSurface,
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(
             1.dp,
-            if (featured) statusContent.copy(alpha = .42f) else MaterialTheme.colorScheme.outlineVariant,
+            if (featured) scheme.outline else scheme.outlineVariant,
         ),
         shape = MaterialTheme.shapes.medium,
     ) {
@@ -366,8 +356,9 @@ fun WorkCard(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 KaavalanBadge(
                     instruction.status.officerLabel(),
-                    containerColor = statusContainer,
-                    contentColor = statusContent,
+                    containerColor = statusColors.container,
+                    contentColor = statusColors.content,
+                    leadingIcon = if (instruction.status == Status.DONE) Icons.Outlined.Check else null,
                 )
                 Text(
                     instruction.direction.officerLabel(),
@@ -378,8 +369,8 @@ fun WorkCard(
                 if (instruction.priority == Priority.HIGH || instruction.priority == Priority.URGENT) {
                     KaavalanBadge(
                         "Priority",
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        containerColor = scheme.secondaryContainer,
+                        contentColor = scheme.onSecondaryContainer,
                     )
                 }
             }

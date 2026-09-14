@@ -1,6 +1,17 @@
 {
   "changelog": [
     {
+      "version": "2.7.3",
+      "code": 56,
+      "date": "2026-09-14",
+      "highlights": [
+        "A muted plum notebook theme replaces blue accents, with white cards and charcoal text in light mode and coordinated dark surfaces at night.",
+        "Instruction cards and details share clear status colours: neutral Open, plum In progress, amber Waiting, green Ready to verify and grey Closed. Written labels stay visible, and only verified Done gets a checkmark.",
+        "Home-screen widgets, quick capture and startup surfaces now follow the same palette. The existing shield launcher icon is unchanged.",
+        "Expanded contrast checks and Android visual tests cover both themes, larger text, landscape and keyboard-safe capture. Your existing notes, reminders, contacts and backups are unchanged."
+      ]
+    },
+    {
       "version": "2.7.2",
       "code": 55,
       "date": "2026-09-14",

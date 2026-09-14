@@ -2,7 +2,7 @@
 
 ## Direction
 
-A quiet working notebook, not a command-centre dashboard. Keep the existing blue identity, replace the inconsistent warm/default-purple Material palette with ink, slate and cool paper. Distinct primary action, restrained surfaces, readable content and plain language take precedence over decoration.
+A quiet working notebook, not a command-centre dashboard. The approved identity is muted plum (`#633F5A`), white cards, a soft neutral background (`#F8F7F8`) and charcoal text (`#27232A`). Plum is reserved for primary actions, selection and small highlights, never a full-screen wash. Dark mode uses plum accents on charcoal surfaces, not blue-black. Distinct primary action, restrained surfaces, readable content and plain language take precedence over decoration.
 
 ## Navigation and hierarchy
 
@@ -20,6 +20,7 @@ A quiet working notebook, not a command-centre dashboard. Keep the existing blue
 ## System
 
 - Complete Material 3 light and dark color roles live in `ui/theme/Theme.kt`.
+- Instruction status colours live in `ui/theme/InstructionColors.kt`: neutral Open/Carried over, plum In progress, amber Waiting, muted green Ready to verify, grey Done/Closed without action. Keep the written labels; only verified Done gets a checkmark. Cards use subtle opaque tints, with stronger colour confined to badges. Priority is a separate neutral-plum badge, not the green verification colour.
 - System typeface. Page titles 28/36sp, sheet headings 24/32sp, instruction content 16–20sp, body 14–16sp, minimum labels 12sp.
 - Spacing: 4, 8, 12, 16, 20, 24dp. Page inset 20dp; cards 16dp; next action 20dp.
 - Shapes: 8/12/16dp. No ornamental gradients, glass, bright alerts or nested dashboard cards.

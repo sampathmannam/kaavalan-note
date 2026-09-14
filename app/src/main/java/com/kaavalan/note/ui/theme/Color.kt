@@ -18,15 +18,15 @@ import androidx.compose.ui.graphics.Color
  */
 object KaavalanColors {
     // Primary — calm, not aggressive
-    val Primary = Color(0xFF174D6C)
+    val Primary = Color(0xFF633F5A)
     val OnPrimary = Color(0xFFFFFFFF)
 
     // Surfaces
-    val Background = Color(0xFFF6F8FA)
-    val Surface = Color(0xFFFBFCFD)
-    val SurfaceVariant = Color(0xFFE6EDF1)
-    val OnSurface = Color(0xFF15242E)
-    val OnSurfaceMuted = Color(0xFF4B5E6A)
+    val Background = Color(0xFFF8F7F8)
+    val Surface = Color(0xFFFFFFFF)
+    val SurfaceVariant = Color(0xFFEAE5EB)
+    val OnSurface = Color(0xFF27232A)
+    val OnSurfaceMuted = Color(0xFF655B66)
 
     // Quiet / stale indicator — amber, NOT red. The legacy single
     // value is kept for callers that read it from a non-@Composable
@@ -36,12 +36,12 @@ object KaavalanColors {
     // Semantic
     val Done = Color(0xFF5A8A5A)        // muted green, not bright
     val PriorityHigh = Color(0xFF8B5A2B) // warm brown, not red
-    val PriorityNormal = Color(0xFF4F606D)
+    val PriorityNormal = Color(0xFF655B66)
     val PriorityLow = Color(0xFFB8B0A4)
 
     // Outlines
-    val Outline = Color(0xFF687D8B)
-    val OutlineMuted = Color(0xFFCAD7DE)
+    val Outline = Color(0xFF817382)
+    val OutlineMuted = Color(0xFFD7CDD7)
 
     // v1.6.8: tag-kind color pairs (light/dark). Light values
     // are the v1.6.7 values (chosen to sit calmly on a warm
@@ -49,8 +49,9 @@ object KaavalanColors {
     // hold up against the 0xFF2F2A23 surfaceVariant in dark
     // mode — the old light values were too dark to read as
     // chip dots on the dark surface.
-    val KindBlueLight = Color(0xFF6B7AA1)
-    val KindBlueDark = Color(0xFFA9B4D2)
+    // Legacy names retained for tag callers; the identity hue is now plum, not blue.
+    val KindBlueLight = Color(0xFF633F5A)
+    val KindBlueDark = Color(0xFFDCB8D1)
     val KindWarmLight = Color(0xFFB58A4D)
     val KindWarmDark = Color(0xFFD9B27A)
     val KindNeutralLight = Color(0xFF6F6F6F)

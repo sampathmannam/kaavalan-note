@@ -434,8 +434,11 @@ android {
         // crash privacy, Android component/data-transfer policy, Supabase edge
         // inputs and CI supply-chain pinning. Same application ID and schemas;
         // versionCode 54 -> 55.
-        versionCode = 55
-        versionName = "2.7.2"
+        // v2.7.3: muted plum light/dark notebook theme, consistent widget colours,
+        // labelled status palettes and expanded contrast/visual coverage.
+        // Same application ID and schemas; versionCode 55 -> 56.
+        versionCode = 56
+        versionName = "2.7.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // v2.2.2 (test-infra): wipe app state between instrumented
