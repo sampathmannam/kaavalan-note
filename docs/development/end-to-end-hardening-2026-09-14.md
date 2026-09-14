@@ -3,10 +3,10 @@
 ## Status
 
 The original pass on branch `feat/end-to-end-hardening-and-polish` was published as
-v2.7.2/code 55. The branch now contains the v2.7.4/code 57 release candidate, based
+v2.7.2/code 55. The branch now contains the v2.7.4/code 57 reliability release, based
 on the released v2.7.3 source. It retains the application identity, Room schema,
-manual-backup schema, dependencies and pinned signing identity. This follow-up source
-is verified and ready for the guarded signed-release procedure.
+manual-backup schema, dependencies and pinned signing identity. All six guarded
+signed-release gates passed and the stable Obtainium asset was published on 2026-09-15.
 
 The cloud Penpot file is named **KaavalanNote field notebook UI v2.7**. It contains
 Foundations, Components and Screens & states pages, all 27 screen/state boards,
@@ -174,11 +174,11 @@ decrypt paths consume the nonce stored with the authenticated ciphertext.
 - Device-test report: `app/build/reports/androidTests/connected/debug/index.html`
 
 The unsigned release APK is a build-validation artifact only. It cannot safely update
-the installed `com.kaavalan.note` application and must not be published. Only the final
-v2.7.2 universal APK produced by the release process with the existing pinned signing
-identity was published to the Obtainium release channel. Its SHA-256 is
-`93127f7cee27c4b798b1bf01280e962643ceeaf3f29d4e4731d2415903dcc098`; the public asset
-digest matches the locally verified file.
+the installed `com.kaavalan.note` application and must not be published. The final
+v2.7.4 universal APK produced by the guarded release process with the existing pinned
+signing identity was published to the Obtainium release channel. It is 72,068,283 bytes
+with SHA-256 `bb0c0dd6b774054e3da1e5095f37a1ed6d34e658939c63af25f6e4efdf97ec5d`; the
+public GitHub asset digest matches the locally verified file.
 
 This pass covers one Motorola physical phone plus an API 34 emulator, not a physical
 OEM matrix. It does not claim TalkBack certification, a completed 7–14 day elapsed-time

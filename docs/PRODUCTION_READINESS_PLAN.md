@@ -118,7 +118,7 @@ Goal: a stranger can install from Play Store, pass a security audit, and use it 
 
 ### 2026-09-14 — post-v2.7.3 reliability strengthening
 
-The v2.7.4/code 57 release candidate is **Kaavalan note** on package
+The released v2.7.4/code 57 **Kaavalan note** is on package
 `com.kaavalan.note`. This follow-up reliability pass makes instruction and
 capture/outbox writes transactional, isolates malformed legacy rows from read-only
 screens while keeping writes strict, validates and bounds restore/import input,
