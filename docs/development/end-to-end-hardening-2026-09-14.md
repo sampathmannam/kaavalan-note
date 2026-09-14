@@ -3,9 +3,10 @@
 ## Status
 
 Completed on branch `feat/end-to-end-hardening-and-polish`, based on the released
-v2.7.1 commit `ae268fbffa8d21e8732be3f24f076251bbaf01a3`. The verified changes are being
-prepared as the in-place v2.7.2/code-55 hardening release with the same application
-identity, Room schema and manual-backup schema.
+v2.7.1 commit `ae268fbffa8d21e8732be3f24f076251bbaf01a3`. The verified changes were
+published as the in-place v2.7.2/code-55 hardening release with the same application
+identity, Room schema and manual-backup schema. Tag `v2.7.2` resolves to
+`a001cb938c687a8b9e3e1cefcaa97ef408a7eb28`.
 
 The cloud Penpot file is named **KaavalanNote field notebook UI v2.7**. It contains
 Foundations, Components and Screens & states pages, all 27 screen/state boards,
@@ -104,7 +105,9 @@ decrypt paths consume the nonce stored with the authenticated ciphertext.
 The unsigned release APK is a build-validation artifact only. It cannot safely update
 the installed `com.kaavalan.note` application and must not be published. Only the final
 v2.7.2 universal APK produced by the release process with the existing pinned signing
-identity is eligible for the Obtainium release channel.
+identity was published to the Obtainium release channel. Its SHA-256 is
+`93127f7cee27c4b798b1bf01280e962643ceeaf3f29d4e4731d2415903dcc098`; the public asset
+digest matches the locally verified file.
 
 This pass does not claim a physical-phone matrix, TalkBack certification, live Google
 Drive account exchange, or real speech-recognition accuracy across OEM recognizers.
