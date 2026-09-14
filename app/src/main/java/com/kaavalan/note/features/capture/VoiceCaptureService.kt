@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.graphics.drawable.Icon
 import android.os.Build
@@ -18,6 +19,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.kaavalan.note.MainActivity
 import com.kaavalan.note.R
 import dagger.hilt.android.AndroidEntryPoint
@@ -68,6 +70,7 @@ class VoiceCaptureService : Service() {
     private var speechRecognizer: SpeechRecognizer? = null
     private var resultReceiver: ResultReceiver? = null
     private var lastPartialText: String = ""
+    private var recognizerBusyRetries: Int = 0
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -110,10 +113,28 @@ class VoiceCaptureService : Service() {
             ResultReceiver::class.java,
         )
         resultReceiver = receiver
+        lastPartialText = ""
+        recognizerBusyRetries = 0
+        if (
+            ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            deliverError("Microphone permission denied.")
+            stopSelf()
+            return
+        }
         // Tier 0.4: flip the process-wide state so the
         // in-app capture sheet can render a Stop button.
         VoiceCaptureState.setRecording(true)
-        startForegroundWithNotification()
+        val foregroundStarted = runCatching { startForegroundWithNotification() }
+            .onFailure { failure ->
+                Log.e(TAG, "Could not start microphone foreground service (${failure.javaClass.simpleName})")
+                deliverError("Could not start voice recognition.")
+                VoiceCaptureState.setRecording(false)
+                stopSelf()
+            }
+            .isSuccess
+        if (!foregroundStarted) return
         startRecognizing()
     }
 
@@ -125,9 +146,18 @@ class VoiceCaptureService : Service() {
             stopSelf()
             return
         }
-        val recognizer = SpeechRecognizer.createSpeechRecognizer(this).also {
-            speechRecognizer = it
-            it.setRecognitionListener(KaavalanRecognitionListener())
+        val recognizer = runCatching {
+            SpeechRecognizer.createSpeechRecognizer(this).also {
+                speechRecognizer = it
+                it.setRecognitionListener(KaavalanRecognitionListener())
+            }
+        }.getOrElse { failure ->
+            Log.e(TAG, "createSpeechRecognizer failed (${failure.javaClass.simpleName})")
+            deliverError("Speech recognition is not available on this device.")
+            VoiceCaptureState.setRecording(false)
+            stopForegroundCompat()
+            stopSelf()
+            return
         }
         val listenIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(
@@ -169,7 +199,10 @@ class VoiceCaptureService : Service() {
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             if (VoiceCaptureState.isRecording.value) {
                 Log.w(TAG, "listener never fired, forcing teardown")
+                if (lastPartialText.isNotBlank()) deliverText(lastPartialText)
+                else deliverError("No speech detected.")
                 VoiceCaptureState.setRecording(false)
+                lastPartialText = ""
                 stopForegroundCompat()
                 stopSelf()
             }
@@ -315,6 +348,31 @@ class VoiceCaptureService : Service() {
             stopSelf()
         }
         override fun onError(error: Int) {
+            if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY && recognizerBusyRetries == 0) {
+                recognizerBusyRetries++
+                runCatching { speechRecognizer?.destroy() }
+                speechRecognizer = null
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
+                    { if (VoiceCaptureState.isRecording.value) startRecognizing() },
+                    BUSY_RETRY_DELAY_MS,
+                )
+                return
+            }
+            if (
+                lastPartialText.isNotBlank() &&
+                error in setOf(
+                    SpeechRecognizer.ERROR_NO_MATCH,
+                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT,
+                    SpeechRecognizer.ERROR_NETWORK,
+                    SpeechRecognizer.ERROR_NETWORK_TIMEOUT,
+                )
+            ) {
+                // Several OEM recognizers emit useful partials and then no final
+                // bundle. Preserve the officer's dictated text instead of dropping it.
+                deliverText(lastPartialText)
+                finishRecognition()
+                return
+            }
             val message = when (error) {
                 SpeechRecognizer.ERROR_AUDIO -> "Audio recording error."
                 SpeechRecognizer.ERROR_CLIENT -> "Client error."
@@ -328,11 +386,15 @@ class VoiceCaptureService : Service() {
                 else -> "Voice recognition failed (code $error)."
             }
             deliverError(message)
-            VoiceCaptureState.setRecording(false)
-            lastPartialText = ""
-            stopForegroundCompat()
-            stopSelf()
+            finishRecognition()
         }
+    }
+
+    private fun finishRecognition() {
+        VoiceCaptureState.setRecording(false)
+        lastPartialText = ""
+        stopForegroundCompat()
+        stopSelf()
     }
 
     private fun bestTranscript(results: Bundle?): String =
@@ -350,6 +412,7 @@ class VoiceCaptureService : Service() {
         // ourselves after this delay. The user sees the
         // recording end either way.
         private const val STOP_TIMEOUT_MS = 1500L
+        private const val BUSY_RETRY_DELAY_MS = 350L
 
         const val ACTION_START = "com.kaavalan.note.action.VOICE_START"
         const val ACTION_STOP = "com.kaavalan.note.action.VOICE_STOP"

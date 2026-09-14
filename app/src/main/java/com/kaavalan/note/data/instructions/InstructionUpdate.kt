@@ -17,6 +17,19 @@ data class InstructionUpdate(
 
 object InstructionJournal {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
+    /**
+     * Strict decoder for every path that may write the journal back to disk. A damaged
+     * history must stop an edit instead of being silently replaced with a shorter one.
+     */
     fun decode(value: String): List<InstructionUpdate> = json.decodeFromString(value)
+
+    /**
+     * Best-effort decoder for read-only UI projections. One damaged legacy row should
+     * not make every healthy instruction disappear from the workspace.
+     */
+    fun decodeForDisplay(value: String): List<InstructionUpdate> =
+        runCatching { decode(value) }.getOrDefault(emptyList())
+
     fun encode(updates: List<InstructionUpdate>): String = json.encodeToString(updates)
 }

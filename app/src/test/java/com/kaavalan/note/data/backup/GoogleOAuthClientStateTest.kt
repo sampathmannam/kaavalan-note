@@ -50,6 +50,43 @@ import java.io.File
 @Config(sdk = [33])
 class GoogleOAuthClientStateTest {
 
+    @Test
+    fun `OAuth configuration accepts a Google client and the manifest redirect`() {
+        assertTrue(
+            GoogleOAuthClient.isConfigurationValid(
+                "123456789012-exampleclient.apps.googleusercontent.com",
+                "kaavalan-note://oauth-callback",
+            ),
+        )
+    }
+
+    @Test
+    fun `OAuth configuration rejects placeholder malformed and mismatched values`() {
+        assertFalse(
+            GoogleOAuthClient.isConfigurationValid(
+                "KAAVALAN_NOTE_GOOGLE_OAUTH_CLIENT_ID_PLACEHOLDER",
+                "kaavalan-note://oauth-callback",
+            ),
+        )
+        assertFalse(
+            GoogleOAuthClient.isConfigurationValid(
+                "not-a-google-client-id",
+                "kaavalan-note://oauth-callback",
+            ),
+        )
+        assertFalse(
+            GoogleOAuthClient.isConfigurationValid(
+                "123456789012-exampleclient.apps.googleusercontent.com",
+                "attacker-app://oauth-callback",
+            ),
+        )
+    }
+
+    @Test(expected = IllegalStateException::class)
+    fun `sign in refuses to open an OAuth page in an unconfigured build`() {
+        client.signIn()
+    }
+
     private lateinit var context: Context
     private lateinit var client: GoogleOAuthClient
     private val securePreferences: SecurePreferences = mockk(relaxed = true)

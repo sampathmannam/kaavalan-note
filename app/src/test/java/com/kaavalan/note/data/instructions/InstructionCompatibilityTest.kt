@@ -2,6 +2,8 @@ package com.kaavalan.note.data.instructions
 
 import com.kaavalan.note.data.local.entities.InstructionEntity
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class InstructionCompatibilityTest {
@@ -23,5 +25,28 @@ class InstructionCompatibilityTest {
         Source.entries.forEach { source ->
             assertEquals(source, row.copy(source = source.name).toDomain().source)
         }
+    }
+
+    @Test fun unknownWireValues_keepTheRecordVisibleWithConservativeDefaults() {
+        val note = row.copy(
+            direction = "SIDEWAYS",
+            status = "FUTURE_STATUS",
+            source = "SCANNER_V2",
+            priority = "CRITICAL_V2",
+        ).toDomain()
+
+        assertEquals(Direction.OUTGOING, note.direction)
+        assertEquals(Status.OPEN, note.status)
+        assertEquals(Source.TEXT, note.source)
+        assertEquals(Priority.NORMAL, note.priority)
+        assertEquals(row.id, note.id)
+    }
+
+    @Test fun malformedJournal_doesNotBlankReadOnlyUiButStrictWritesStillRefuseIt() {
+        val note = row.copy(updatesJson = "{not-json").toDomain()
+        assertTrue(note.updates.isEmpty())
+
+        val strictFailure = runCatching { InstructionJournal.decode("{not-json") }.exceptionOrNull()
+        assertNotNull("write paths must not silently discard a damaged journal", strictFailure)
     }
 }

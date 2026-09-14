@@ -103,6 +103,9 @@ class TodayOneNextActionTest {
                 it.type.name.contains("StateFlow") ||
                     it.type.name.contains("Flow")
             }
+            // A one-shot Snackbar event reports a failed action; it neither renders a
+            // competing card nor asks the user to choose a next step.
+            .filterNot { it.name == "messages" }
             .map { it.name }
         // Rule 1 (one next action) is about the screen surface: the
         // Today tab should present one drill-down path, not

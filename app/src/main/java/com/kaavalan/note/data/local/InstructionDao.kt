@@ -65,6 +65,13 @@ interface InstructionDao {
     @Query("SELECT * FROM instructions ORDER BY capturedAt DESC")
     suspend fun snapshot(): List<InstructionEntity>
 
+    /** Future/past-due open reminders that must be re-armed after reboot or an app update. */
+    @Query(
+        "SELECT * FROM instructions WHERE dueAtMs IS NOT NULL " +
+            "AND status NOT IN ('DONE', 'CARRIED_OVER', 'DROPPED') ORDER BY dueAtMs ASC",
+    )
+    suspend fun snapshotOpenReminders(): List<InstructionEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(instruction: InstructionEntity)
 

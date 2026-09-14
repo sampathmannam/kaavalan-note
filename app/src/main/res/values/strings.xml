@@ -175,6 +175,11 @@
 
     <!-- v1.4 (PHONE-FINDING-10 / F-02): POST_NOTIFICATIONS rationale. -->
     <string name="notifications_rationale">Allow notifications so Kaavalan can deliver reminders and your morning brief.</string>
+    <string name="exact_alarm_rationale">Allow Alarms &amp; reminders so scheduled notes arrive on time, including during battery saver.</string>
+    <string name="exact_alarm_already_allowed">Precise reminder timing is already allowed.</string>
+    <string name="settings_precise_reminders">Precise reminder timing</string>
+    <string name="settings_android_setting">Android setting</string>
+    <string name="settings_precise_reminders_explainer">Optional. Without this access, reminders still work but Android may deliver them a little later during battery saver.</string>
 
     <string name="capture_dispatch_suggestion_message">This note mentions %1$s. Send it to them instead of just saving it?</string>
     <string name="capture_dispatch_suggestion_action">Send to a group…</string>
@@ -482,6 +487,7 @@
     <string name="settings_drive_title">Google Drive backup</string>
     <string name="settings_drive_signed_in_as">Signed in as %1$s</string>
     <string name="settings_drive_sign_in">Sign in with Google</string>
+    <string name="settings_drive_unavailable">Google Drive backup is not configured in this build. Local encrypted backup is still available below.</string>
     <string name="settings_drive_sign_out">Sign out</string>
     <string name="settings_drive_back_up_now">Back up now</string>
     <string name="settings_drive_restore">Restore from backup</string>

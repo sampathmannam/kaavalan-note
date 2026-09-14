@@ -189,6 +189,12 @@ fun HomeScreen(
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(viewModel) {
+        viewModel.messages.collect { snackbarHostState.showSnackbar(it) }
+    }
+    LaunchedEffect(searchDetailViewModel) {
+        searchDetailViewModel.messages.collect { snackbarHostState.showSnackbar(it) }
+    }
     LaunchedEffect(showTagSnackbar, selectedTagId) {
         if (showTagSnackbar && selectedTagId != null) {
             showTagSnackbar = false

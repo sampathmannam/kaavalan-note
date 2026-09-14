@@ -251,11 +251,11 @@ class RetentionWorkerTest {
      * instructions, a delete that leaves the text behind is not a
      * delete.
      *
-     * The row is left in place and emptied rather than removed,
-     * matching how the audit chain is redacted above.
+     * Once its source capture is gone the outbox row has no recoverable purpose, so the
+     * worker removes it after clearing any legacy payload.
      */
     @Test
-    fun `retention clears note text left behind in the outbox`() = runBlocking {
+    fun `retention removes capture rows left behind in the outbox`() = runBlocking {
         val secret = "the informant will meet me behind the temple at nine"
         syncQueueDao.enqueue(
             com.kaavalan.note.data.local.entities.SyncQueueEntity(
@@ -272,12 +272,7 @@ class RetentionWorkerTest {
         assertTrue("expected Result.success(), got $result", result is ListenableWorker.Result.Success)
 
         val rows = syncQueueDao.snapshot().filter { it.table == "captures" }
-        assertEquals(1, rows.size)
-        assertEquals(
-            "the outbox payload must be emptied by the sweep",
-            "{}",
-            rows[0].payloadJson,
-        )
+        assertTrue("an outbox row with no source capture must be removed", rows.isEmpty())
         assertFalse(
             "the note's text must not survive the retention sweep anywhere in the outbox",
             syncQueueDao.snapshot().any { it.payloadJson.contains(secret) },

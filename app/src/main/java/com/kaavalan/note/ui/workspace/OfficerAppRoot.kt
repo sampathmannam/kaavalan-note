@@ -188,7 +188,9 @@ internal fun OfficerAppRoot(
         contract = ActivityResultContracts.RequestPermission(),
     ) { granted ->
         if (granted) {
-            (context as? MainActivity)?.briefNotifier?.schedule()
+            (context as? MainActivity)?.let { activity ->
+                activity.briefNotifier.schedule()
+            }
         }
     }
     SideEffect {
@@ -602,6 +604,9 @@ internal fun OfficerAppRoot(
     if (showSettings) {
         SettingsSheet(
             onDismiss = { showSettings = false },
+            onRequestExactAlarmAccess = {
+                (context as? MainActivity)?.requestExactAlarmAccess()
+            },
             onVaultExport = { showSettings = false; showVaultExport = true },
             onVaultImport = { showSettings = false; showVaultImport = true },
             onOpenRecoveryPhrase = {

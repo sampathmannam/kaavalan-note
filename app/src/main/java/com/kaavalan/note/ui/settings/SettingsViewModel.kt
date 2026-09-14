@@ -322,6 +322,10 @@ class SettingsViewModel @Inject constructor(
         googleOAuthClient.isSignedIn(),
     ).asStateFlow()
 
+    /** This build has a usable OAuth client ID and the manifest-owned redirect. */
+    val googleDriveAvailable: Boolean =
+        com.kaavalan.note.data.backup.GoogleOAuthClient.isConfigured()
+
     /**
      * v2.1.0: one-shot events for the Settings sheet's
      * Drive backup surface. The [DriveBackupEvent] is a
@@ -362,7 +366,7 @@ class SettingsViewModel @Inject constructor(
      * they cancelled).
      */
     fun googleDriveSignIn() {
-        googleOAuthClient.signIn()
+        if (googleDriveAvailable) googleOAuthClient.signIn()
     }
 
     /**
@@ -1591,4 +1595,3 @@ data class AppVersion(
 
 
 )
-

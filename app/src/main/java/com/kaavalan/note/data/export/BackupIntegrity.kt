@@ -2,11 +2,18 @@ package com.kaavalan.note.data.export
 
 import com.kaavalan.note.data.local.AppDatabase
 import com.kaavalan.note.data.local.InstructionFtsDao
+import com.kaavalan.note.data.instructions.Direction
+import com.kaavalan.note.data.instructions.InstructionJournal
+import com.kaavalan.note.data.instructions.Priority
+import com.kaavalan.note.data.instructions.Source
+import com.kaavalan.note.data.instructions.Status
 import com.kaavalan.note.data.local.entities.InstructionEntity
 import com.kaavalan.note.data.local.entities.InstructionFtsEntity
 import com.kaavalan.note.data.local.entities.PersonEntity
 import com.kaavalan.note.data.subdivision.SubdivisionArchive
 import com.kaavalan.note.data.subdivision.SubdivisionRepository
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 
 /**
  * The checks and the write order shared by the plain importer and the manual backup
@@ -18,10 +25,70 @@ import com.kaavalan.note.data.subdivision.SubdivisionRepository
  */
 internal object BackupIntegrity {
 
+    const val MAX_IMPORT_BYTES: Int = 64 * 1024 * 1024
+
+    /**
+     * Read a user-controlled import without allowing an arbitrarily large URI/file to
+     * exhaust the app heap before JSON/CSV validation can run.
+     */
+    fun readUtf8(input: InputStream, maxBytes: Int = MAX_IMPORT_BYTES): String {
+        require(maxBytes > 0)
+        val output = ByteArrayOutputStream(minOf(DEFAULT_BUFFER_SIZE, maxBytes))
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var total = 0
+        while (true) {
+            val read = input.read(buffer)
+            if (read < 0) break
+            total += read
+            require(total <= maxBytes) {
+                "This file is too large to import safely. Nothing has been changed."
+            }
+            output.write(buffer, 0, read)
+        }
+        return output.toString(Charsets.UTF_8.name())
+    }
+
     fun requireDistinctIds(ids: List<String>, what: String) {
         val duplicate = ids.groupingBy { it }.eachCount().entries.firstOrNull { it.value > 1 }
         require(duplicate == null) {
             "This file lists the same " + what + " twice (" + duplicate?.key + "). Nothing has been changed."
+        }
+    }
+
+    fun requireInstructionJournal(value: String): String {
+        val clean = value.ifBlank { "[]" }
+        runCatching { InstructionJournal.decode(clean) }.getOrElse {
+            throw IllegalArgumentException(
+                "An instruction has a damaged update journal. Nothing has been changed.",
+            )
+        }
+        return clean
+    }
+
+    /**
+     * Validate the persisted enum wire values before an import can commit them. Unknown
+     * values are tolerated when reading an already-existing legacy row, but accepting one
+     * from a new restore would knowingly introduce damaged data into a healthy vault.
+     */
+    fun requireInstructionValues(instructions: List<InstructionEntity>) {
+        val directions = Direction.entries.mapTo(mutableSetOf()) { it.name }
+        val statuses = Status.entries.mapTo(mutableSetOf()) { it.name }
+        val sources = Source.entries.mapTo(mutableSetOf()) { it.name }.apply { add("OCR") }
+        val priorities = Priority.entries.mapTo(mutableSetOf()) { it.name }
+        instructions.forEach { item ->
+            require(item.direction in directions) {
+                "An instruction has an unsupported direction. Nothing has been changed."
+            }
+            require(item.status in statuses) {
+                "An instruction has an unsupported status. Nothing has been changed."
+            }
+            require(item.source in sources) {
+                "An instruction has an unsupported source. Nothing has been changed."
+            }
+            require(item.priority in priorities) {
+                "An instruction has an unsupported priority. Nothing has been changed."
+            }
+            requireInstructionJournal(item.updatesJson)
         }
     }
 

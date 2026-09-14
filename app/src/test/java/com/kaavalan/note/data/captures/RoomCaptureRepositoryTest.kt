@@ -1,10 +1,7 @@
 package com.kaavalan.note.data.captures
 
-import android.util.Log
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import androidx.work.Configuration
-import androidx.work.testing.WorkManagerTestInitHelper
 import com.kaavalan.note.data.local.AppDatabase
 import com.kaavalan.note.data.local.CaptureDao
 import com.kaavalan.note.data.local.SyncQueueDao
@@ -20,6 +17,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -68,40 +66,15 @@ class RoomCaptureRepositoryTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        // v1.4.4: RoomCaptureRepository.create() and markProcessed()
-        // now call WorkManagerInitializer.enqueueCaptureSync(context)
-        // after enqueuing the sync_queue row. Kaavalan note disables
-        // WorkManager's auto-init ContentProvider in the manifest
-        // (see tools:node="remove" on
-        // androidx.work.WorkManagerInitializer in AndroidManifest.xml)
-        // so a bare WorkManager.getInstance(context) call would throw
-        // IllegalStateException("WorkManager is not initialized
-        // properly"). Initialize a test WorkManager here so the
-        // per-write enqueue is a no-op (the work is enqueued into the
-        // test driver; we don't assert it actually ran, just that
-        // the call doesn't throw). Mirrors the pattern in
-        // WorkManagerInitializerCaptureSyncTest.
-        WorkManagerTestInitHelper.initializeTestWorkManager(
-            context,
-            Configuration.Builder()
-                .setMinimumLoggingLevel(Log.DEBUG)
-                .build(),
-        )
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
             .allowMainThreadQueries()
             .build()
         captureDao = db.captureDao()
         syncQueueDao = db.syncQueueDao()
         repo = RoomCaptureRepository(
+            db = db,
             dao = captureDao,
             syncQueueDao = syncQueueDao,
-            // v1.4.4: pass the test context so the per-write
-            // enqueueCaptureSync call has something to call
-            // WorkManager.getInstance on. The WorkManager test
-            // driver initialised above makes the call a no-op
-            // (the work is enqueued into the driver, not the
-            // real scheduler) and asserts the call didn't throw.
-            context = context,
         )
     }
 
@@ -229,5 +202,24 @@ class RoomCaptureRepositoryTest {
         val queue = syncQueueDao.snapshot()
         // No row in Room to read back, so no UPDATE enqueued.
         assertEquals(0, queue.size)
+    }
+
+    @Test
+    fun `create rolls back capture when outbox insert fails`() = runTest {
+        db.openHelper.writableDatabase.execSQL(
+            """
+            CREATE TRIGGER reject_capture_outbox
+            BEFORE INSERT ON sync_queue
+            WHEN NEW.`table` = 'captures'
+            BEGIN
+                SELECT RAISE(ABORT, 'simulated outbox failure');
+            END
+            """.trimIndent(),
+        )
+
+        val failure = runCatching { repo.create("must not partially save", CaptureMode.TEXT) }.exceptionOrNull()
+        assertNotNull("the outbox failure must surface", failure)
+        assertTrue("the capture insert must roll back", captureDao.snapshot().isEmpty())
+        assertTrue("the outbox must stay empty", syncQueueDao.snapshot().isEmpty())
     }
 }

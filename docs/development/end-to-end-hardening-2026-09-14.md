@@ -2,16 +2,87 @@
 
 ## Status
 
-Completed on branch `feat/end-to-end-hardening-and-polish`, based on the released
-v2.7.1 commit `ae268fbffa8d21e8732be3f24f076251bbaf01a3`. The verified changes were
-published as the in-place v2.7.2/code-55 hardening release with the same application
-identity, Room schema and manual-backup schema. Tag `v2.7.2` resolves to
-`a001cb938c687a8b9e3e1cefcaa97ef408a7eb28`.
+The original pass on branch `feat/end-to-end-hardening-and-polish` was published as
+v2.7.2/code 55. The branch now contains the v2.7.4/code 57 release candidate, based
+on the released v2.7.3 source. It retains the application identity, Room schema,
+manual-backup schema, dependencies and pinned signing identity. This follow-up source
+is verified and ready for the guarded signed-release procedure.
 
 The cloud Penpot file is named **KaavalanNote field notebook UI v2.7**. It contains
 Foundations, Components and Screens & states pages, all 27 screen/state boards,
 light and dark component sheets, and the light, dark, spacing, radius, size and
 typography token sets. The repository source remains under `design/penpot-v2.7/`.
+
+## Post-v2.7.3 reliability strengthening
+
+- Instruction mutations and capture/outbox writes now commit in single Room
+  transactions. Regression tests inject SQLite trigger failures and prove that the
+  primary row rolls back when its outbox write fails.
+- Read-only projections isolate malformed legacy instruction values instead of
+  blanking an entire screen. Paths that may overwrite data remain strict, and restore
+  and plain import reject unsupported enums atomically. Legacy OCR remains compatible
+  and maps to the current photo source.
+- User-controlled restore/import input is limited to 64 MiB before parsing. Local
+  backups use unique names, a mutex, same-directory temporary files, `fsync`, atomic
+  publication where supported, cleanup and deterministic seven-file retention.
+- Reminder Done/Snooze action failures no longer crash the app process; the visible
+  notification remains available for retry. Home, Today, search-result and person
+  detail mutations now surface safe, non-sensitive Snackbar errors without replacing
+  healthy screen content.
+- Expired captures now remove their legacy capture outbox markers, preventing orphaned
+  queue growth. Existing capture payload cleanup remains covered by retention tests.
+
+### Follow-up verification
+
+| Gate | Result |
+|---|---|
+| JVM unit tests | 886/886 passed across 156 suites; 0 skipped, 0 failed, 0 errors |
+| Android-native tests | 12 former JVM skips now run against Android Keystore, Argon2 and SQLCipher; all pass on both API 34 and API 37 |
+| Android lint | Passed with 0 errors/fatals, 348 warnings and 562 informational findings |
+| Debug APK | Passed; universal and four per-ABI APKs assembled |
+| Optimized release APK | Passed with R8 and resource shrinking; unsigned universal and four per-ABI APKs assembled |
+| Android 14/API 34 device suite | 39 passed, 2 intentional environment skips, 0 failures/errors on task-owned `kaavalan-test`, isolated as `com.kaavalan.note.debug.officer` |
+| Physical Android 17/API 37 suite | 39 passed, 2 intentional harness skips, 0 failures/errors on the connected Motorola, isolated as `com.kaavalan.note.debug.physicalqa` |
+| Forced-Doze reminder delivery | Passed on both the API 34 emulator and Motorola after the isolated app process exited |
+| Gitleaks 8.30.1 | Current tracked and unignored working-tree snapshot: 0 findings |
+| Trivy 0.74.0 | Current tracked source snapshot: 0 reported vulnerabilities, secrets or misconfigurations; dependencies are unchanged from the prior exact-runtime scan |
+
+The final universal debug APK is 96,182,601 bytes with SHA-256
+`7bb42949bda6a5927c68c2df719e775e9637f354aed2416ac9a746d410532a4b`.
+The optimized unsigned universal release APK is 71,929,685 bytes with SHA-256
+`7fa5d87ea9f1e60f61a918e2442b159fbd8873a80d4374dfe6be46152a990956`.
+It is an unpublished development artifact, not a production release.
+
+The expanded native suite exposed two real defects before going green: Argon2 memory
+and iteration costs were passed in the wrong positional order, and migration 10→11
+created its FTS columns in an order Room rejected. Both are fixed and pinned by the
+new device tests. The reminder pass also found an Android 12 API-level lint failure,
+which is now represented with a min-SDK-safe broadcast action string.
+
+The first expanded emulator run then exposed a product UX defect: selecting a reminder
+could automatically open Android's Alarms & reminders settings while the user was still
+editing the note. Exact timing is now an explicit Settings action. Without that access,
+the app retains its allow-while-idle AlarmManager delivery plus durable WorkManager
+fallback. The final uninterrupted API 34 aggregate passed with only the host-driven
+Doze and physical speech-provider checks skipped in-process; both were exercised in
+their correct environments.
+
+The final Motorola aggregate passed. Its two skips are deliberate: synthetic
+ContactsProvider injection is emulator-only, and forced idle must be driven outside
+Android Test Orchestrator. The phone's real speech-recognition provider was visible.
+No physical contact was created, modified or deleted. Temporary animation settings
+were restored, forced idle was released, disposable QA packages were removed, and
+neither the production nor existing debug package was replaced or cleared.
+
+Google Drive OAuth is not configured in this checkout, so a live account round trip
+could not be truthfully exercised. The app now detects that state, removes the broken
+sign-in action, explains that Drive is unavailable in this build, and keeps local
+encrypted backup available. OAuth sign-in, token refresh and background Drive work are
+also guarded against placeholder configuration.
+
+CI no longer silently skips Android tests when its persistent AVD is stopped. It starts
+the designated `kaavalan-test` AVD, fails if it cannot boot, clears only stale isolated
+QA identities, runs the aggregate suite, and then runs the external forced-Doze probe.
 
 ## Product polish confirmed
 
@@ -56,7 +127,7 @@ typography token sets. The repository source remains under `design/penpot-v2.7/`
   interpolated directly into shell scripts.
 - A stable reminder-chip test tag replaced an ambiguous text-only device-test selector.
 
-## Verification
+## Earlier v2.7.2 baseline verification
 
 | Gate | Result |
 |---|---|
@@ -109,7 +180,9 @@ identity was published to the Obtainium release channel. Its SHA-256 is
 `93127f7cee27c4b798b1bf01280e962643ceeaf3f29d4e4731d2415903dcc098`; the public asset
 digest matches the locally verified file.
 
-This pass does not claim a physical-phone matrix, TalkBack certification, live Google
-Drive account exchange, or real speech-recognition accuracy across OEM recognizers.
-The emulator verifies the app-side contracts; those external/device-dependent checks
-remain release acceptance work.
+This pass covers one Motorola physical phone plus an API 34 emulator, not a physical
+OEM matrix. It does not claim TalkBack certification, a completed 7–14 day elapsed-time
+soak, live Google Drive account exchange, or speech-recognition accuracy across OEMs and
+languages. Those external, time-dependent and additional-hardware checks remain release
+acceptance work; the build now fails safely where configuration is absent and the CI
+device gate can no longer disappear silently.

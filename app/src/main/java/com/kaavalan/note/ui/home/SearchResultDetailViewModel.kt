@@ -6,6 +6,8 @@ import com.kaavalan.note.data.instructions.Instruction
 import com.kaavalan.note.data.instructions.RoomInstructionRepository
 import com.kaavalan.note.data.reminder.ReminderManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -23,17 +25,9 @@ import javax.inject.Inject
  * result. This VM is `hiltViewModel()`-ed from the search-
  * detail sheet closure and is short-lived.
  *
- * The VM delegates to the same 1-arg helpers on
- * [RoomInstructionRepository] that
- * [com.kaavalan.note.ui.today.TodayViewModel] uses — those
- * helpers also enqueue a PENDING_UPDATE row in the sync
- * outbox, so the search-result transition ends up on
- * Supabase on the next online tick, exactly as a transition
- * fired from the Today screen does. We do not call
- * [com.kaavalan.note.data.instructions.SupabaseInstructionRepository]
- * directly here: the sync engine owns the outbox-drain
- * lifecycle and the contract is "write locally, drain
- * remotely" — a second write path would race the outbox.
+ * The VM delegates to the same local Room mutation helpers used by Today. Those helpers
+ * atomically update the instruction and its forward-compatible outbox marker. The
+ * current product is local-only; no network call is part of this interaction.
  */
 @HiltViewModel
 class SearchResultDetailViewModel @Inject constructor(
@@ -41,30 +35,43 @@ class SearchResultDetailViewModel @Inject constructor(
     private val reminderManager: ReminderManager,
 ) : ViewModel() {
 
+    private val messageChannel = kotlinx.coroutines.channels.Channel<String>(
+        kotlinx.coroutines.channels.Channel.BUFFERED,
+    )
+    val messages = messageChannel.receiveAsFlow()
+
     fun markDone(instruction: Instruction) {
-        viewModelScope.launch {
-            runCatching { roomInstructionRepository.markDone(instruction.id) }
-                .onSuccess { reminderManager.cancelDelivery(instruction.id) }
+        mutate {
+            roomInstructionRepository.markDone(instruction.id)
+            reminderManager.cancelDelivery(instruction.id)
         }
     }
 
     fun markDropped(instruction: Instruction) {
-        viewModelScope.launch {
-            runCatching { roomInstructionRepository.markDropped(instruction.id, reason = null) }
-                .onSuccess { reminderManager.cancelDelivery(instruction.id) }
+        mutate {
+            roomInstructionRepository.markDropped(instruction.id, reason = null)
+            reminderManager.cancelDelivery(instruction.id)
         }
     }
 
     fun reopen(instruction: Instruction) {
-        viewModelScope.launch {
-            runCatching { roomInstructionRepository.reopen(instruction.id) }
-        }
+        mutate { roomInstructionRepository.reopen(instruction.id) }
     }
 
     fun updateReminder(instruction: Instruction, reminderAtMs: Long?) {
         if (reminderAtMs != null && reminderAtMs <= System.currentTimeMillis()) return
+        mutate { reminderManager.update(instruction.id, reminderAtMs) }
+    }
+
+    private fun mutate(work: suspend () -> Unit) {
         viewModelScope.launch {
-            runCatching { reminderManager.update(instruction.id, reminderAtMs) }
+            try {
+                work()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                messageChannel.trySend("Could not save that change. Please try again.")
+            }
         }
     }
 }

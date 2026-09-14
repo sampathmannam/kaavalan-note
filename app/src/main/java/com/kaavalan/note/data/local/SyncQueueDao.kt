@@ -91,6 +91,17 @@ interface SyncQueueDao {
     suspend fun clearCapturePayloads(): Int
 
     /**
+     * Remove capture outbox rows whose source capture has already passed retention. With
+     * cloud sync disabled there is no consumer that can clear these rows, so retaining
+     * them after the source is gone would make the database grow forever.
+     */
+    @Query(
+        "DELETE FROM sync_queue WHERE `table` = 'captures' " +
+            "AND rowId NOT IN (SELECT id FROM captures)",
+    )
+    suspend fun deleteOrphanedCaptureEntries(): Int
+
+    /**
      * v1.8.0 (PROD-READINESS-P2-P1-#4): trim the
      * outbox to [maxSize] rows. Oldest-wins eviction:
      * rows with the highest `id` are deleted (since

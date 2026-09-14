@@ -437,8 +437,11 @@ android {
         // v2.7.3: muted plum light/dark notebook theme, consistent widget colours,
         // labelled status palettes and expanded contrast/visual coverage.
         // Same application ID and schemas; versionCode 55 -> 56.
-        versionCode = 56
-        versionName = "2.7.3"
+        // v2.7.4: end-to-end reliability hardening for transactional writes,
+        // safe import/backup recovery, reminder delivery and Android-native tests.
+        // Same application ID, Room schema 18 and backup schema 4; versionCode 56 -> 57.
+        versionCode = 57
+        versionName = "2.7.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // v2.2.2 (test-infra): wipe app state between instrumented

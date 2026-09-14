@@ -20,11 +20,18 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.FileOutputStream
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * v1.8.0 (PROD-READINESS-P0-#1): full backup + restore.
@@ -39,17 +46,17 @@ import javax.inject.Singleton
  * **Where backups live:** the app's private `filesDir` under a
  * `backups/` subdirectory. Android's app sandbox already
  * protects this from other apps; on a non-rooted device the
- * file is unreachable without `adb backup` or root. v2.x can
- * add user-selectable destinations (Drive, SD card, share
- * intent) and a passphrase-encrypted envelope — the v1.x
- * trade-off is "sandboxed plain JSON, recoverable on the same
- * device after a clear-data".
+ * file is unreachable without root. These local snapshots protect
+ * against application-level corruption, not uninstall or Android's
+ * "clear storage" action, both of which remove `filesDir`. The
+ * encrypted Drive/export paths are the off-device recovery option.
  *
  * **What is restored:** every table that [PlainExporter.snapshot]
  * can read plus the additional tables this class adds (captures,
  * important dates, person links, instruction-tag join). The
- * restore is idempotent — re-running it on the same backup is a
- * no-op (every insert is `OnConflictStrategy.REPLACE`).
+ * restore is idempotent — re-running it on the same backup keeps a
+ * single row per id. Restore uses Room `@Upsert`, not REPLACE, so
+ * foreign-key children are not cascade-deleted during an update.
  *
  * **Restore order:** parents before children.
  *   1. persons
@@ -75,6 +82,9 @@ class BackupManager @Inject constructor(
     private val db: com.kaavalan.note.data.local.AppDatabase,
 ) {
 
+    /** One complete snapshot/write/prune operation at a time for this singleton. */
+    private val backupMutex = Mutex()
+
     /**
      * The directory under `filesDir` where backup files live.
      * Created lazily on the first [backup] or [restore] call.
@@ -90,7 +100,7 @@ class BackupManager @Inject constructor(
      * and deletes older ones. This prevents the app's storage
      * from growing without bound.
      */
-    suspend fun backup(): File {
+    suspend fun backup(): File = backupMutex.withLock {
         // v2.6.0: one transaction for the whole snapshot. A backup taken while the officer
         // is still working must not capture an instruction whose matter, or a posting whose
         // contact, was written a moment later.
@@ -124,11 +134,13 @@ class BackupManager @Inject constructor(
                 ),
             )
         }
-        val ts = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
-        val file = File(backupDir, "kaavalan-note-backup-$ts.json")
-        file.writeText(root.toString(2))
+        val ts = SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.US).format(Date())
+        // UUID prevents two backups made within the same millisecond from naming the same
+        // file (for example a manual request racing the scheduled worker).
+        val file = File(backupDir, "kaavalan-note-backup-$ts-${UUID.randomUUID()}.json")
+        writeAtomically(file, root.toString(2))
         pruneOldBackups()
-        return file
+        file
     }
 
     /**
@@ -140,7 +152,7 @@ class BackupManager @Inject constructor(
      * UI / log can tell the user what was restored.
      */
     suspend fun restore(file: File): RestoreResult {
-        val root = JSONObject(file.readText())
+        val root = JSONObject(file.inputStream().use { BackupIntegrity.readUtf8(it) })
         val version = if (root.has("schema_version")) root.optInt("schema_version", 1) else 1
         require(version <= SCHEMA_VERSION) {
             "This backup was written by a newer version of KaavalanNote (format " + version +
@@ -171,6 +183,7 @@ class BackupManager @Inject constructor(
             BackupIntegrity.requireDistinctIds(instructions.map { it.id }, "instruction")
             BackupIntegrity.requireDistinctIds(tags.map { it.id }, "label")
             BackupIntegrity.requireDistinctIds(captures.map { it.id }, "capture")
+            BackupIntegrity.requireInstructionValues(instructions)
 
             val vaultModes = buildMap {
                 personDao.snapshot().forEach { put(it.id, it.vaultMode) }
@@ -260,6 +273,29 @@ class BackupManager @Inject constructor(
         }
     }
 
+    /**
+     * Publish a complete backup in one filesystem move. A killed process may leave a
+     * hidden temporary file, but it cannot turn the newest visible `.json` into a partial
+     * document. The fallback is only for filesystems that do not support atomic moves.
+     */
+    private fun writeAtomically(target: File, payload: String) {
+        val parent = requireNotNull(target.parentFile) { "Backup destination has no parent directory" }
+        val temporary = File.createTempFile(".kaavalan-note-backup-", ".tmp", parent)
+        try {
+            FileOutputStream(temporary).use { output ->
+                output.write(payload.toByteArray(Charsets.UTF_8))
+                output.fd.sync()
+            }
+            try {
+                Files.move(temporary.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE)
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(temporary.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+        } finally {
+            if (temporary.exists()) temporary.delete()
+        }
+    }
+
     data class RestoreResult(
         val people: Int,
         val tags: Int,
@@ -276,7 +312,7 @@ class BackupManager @Inject constructor(
     }
 
     companion object {
-        /** v1.8.0 (PROD-READINESS-P0-#1): keep the last 7 daily backups. */
+        /** Keep the seven newest local backups, whether scheduled or manual. */
         const val MAX_BACKUPS = 7
 
         /**
@@ -467,9 +503,7 @@ private fun JSONObject.toInstructionEntity(): InstructionEntity = InstructionEnt
     dueAtMs = optLongOrNull("due_at_ms"),
     channel = optStringOrNull("channel"),
     deadlineAtMs = optLongOrNull("deadline_at_ms"),
-    updatesJson = optString("updates_json", "[]")
-        .ifBlank { "[]" }
-        .also { com.kaavalan.note.data.instructions.InstructionJournal.decode(it) },
+    updatesJson = BackupIntegrity.requireInstructionJournal(optString("updates_json", "[]")),
     // v2.6.0. Absent in a schema-3 backup; [BackupIntegrity.deriveLegacyStations] fills
     // the station in afterwards from the contact's own station text where it can.
     stationId = optStringOrNull("station_id"),

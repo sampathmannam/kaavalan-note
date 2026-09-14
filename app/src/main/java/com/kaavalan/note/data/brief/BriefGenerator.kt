@@ -163,8 +163,12 @@ private fun InstructionEntity.toDomain(): Instruction = Instruction(
         .getOrDefault(com.kaavalan.note.data.instructions.Direction.OUTGOING),
     status = runCatching { com.kaavalan.note.data.instructions.Status.valueOf(status) }
         .getOrDefault(com.kaavalan.note.data.instructions.Status.OPEN),
-    source = runCatching { com.kaavalan.note.data.instructions.Source.valueOf(source) }
-        .getOrDefault(com.kaavalan.note.data.instructions.Source.TEXT),
+    source = if (source == "OCR") {
+        com.kaavalan.note.data.instructions.Source.PHOTO
+    } else {
+        runCatching { com.kaavalan.note.data.instructions.Source.valueOf(source) }
+            .getOrDefault(com.kaavalan.note.data.instructions.Source.TEXT)
+    },
     priority = runCatching { com.kaavalan.note.data.instructions.Priority.valueOf(priority) }
         .getOrDefault(com.kaavalan.note.data.instructions.Priority.NORMAL),
     title = title,

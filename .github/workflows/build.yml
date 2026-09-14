@@ -342,11 +342,9 @@ jobs:
   # suites (which live under `app/src/androidTest/java/`) on
   # the dedicated emulator connected to the self-hosted runner.
   #
-  # The job is OPTIONAL — if no device is connected, the job
-  # exits early with a `skipped` result. This is the right
-  # shape for a self-hosted runner that sometimes has a
-  # device and sometimes doesn't; it does not block the
-  # release pipeline.
+  # The job is a release gate. If the designated AVD is not already
+  # connected, CI starts it headlessly. A missing or unbootable AVD
+  # fails the job instead of silently turning device coverage off.
   #
   # To add a new androidTest class: drop it into
   # `app/src/androidTest/java/` and the gradle task below
@@ -357,10 +355,6 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64, baton]
     timeout-minutes: 60
     needs: [assemble]
-    # If no device is connected, the device check below sets
-    # this output to `skipped`. The CI pipeline continues —
-    # androidTest is a drive-verify layer, not a release
-    # gate. The unit-test + assemble jobs are the gate.
     continue-on-error: false
     outputs:
       device_attached: ${{ steps.device_check.outputs.attached }}
@@ -387,7 +381,7 @@ jobs:
           echo "PATH=$HOME/Library/Android/sdk/platform-tools:$PATH" >> $GITHUB_ENV
           test -d "$HOME/Library/Android/sdk" || (echo "::error::No SDK at $HOME/Library/Android/sdk" && exit 1)
 
-      - name: Check for the test emulator
+      - name: Select or start the test emulator
         id: device_check
         env:
           EXPECTED_AVD: ${{ vars.KAAVALAN_CI_AVD_NAME || 'kaavalan-test' }}
@@ -402,16 +396,37 @@ jobs:
               break
             fi
           done < <(adb devices | awk '$1 ~ /^emulator-/ && $2 == "device" { print $1 }')
-          if [ -n "$SERIAL" ]; then
-            echo "Selected test emulator: $SERIAL"
-            echo "attached=true" >> "$GITHUB_OUTPUT"
-            echo "serial=$SERIAL" >> "$GITHUB_OUTPUT"
-          else
-            echo "::warning::The designated AVD ($EXPECTED_AVD) is not connected. "\
-                  "Skipping the connectedAndroidTest job. The androidTest classes "\
-                  "still compile in CI; start the dedicated AVD to drive-verify."
-            echo "attached=false" >> "$GITHUB_OUTPUT"
+          if [ -z "$SERIAL" ]; then
+            EMULATOR="$ANDROID_HOME/emulator/emulator"
+            test -x "$EMULATOR" || (echo "::error::Android emulator binary is unavailable" && exit 1)
+            "$EMULATOR" -list-avds | grep -Fxq "$EXPECTED_AVD" || {
+              echo "::error::Required AVD '$EXPECTED_AVD' is not installed on the runner"
+              exit 1
+            }
+            echo "Starting $EXPECTED_AVD headlessly"
+            nohup "$EMULATOR" -avd "$EXPECTED_AVD" -no-window -no-audio \
+              -no-boot-anim -gpu swiftshader_indirect \
+              > "$RUNNER_TEMP/kaavalan-emulator.log" 2>&1 &
+            for _ in $(seq 1 120); do
+              while read -r CANDIDATE; do
+                AVD_NAME=$(adb -s "$CANDIDATE" shell getprop ro.boot.qemu.avd_name 2>/dev/null | tr -d '\r')
+                BOOTED=$(adb -s "$CANDIDATE" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+                if [ "$AVD_NAME" = "$EXPECTED_AVD" ] && [ "$BOOTED" = "1" ]; then
+                  SERIAL="$CANDIDATE"
+                  break 2
+                fi
+              done < <(adb devices | awk '$1 ~ /^emulator-/ && $2 == "device" { print $1 }')
+              sleep 2
+            done
           fi
+          if [ -z "$SERIAL" ]; then
+            echo "::error::The designated AVD did not boot within four minutes"
+            tail -100 "$RUNNER_TEMP/kaavalan-emulator.log" || true
+            exit 1
+          fi
+          echo "Selected test emulator: $SERIAL"
+          echo "attached=true" >> "$GITHUB_OUTPUT"
+          echo "serial=$SERIAL" >> "$GITHUB_OUTPUT"
 
       # The emulator is the designated CI device. Selecting its serial
       # keeps an attached personal phone (and any user interaction on it)
@@ -452,12 +467,31 @@ jobs:
           adb -s "$S" shell dumpsys power | grep -E "mWakefulness="
           adb -s "$S" shell dumpsys window | grep -iE "isKeyguardShowing"
 
+      # This AVD persists between self-hosted jobs. A checkout built with a
+      # different debug keystore cannot update an older isolated QA install;
+      # clear only the test identities before AGP installs the exact build.
+      - name: Remove stale isolated QA packages
+        if: steps.device_check.outputs.attached == 'true'
+        env:
+          QA_DEVICE_SERIAL: ${{ steps.device_check.outputs.serial }}
+        run: |
+          set +e
+          adb -s "$QA_DEVICE_SERIAL" uninstall com.kaavalan.note.debug.officer.test
+          adb -s "$QA_DEVICE_SERIAL" uninstall com.kaavalan.note.debug.officer
+          exit 0
+
       - name: Run connectedAndroidTest
         if: steps.device_check.outputs.attached == 'true'
         env:
           ANDROID_SERIAL: ${{ steps.device_check.outputs.serial }}
         # Synthetic contact tests must use the same isolated package as local QA.
         run: ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace -Pkaavalan.enableReleaseSigning=false -Pkaavalan.debugApplicationIdSuffix=.debug.officer -PBATON_SUPABASE_URL=https://placeholder.supabase.co -PBATON_SUPABASE_ANON_KEY=placeholder-anon-key-for-ci-only
+
+      - name: Run reminder delivery probe under forced Doze
+        if: steps.device_check.outputs.attached == 'true'
+        env:
+          ANDROID_SERIAL: ${{ steps.device_check.outputs.serial }}
+        run: scripts/qa-reminder-doze.sh
 
       # Gradle's console prints only the assertion message and one
       # library frame for a failed instrumented test -- not the frame
@@ -534,10 +568,3 @@ jobs:
             app/build/reports/androidTests
             build/device-logs
           retention-days: 14
-
-      - name: Skip notice
-        if: steps.device_check.outputs.attached == 'false'
-        run: |
-          echo "::notice::Skipped connectedAndroidTest — no test emulator connected. "\
-                "The androidTest classes are still built by gradle but not "\
-                "executed. Start the dedicated AVD to drive-verify."

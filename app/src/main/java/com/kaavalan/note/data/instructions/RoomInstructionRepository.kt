@@ -273,15 +273,17 @@ open class RoomInstructionRepository @Inject constructor(
      * we honour the explicit value here).
      */
     override suspend fun markDone(id: String, completedAt: String) {
-        dao.updateStatus(
-            id = id,
-            status = Status.DONE.name,
-            updatedAt = completedAt,
-            completedAt = completedAt,
-            droppedReason = null,
-            syncStatus = SyncStatus.PENDING_UPDATE,
-        )
-        enqueueUpdate(id)
+        db.withTransaction {
+            dao.updateStatus(
+                id = id,
+                status = Status.DONE.name,
+                updatedAt = completedAt,
+                completedAt = completedAt,
+                droppedReason = null,
+                syncStatus = SyncStatus.PENDING_UPDATE,
+            )
+            enqueueUpdate(id)
+        }
     }
 
     /**
@@ -290,15 +292,17 @@ open class RoomInstructionRepository @Inject constructor(
      * `updatedAt` value.
      */
     override suspend fun markDropped(id: String, reason: String?, at: String) {
-        dao.updateStatus(
-            id = id,
-            status = Status.DROPPED.name,
-            updatedAt = at,
-            completedAt = null,
-            droppedReason = reason,
-            syncStatus = SyncStatus.PENDING_UPDATE,
-        )
-        enqueueUpdate(id)
+        db.withTransaction {
+            dao.updateStatus(
+                id = id,
+                status = Status.DROPPED.name,
+                updatedAt = at,
+                completedAt = null,
+                droppedReason = reason,
+                syncStatus = SyncStatus.PENDING_UPDATE,
+            )
+            enqueueUpdate(id)
+        }
     }
 
     // ---- v2.0 (Hierarchy): audience + due chip + channel ----
@@ -369,39 +373,45 @@ open class RoomInstructionRepository @Inject constructor(
 
     override suspend fun setAudience(id: String, audience: AudienceRef?) {
         val now = Instant.now().toString()
-        dao.setAudience(
-            id = id,
-            audienceKind = audience?.kind,
-            audienceTarget = audience?.target,
-            audienceLabel = audience?.label,
-            audienceIsBroadcast = audience?.isBroadcast ?: false,
-            now = now,
-            syncStatus = SyncStatus.PENDING_UPDATE,
-        )
-        enqueueUpdate(id)
+        db.withTransaction {
+            dao.setAudience(
+                id = id,
+                audienceKind = audience?.kind,
+                audienceTarget = audience?.target,
+                audienceLabel = audience?.label,
+                audienceIsBroadcast = audience?.isBroadcast ?: false,
+                now = now,
+                syncStatus = SyncStatus.PENDING_UPDATE,
+            )
+            enqueueUpdate(id)
+        }
     }
 
     override suspend fun setDueChip(id: String, dueAtMs: Long?) {
         val now = Instant.now().toString()
-        dao.setDueChip(
-            id = id,
-            dueAt = dueAtMs?.let { Instant.ofEpochMilli(it).toString() },
-            dueAtMs = dueAtMs,
-            now = now,
-            syncStatus = SyncStatus.PENDING_UPDATE,
-        )
-        enqueueUpdate(id)
+        db.withTransaction {
+            dao.setDueChip(
+                id = id,
+                dueAt = dueAtMs?.let { Instant.ofEpochMilli(it).toString() },
+                dueAtMs = dueAtMs,
+                now = now,
+                syncStatus = SyncStatus.PENDING_UPDATE,
+            )
+            enqueueUpdate(id)
+        }
     }
 
     override suspend fun setChannel(id: String, channel: String?) {
         val now = Instant.now().toString()
-        dao.setChannel(
-            id = id,
-            channel = channel,
-            now = now,
-            syncStatus = SyncStatus.PENDING_UPDATE,
-        )
-        enqueueUpdate(id)
+        db.withTransaction {
+            dao.setChannel(
+                id = id,
+                channel = channel,
+                now = now,
+                syncStatus = SyncStatus.PENDING_UPDATE,
+            )
+            enqueueUpdate(id)
+        }
     }
 
     // ---- existing direct-call helpers (unchanged) ----
@@ -419,15 +429,17 @@ open class RoomInstructionRepository @Inject constructor(
      */
     suspend fun markDone(id: String) {
         val now = Instant.now().toString()
-        dao.updateStatus(
-            id = id,
-            status = Status.DONE.name,
-            updatedAt = now,
-            completedAt = now,
-            droppedReason = null,
-            syncStatus = SyncStatus.PENDING_UPDATE,
-        )
-        enqueueUpdate(id)
+        db.withTransaction {
+            dao.updateStatus(
+                id = id,
+                status = Status.DONE.name,
+                updatedAt = now,
+                completedAt = now,
+                droppedReason = null,
+                syncStatus = SyncStatus.PENDING_UPDATE,
+            )
+            enqueueUpdate(id)
+        }
     }
 
     /**
@@ -438,15 +450,17 @@ open class RoomInstructionRepository @Inject constructor(
      */
     suspend fun markDropped(id: String, reason: String?) {
         val now = Instant.now().toString()
-        dao.updateStatus(
-            id = id,
-            status = Status.DROPPED.name,
-            updatedAt = now,
-            completedAt = null,
-            droppedReason = reason,
-            syncStatus = SyncStatus.PENDING_UPDATE,
-        )
-        enqueueUpdate(id)
+        db.withTransaction {
+            dao.updateStatus(
+                id = id,
+                status = Status.DROPPED.name,
+                updatedAt = now,
+                completedAt = null,
+                droppedReason = reason,
+                syncStatus = SyncStatus.PENDING_UPDATE,
+            )
+            enqueueUpdate(id)
+        }
     }
 
     /**
@@ -457,15 +471,17 @@ open class RoomInstructionRepository @Inject constructor(
      */
     suspend fun reopen(id: String) {
         val now = Instant.now().toString()
-        dao.updateStatus(
-            id = id,
-            status = Status.OPEN.name,
-            updatedAt = now,
-            completedAt = null,
-            droppedReason = null,
-            syncStatus = SyncStatus.PENDING_UPDATE,
-        )
-        enqueueUpdate(id)
+        db.withTransaction {
+            dao.updateStatus(
+                id = id,
+                status = Status.OPEN.name,
+                updatedAt = now,
+                completedAt = null,
+                droppedReason = null,
+                syncStatus = SyncStatus.PENDING_UPDATE,
+            )
+            enqueueUpdate(id)
+        }
     }
 
     /**
@@ -548,11 +564,13 @@ open class RoomInstructionRepository @Inject constructor(
 internal fun InstructionEntity.toDomain(): Instruction = Instruction(
     id = id,
     personId = personId,
-    direction = Direction.valueOf(direction),
-    status = Status.valueOf(status),
+    direction = runCatching { Direction.valueOf(direction) }.getOrDefault(Direction.OUTGOING),
+    status = runCatching { Status.valueOf(status) }.getOrDefault(Status.OPEN),
     // Older photo-extraction fixtures/records used OCR before PHOTO became the wire value.
-    source = if (source == "OCR") Source.PHOTO else Source.valueOf(source),
-    priority = Priority.valueOf(priority),
+    source = if (source == "OCR") Source.PHOTO else {
+        runCatching { Source.valueOf(source) }.getOrDefault(Source.TEXT)
+    },
+    priority = runCatching { Priority.valueOf(priority) }.getOrDefault(Priority.NORMAL),
     title = title,
     rawText = rawText,
     dueAt = dueAt,
@@ -567,6 +585,6 @@ internal fun InstructionEntity.toDomain(): Instruction = Instruction(
     dueAtMs = dueAtMs,
     channel = channel,
     deadlineAtMs = deadlineAtMs,
-    updates = InstructionJournal.decode(updatesJson),
+    updates = InstructionJournal.decodeForDisplay(updatesJson),
     stationId = stationId, matterId = matterId,
 )

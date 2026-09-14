@@ -76,7 +76,10 @@ class SubdivisionCrmEndToEndTest {
         compose.onNodeWithTag("entry_subdivision_review").performClick()
         awaitTag("subdivision_title")
         compose.onNodeWithText("Subdivision review").assertIsDisplayed()
-        compose.onNodeWithText("Your private work record. Staff do not need an account.").assertIsDisplayed()
+        awaitTag("review_profile_name")
+        compose.onNodeWithText("Your private work record. Staff do not need an account.")
+            .performScrollTo()
+            .assertIsDisplayed()
         back()
         awaitTag("entry_subdivision_review")
 

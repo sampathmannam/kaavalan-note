@@ -35,10 +35,9 @@ import org.junit.Test
  * v2.0.0 (drop Supabase): the HomeViewModel is local-only. The
  * `RealtimeSync` and `SupabaseInstructionRepository` deps are gone
  * — the VM reads persons from the mode-filtered Room Flow and the
- * tags from the local Room mirror. The Obs-2 contract on
- * [HomeViewModel.refreshTagsFromNetwork] (the v1.9.10 fix) is
- * preserved: a tag-refresh failure still surfaces a
- * [HomeUiState.Error].
+ * tags from the local Room mirror. Loading failures own the full-screen
+ * [HomeUiState.Error]; isolated mutation/refresh failures use [HomeViewModel.messages]
+ * so healthy people and notes remain usable.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModelTest {
@@ -237,20 +236,35 @@ class HomeViewModelTest {
      * that [HomeViewModel.refreshTagsFromNetwork] had an empty
      * `onFailure` block that silently swallowed the error — the
      * user had no signal that the tag sync had failed. The fix
-     * surfaces a [HomeUiState.Error] like the other two refreshes
-     * (persons, instructions) do. This test asserts that
-     * behaviour: a failed tag refresh still calls the repository
-     * and runs the onFailure path in v2.0.0 (where the
-     * implementation is a no-op but the function shape is
-     * preserved).
+     * surfaced an observable failure instead of swallowing it. The hardening pass keeps
+     * that signal but moves it to a Snackbar message: a tag-only failure must not replace
+     * an otherwise healthy people screen with a full-screen error.
      */
     @Test
-    fun `Obs-2 tag refresh failure surfaces HomeUiState Error`() = runTest(testDispatcher) {
+    fun `Obs-2 tag refresh failure reports a message without blanking the screen`() = runTest(testDispatcher) {
         coEvery { tagRepository.refreshFromNetwork() } throws java.io.IOException("simulated network down")
 
-        makeVm()
+        val vm = makeVm()
         advanceUntilIdle()
 
         coVerify(exactly = 1) { tagRepository.refreshFromNetwork() }
+        assertTrue(vm.messages.first().isNotBlank())
+        assertFalse(vm.state.value is HomeUiState.Error)
+    }
+
+    @Test
+    fun `create failure reports a message without replacing healthy screen state`() = runTest(testDispatcher) {
+        val secret = "private-db-path"
+        coEvery { repo.create(any(), any(), any()) } throws java.io.IOException(secret)
+        val vm = makeVm()
+        advanceUntilIdle()
+
+        vm.createPerson("Ramu", null, null)
+        advanceUntilIdle()
+
+        val message = vm.messages.first()
+        assertTrue(message.isNotBlank())
+        assertFalse(message.contains(secret))
+        assertFalse(vm.state.value is HomeUiState.Error)
     }
 }

@@ -1,8 +1,10 @@
 package com.kaavalan.note
 
 import android.Manifest
+import android.app.AlarmManager
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
@@ -67,6 +69,7 @@ class MainActivity : ComponentActivity() {
     @javax.inject.Inject lateinit var briefNotifier: com.kaavalan.note.data.brief.BriefNotifier
     @javax.inject.Inject lateinit var preferences: KaavalanPreferences
     @javax.inject.Inject lateinit var undoController: UndoController
+    private var exactAlarmPromptedThisRun = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -188,29 +191,62 @@ class MainActivity : ComponentActivity() {
      * reflects the new state.
      */
     fun requestPostNotifications() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-        val granted = ContextCompat.checkSelfPermission(
-            this, Manifest.permission.POST_NOTIFICATIONS,
-        ) == PackageManager.PERMISSION_GRANTED
-        if (granted) {
-            briefNotifier.schedule()
-            return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                this, Manifest.permission.POST_NOTIFICATIONS,
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                Toast.makeText(
+                    this,
+                    R.string.notifications_rationale,
+                    Toast.LENGTH_LONG,
+                ).show()
+                val launcher = notifLauncher
+                if (launcher == null) {
+                    Toast.makeText(
+                        this,
+                        "Notifications launcher not ready; please retry.",
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                    return
+                }
+                launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                return
+            }
         }
-        Toast.makeText(
-            this,
-            R.string.notifications_rationale,
-            Toast.LENGTH_LONG,
-        ).show()
-        val launcher = notifLauncher
-        if (launcher == null) {
+        briefNotifier.schedule()
+    }
+
+    /** Opens Android's special-access screen only from an explicit Settings action. */
+    fun requestExactAlarmAccess() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || exactAlarmPromptedThisRun) return
+        val alarmManager = getSystemService(AlarmManager::class.java)
+        if (alarmManager.canScheduleExactAlarms()) {
             Toast.makeText(
                 this,
-                "Notifications launcher not ready; please retry.",
+                R.string.exact_alarm_already_allowed,
                 Toast.LENGTH_SHORT,
             ).show()
             return
         }
-        launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        exactAlarmPromptedThisRun = true
+        Toast.makeText(
+            this,
+            R.string.exact_alarm_rationale,
+            Toast.LENGTH_LONG,
+        ).show()
+        runCatching {
+            startActivity(
+                Intent(
+                    android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                    Uri.parse("package:$packageName"),
+                ),
+            )
+        }.onFailure {
+            // Some OEMs omit the app-specific screen. The scheduler already
+            // queued an allow-while-idle alarm plus WorkManager fallback.
+            exactAlarmPromptedThisRun = false
+        }
     }
 
     /**

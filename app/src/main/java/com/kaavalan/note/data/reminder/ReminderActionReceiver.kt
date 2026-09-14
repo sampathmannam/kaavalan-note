@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,6 +24,17 @@ class ReminderActionReceiver : BroadcastReceiver() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 actionHandler.handle(action, instructionId)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                // A notification action runs in a root coroutine. Letting an I/O or Room
+                // failure escape would crash the app process just because the officer
+                // tapped Snooze/Done. The handler dismisses only after every side effect
+                // succeeds, so keeping the notification visible is the retry affordance.
+                android.util.Log.e(
+                    TAG,
+                    "Reminder action failed; notification left available (${failure.javaClass.simpleName})",
+                )
             } finally {
                 pendingResult.finish()
             }
@@ -30,6 +42,7 @@ class ReminderActionReceiver : BroadcastReceiver() {
     }
 
     companion object {
+        private const val TAG = "ReminderAction"
         const val ACTION_DONE = "com.kaavalan.note.action.REMINDER_DONE"
         const val ACTION_SNOOZE = "com.kaavalan.note.action.REMINDER_SNOOZE"
         const val EXTRA_INSTRUCTION_ID = "instruction_id"

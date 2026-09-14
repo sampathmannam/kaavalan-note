@@ -12,10 +12,12 @@ import com.kaavalan.note.data.person.PersonRepository
 import com.kaavalan.note.data.reminder.ReminderManager
 import com.kaavalan.note.data.vault.VaultModeHolder
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -48,6 +50,11 @@ class TodayViewModel @Inject constructor(
     private val vaultModeHolder: VaultModeHolder,
     private val reminderManager: ReminderManager,
 ) : ViewModel() {
+
+    private val messageChannel = kotlinx.coroutines.channels.Channel<String>(
+        kotlinx.coroutines.channels.Channel.BUFFERED,
+    )
+    val messages = messageChannel.receiveAsFlow()
 
     val brief: StateFlow<DailyBrief> = briefGenerator
         .observeDailyBrief(
@@ -106,29 +113,37 @@ class TodayViewModel @Inject constructor(
      * brief Flow, so the UI sees the change synchronously.
      */
     fun markDone(instructionId: String) {
-        viewModelScope.launch {
-            runCatching { roomInstructionRepository.markDone(instructionId) }
-                .onSuccess { reminderManager.cancelDelivery(instructionId) }
+        mutate {
+            roomInstructionRepository.markDone(instructionId)
+            reminderManager.cancelDelivery(instructionId)
         }
     }
 
     fun markDropped(instructionId: String, reason: String? = null) {
-        viewModelScope.launch {
-            runCatching { roomInstructionRepository.markDropped(instructionId, reason) }
-                .onSuccess { reminderManager.cancelDelivery(instructionId) }
+        mutate {
+            roomInstructionRepository.markDropped(instructionId, reason)
+            reminderManager.cancelDelivery(instructionId)
         }
     }
 
     fun reopen(instructionId: String) {
-        viewModelScope.launch {
-            runCatching { roomInstructionRepository.reopen(instructionId) }
-        }
+        mutate { roomInstructionRepository.reopen(instructionId) }
     }
 
     fun updateReminder(instructionId: String, reminderAtMs: Long?) {
         if (reminderAtMs != null && reminderAtMs <= System.currentTimeMillis()) return
+        mutate { reminderManager.update(instructionId, reminderAtMs) }
+    }
+
+    private fun mutate(work: suspend () -> Unit) {
         viewModelScope.launch {
-            runCatching { reminderManager.update(instructionId, reminderAtMs) }
+            try {
+                work()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                messageChannel.trySend("Could not save that change. Please try again.")
+            }
         }
     }
 

@@ -20,7 +20,10 @@ import com.kaavalan.note.data.subdivision.SubdivisionProfile
 import com.kaavalan.note.data.subdivision.SubdivisionRepository
 import com.kaavalan.note.data.subdivision.SubdivisionReview
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.asExecutor
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -50,6 +53,7 @@ import java.io.File
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
+@OptIn(ExperimentalCoroutinesApi::class)
 class BackupRoundTripTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
@@ -444,6 +448,38 @@ class BackupRoundTripTest {
     }
 
     @Test
+    fun `a backup with an unknown instruction status is refused and changes nothing`() = runTest {
+        seedEverything()
+        val file = backupManager.backup()
+        val root = JSONObject(file.readText())
+        root.getJSONArray("instructions").getJSONObject(0).put("status", "FUTURE_STATUS")
+        file.writeText(root.toString())
+        wipeEverything()
+
+        val failure = runCatching { backupManager.restore(file) }.exceptionOrNull()
+        assertNotNull("an unsupported wire value must be refused", failure)
+        assertTrue("the failure should identify status", failure?.message?.contains("status") == true)
+        assertEquals("no contact may be partially restored", 0, db.personDao().snapshot().size)
+        assertEquals("no instruction may be partially restored", 0, db.instructionDao().snapshot().size)
+    }
+
+    @Test
+    fun `a backup with a damaged instruction journal is refused and changes nothing`() = runTest {
+        seedEverything()
+        val file = backupManager.backup()
+        val root = JSONObject(file.readText())
+        root.getJSONArray("instructions").getJSONObject(0).put("updates_json", "not-json")
+        file.writeText(root.toString())
+        wipeEverything()
+
+        val failure = runCatching { backupManager.restore(file) }.exceptionOrNull()
+        assertNotNull("a damaged journal must be refused", failure)
+        assertTrue("the refusal should be safe and actionable", failure?.message?.isNotBlank() == true)
+        assertEquals("no contact may be partially restored", 0, db.personDao().snapshot().size)
+        assertEquals("no instruction may be partially restored", 0, db.instructionDao().snapshot().size)
+    }
+
+    @Test
     fun `a schema 3 backup restores without inventing a subdivision or staff`() = runTest {
         seedEverything()
         val file = backupManager.backup()
@@ -505,16 +541,17 @@ class BackupRoundTripTest {
 
     @Test
     fun `backup prunes old files beyond the retention limit`() = runTest {
-        repeat(BackupManager.MAX_BACKUPS + 2) {
-            backupManager.backup()
-            // The timestamp has second resolution, so a short sleep guarantees a unique name.
-            Thread.sleep(1100)
+        val requested = BackupManager.MAX_BACKUPS + 3
+        val returned = List(requested) { async { backupManager.backup() } }.awaitAll()
+        assertEquals("concurrent requests must never overwrite each other", requested, returned.map { it.name }.toSet().size)
+
+        val remaining = backupManager.listBackups()
+        assertEquals("retention must be exact after serialized writes", BackupManager.MAX_BACKUPS, remaining.size)
+        remaining.forEach { file ->
+            val parsed = JSONObject(file.readText())
+            assertEquals(BackupManager.SCHEMA_VERSION, parsed.getInt("schema_version"))
         }
-        val remaining = backupManager.listBackups().size
-        assertTrue(
-            "after ${BackupManager.MAX_BACKUPS + 2} backups at most ${BackupManager.MAX_BACKUPS} " +
-                "files may remain; got $remaining",
-            remaining <= BackupManager.MAX_BACKUPS,
-        )
+        val temporary = remaining.first().parentFile?.listFiles { file -> file.name.endsWith(".tmp") }.orEmpty()
+        assertTrue("completed backups must not leave temporary files", temporary.isEmpty())
     }
 }

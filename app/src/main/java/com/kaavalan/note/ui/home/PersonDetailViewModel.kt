@@ -118,8 +118,12 @@ class PersonDetailViewModel @Inject constructor(
                 .getOrDefault(com.kaavalan.note.data.instructions.Direction.OUTGOING),
             status = runCatching { com.kaavalan.note.data.instructions.Status.valueOf(status) }
                 .getOrDefault(com.kaavalan.note.data.instructions.Status.OPEN),
-            source = runCatching { com.kaavalan.note.data.instructions.Source.valueOf(source) }
-                .getOrDefault(com.kaavalan.note.data.instructions.Source.TEXT),
+            source = if (source == "OCR") {
+                com.kaavalan.note.data.instructions.Source.PHOTO
+            } else {
+                runCatching { com.kaavalan.note.data.instructions.Source.valueOf(source) }
+                    .getOrDefault(com.kaavalan.note.data.instructions.Source.TEXT)
+            },
             priority = runCatching { com.kaavalan.note.data.instructions.Priority.valueOf(priority) }
                 .getOrDefault(com.kaavalan.note.data.instructions.Priority.NORMAL),
             title = title,
@@ -133,7 +137,7 @@ class PersonDetailViewModel @Inject constructor(
             droppedReason = droppedReason,
             dueAtMs = dueAtMs,
             deadlineAtMs = deadlineAtMs,
-            updates = com.kaavalan.note.data.instructions.InstructionJournal.decode(updatesJson),
+            updates = com.kaavalan.note.data.instructions.InstructionJournal.decodeForDisplay(updatesJson),
             audience = com.kaavalan.note.data.instructions.audienceFromColumns(audienceKind, audienceTarget, audienceLabel),
         )
 
@@ -181,15 +185,11 @@ class PersonDetailViewModel @Inject constructor(
     }
 
     fun setInstructionSensitive(instructionId: String, sensitive: Boolean) {
-        viewModelScope.launch {
-            runCatching { roomInstructionRepository.setSensitive(instructionId, sensitive) }
-        }
+        mutate { roomInstructionRepository.setSensitive(instructionId, sensitive) }
     }
 
     fun setPersonSensitive(personId: String, sensitive: Boolean) {
-        viewModelScope.launch {
-            runCatching { personRepository.setSensitive(personId, sensitive) }
-        }
+        mutate { personRepository.setSensitive(personId, sensitive) }
     }
 
     /**
@@ -207,18 +207,16 @@ class PersonDetailViewModel @Inject constructor(
     fun createInstructionForThisPerson(text: String) {
         val trimmed = text.trim()
         if (trimmed.isBlank()) return
-        viewModelScope.launch {
-            runCatching {
-                val title = if (trimmed.length > 40) trimmed.take(40) + "…" else trimmed
-                roomInstructionRepository.create(
-                    personId = personId,
-                    source = Source.TEXT,
-                    priority = Priority.NORMAL,
-                    title = title,
-                    rawText = trimmed,
-                    dueAt = null,
-                )
-            }
+        mutate {
+            val title = if (trimmed.length > 40) trimmed.take(40) + "…" else trimmed
+            roomInstructionRepository.create(
+                personId = personId,
+                source = Source.TEXT,
+                priority = Priority.NORMAL,
+                title = title,
+                rawText = trimmed,
+                dueAt = null,
+            )
         }
     }
 

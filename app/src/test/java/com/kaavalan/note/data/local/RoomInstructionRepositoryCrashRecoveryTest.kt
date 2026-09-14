@@ -240,6 +240,63 @@ class RoomInstructionRepositoryCrashRecoveryTest {
         }
     }
 
+    @Test
+    fun `lifecycle and reminder mutations roll back when outbox enqueue fails`() = runBlocking {
+        val instructionDao = db.instructionDao()
+        val syncQueueDao = db.syncQueueDao()
+        val now = "2026-09-14T08:00:00Z"
+        listOf("ui-action", "reminder-action").forEach { id ->
+            instructionDao.upsert(
+                com.kaavalan.note.data.local.entities.InstructionEntity(
+                    id = id,
+                    personId = null,
+                    direction = "SELF",
+                    status = "OPEN",
+                    source = "TEXT",
+                    priority = "NORMAL",
+                    title = "Atomic mutation",
+                    rawText = "Atomic mutation",
+                    dueAt = null,
+                    capturedAt = now,
+                    createdAt = now,
+                    updatedAt = now,
+                    syncStatus = com.kaavalan.note.data.local.entities.SyncStatus.SYNCED,
+                ),
+            )
+        }
+        val repo = RoomInstructionRepository(
+            db = db,
+            dao = instructionDao,
+            ftsDao = db.instructionFtsDao(),
+            syncQueueDao = syncQueueDao,
+            touchOnActivity = TouchPersonOnActivity(db.personDao()),
+            appScope = appScope,
+        )
+
+        // Simulate a disk/constraint failure at the second half of each logical write.
+        db.openHelper.writableDatabase.execSQL(
+            """
+            CREATE TRIGGER reject_instruction_outbox
+            BEFORE INSERT ON sync_queue
+            WHEN NEW.`table` = 'instructions'
+            BEGIN
+                SELECT RAISE(ABORT, 'simulated outbox failure');
+            END
+            """.trimIndent(),
+        )
+
+        assertNotNull(runCatching { repo.markDone("ui-action") }.exceptionOrNull())
+        assertNotNull(runCatching { repo.setDueChip("reminder-action", 1_800_000_000_000L) }.exceptionOrNull())
+
+        val uiRow = instructionDao.getById("ui-action")
+        assertEquals("DONE must roll back with its outbox write", "OPEN", uiRow?.status)
+        assertEquals(com.kaavalan.note.data.local.entities.SyncStatus.SYNCED, uiRow?.syncStatus)
+        val reminderRow = instructionDao.getById("reminder-action")
+        assertEquals("reminder timestamp must roll back with its outbox write", null, reminderRow?.dueAtMs)
+        assertEquals(com.kaavalan.note.data.local.entities.SyncStatus.SYNCED, reminderRow?.syncStatus)
+        assertTrue("no half-written outbox row may survive", syncQueueDao.snapshot().isEmpty())
+    }
+
     // ---- Test helpers ----
 
     /**

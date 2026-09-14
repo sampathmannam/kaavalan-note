@@ -1,6 +1,18 @@
 {
   "changelog": [
     {
+      "version": "2.7.4",
+      "code": 57,
+      "date": "2026-09-15",
+      "highlights": [
+        "Saving a note, its capture record and its delivery marker is now all-or-nothing. If storage rejects any part, the app keeps the existing record instead of leaving incomplete work behind.",
+        "Reminder delivery is more resilient: Android alarm scheduling is paired with durable background fallback, and reminders are restored after restart or update. Exact timing stays an explicit setting so it never interrupts note entry.",
+        "Backups and imports now reject malformed or oversized input before it can partly restore, and local backup publication is atomic with safe cleanup.",
+        "Voice, contacts, Today, search and person-detail actions now recover safely from common device or storage errors without blanking the screen. Your contacts remain read-only.",
+        "Android-native checks now cover encrypted preferences, vault encryption and database migration on real Android runtimes, alongside reminder delivery under forced Doze on both emulator and phone."
+      ]
+    },
+    {
       "version": "2.7.3",
       "code": 56,
       "date": "2026-09-14",

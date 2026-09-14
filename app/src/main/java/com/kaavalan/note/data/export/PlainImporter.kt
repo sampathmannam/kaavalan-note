@@ -3,7 +3,6 @@ package com.kaavalan.note.data.export
 import android.content.Context
 import android.net.Uri
 import androidx.room.withTransaction
-import com.kaavalan.note.data.instructions.InstructionJournal
 import com.kaavalan.note.data.local.AppDatabase
 import com.kaavalan.note.data.local.InstructionDao
 import com.kaavalan.note.data.local.InstructionFtsDao
@@ -71,7 +70,7 @@ class PlainImporter @Inject constructor(
     private fun readText(uri: Uri): String {
         val input = context.contentResolver.openInputStream(uri)
             ?: error("Could not open input URI: $uri")
-        return input.use { it.readBytes().toString(Charsets.UTF_8) }
+        return input.use { BackupIntegrity.readUtf8(it) }
     }
 
     /** Everything the file describes, fully parsed, before anything is written. */
@@ -162,7 +161,7 @@ class PlainImporter @Inject constructor(
             updatedAt = cols[11],
             nextActionAt = cols[12].toLongOrNull(),
             deadlineAtMs = cols.getOrNull(13)?.toLongOrNull(),
-            updatesJson = requireJournal(updatesJson),
+            updatesJson = BackupIntegrity.requireInstructionJournal(updatesJson),
             dueAtMs = cols.getOrNull(15)?.toLongOrNull(),
             // Appended in v2.6.0. The lifecycle fields below were being silently dropped
             // by the pre-2.6.0 CSV round trip; a completed instruction came back as open.
@@ -252,7 +251,7 @@ class PlainImporter @Inject constructor(
                     completedAt = o.optStringOrNull("completed_at"),
                     droppedReason = o.optStringOrNull("dropped_reason"),
                     deadlineAtMs = o.optLongOrNull("deadline_at_ms"),
-                    updatesJson = requireJournal(o.optString("updates_json", "[]")),
+                    updatesJson = BackupIntegrity.requireInstructionJournal(o.optString("updates_json", "[]")),
                     dueAtMs = o.optLongOrNull("due_at_ms"),
                     channel = o.optStringOrNull("channel"),
                     audienceKind = o.optStringOrNull("audience_kind"),
@@ -299,6 +298,7 @@ class PlainImporter @Inject constructor(
         BackupIntegrity.requireDistinctIds(parsed.people.map { it.id }, "contact")
         BackupIntegrity.requireDistinctIds(parsed.instructions.map { it.id }, "instruction")
         BackupIntegrity.requireDistinctIds(parsed.tags.map { it.id }, "label")
+        BackupIntegrity.requireInstructionValues(parsed.instructions)
 
         val existingPeople = personDao.snapshot()
         // Read the "already here" ids BEFORE anything is written, so the inserted /
@@ -354,16 +354,6 @@ class PlainImporter @Inject constructor(
                 it.profiles.size + it.stations.size + it.matters.size + it.postings.size + it.reviews.size
             },
         )
-    }
-
-    private fun requireJournal(value: String): String {
-        val clean = value.ifBlank { "[]" }
-        runCatching { InstructionJournal.decode(clean) }.getOrElse {
-            throw IllegalArgumentException(
-                "An instruction's update history in this file could not be read. Nothing has been changed.",
-            )
-        }
-        return clean
     }
 
     private fun JSONObject.optStringOrNull(key: String): String? =

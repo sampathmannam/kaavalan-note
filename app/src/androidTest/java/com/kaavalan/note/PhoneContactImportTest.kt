@@ -21,6 +21,7 @@ import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import java.io.File
@@ -33,7 +34,10 @@ class PhoneContactImportTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
 
     private fun seed(name: String, vararg numbers: String) {
-        check(Build.FINGERPRINT.contains("generic") || Build.MODEL.contains("sdk")) { "Synthetic contacts require an emulator" }
+        assumeTrue(
+            "Synthetic contacts require an emulator; never write fixtures to a physical address book",
+            Build.FINGERPRINT.contains("generic") || Build.MODEL.contains("sdk"),
+        )
         check(instrumentation.targetContext.packageName.endsWith(".debug.officer")) { "Use the isolated QA application" }
         val operations = arrayListOf(
             ContentProviderOperation.newInsert(RawContacts.CONTENT_URI)

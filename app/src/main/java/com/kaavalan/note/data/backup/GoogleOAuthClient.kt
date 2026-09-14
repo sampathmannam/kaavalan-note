@@ -152,6 +152,9 @@ class GoogleOAuthClient @Inject constructor(
      * calls [completeSignIn].
      */
     fun signIn() {
+        check(isConfigured()) {
+            "Google Drive OAuth is not configured for this build"
+        }
         // v2.1.1 (security): the OAuth flow now uses the
         // `state` parameter + PKCE (S256). Without these,
         // any installed app on the device can fire
@@ -335,6 +338,7 @@ class GoogleOAuthClient @Inject constructor(
      * has never signed in.
      */
     suspend fun getAccessToken(): String? {
+        if (!isConfigured()) return null
         cachedAccessToken?.let { cached ->
             val expiry = securePreferences.getGoogleAccessTokenExpiry()
             if (expiry > System.currentTimeMillis() + 60_000) {
@@ -403,13 +407,16 @@ class GoogleOAuthClient @Inject constructor(
      * from SharedPreferences).
      */
     fun isSignedIn(): Boolean =
-        securePreferences.getGoogleRefreshToken() != null
+        isConfigured() && securePreferences.getGoogleRefreshToken() != null
 
     companion object {
         private const val OAUTH_STATE_FILE = "oauth_state.tmp"
         private const val MAX_AUTH_CODE_LENGTH = 4096
+        private const val EXPECTED_REDIRECT_URI = "kaavalan-note://oauth-callback"
         private val OAUTH_STATE_LOCK = Any()
         private val OAUTH_TOKEN_RE = Regex("[A-Za-z0-9._~-]{43,128}")
+        private val GOOGLE_CLIENT_ID_RE =
+            Regex("[A-Za-z0-9_-]{10,200}\\.apps\\.googleusercontent\\.com")
 
         private fun isValidState(value: String): Boolean = OAUTH_TOKEN_RE.matches(value)
 
@@ -432,5 +439,17 @@ class GoogleOAuthClient @Inject constructor(
         // [com.kaavalan.note.features.auth.OAuthCallbackActivity].
         val CLIENT_ID: String = BuildConfig.KAAVALAN_NOTE_GOOGLE_OAUTH_CLIENT_ID
         val REDIRECT_URI: String = BuildConfig.KAAVALAN_NOTE_GOOGLE_OAUTH_REDIRECT_URI
+
+        /**
+         * A plain checkout intentionally compiles with a placeholder client ID.
+         * Treat that build as Drive-disabled instead of opening an OAuth page
+         * which can only fail with `invalid_client`. The redirect is kept strict
+         * because the manifest only owns this exact app link.
+         */
+        fun isConfigured(): Boolean = isConfigurationValid(CLIENT_ID, REDIRECT_URI)
+
+        internal fun isConfigurationValid(clientId: String, redirectUri: String): Boolean =
+            GOOGLE_CLIENT_ID_RE.matches(clientId.trim()) &&
+                redirectUri.trim() == EXPECTED_REDIRECT_URI
     }
 }

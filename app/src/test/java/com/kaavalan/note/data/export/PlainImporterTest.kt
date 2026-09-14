@@ -16,6 +16,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -208,6 +209,34 @@ class PlainImporterTest {
             assertEquals(record.dueAtMs, restored.dueAtMs)
             assertEquals(journal, restored.updatesJson)
         }
+    }
+
+    @Test fun `json import refuses an unknown instruction status without changing the database`() = runTest {
+        instructionDao.upsert(
+            com.kaavalan.note.data.local.entities.InstructionEntity(
+                id = "unknown-status",
+                personId = null,
+                direction = "SELF",
+                status = "OPEN",
+                source = "TEXT",
+                priority = "NORMAL",
+                title = "Review",
+                rawText = "Review patrol deployment",
+                dueAt = null,
+                capturedAt = "2026-09-14T08:00:00Z",
+                createdAt = "2026-09-14T08:00:00Z",
+                updatedAt = "2026-09-14T08:00:00Z",
+            ),
+        )
+        val root = JSONObject(exporter.toJson(exporter.snapshot()))
+        root.getJSONArray("instructions").getJSONObject(0).put("status", "FUTURE_STATUS")
+        val uri = writeTestFile("unknown-status.json", root.toString())
+        db.clearAllTables()
+
+        val result = importer.importFromUri(uri)
+        assertTrue("unsupported wire values must fail the whole import", result.isFailure)
+        assertTrue(result.exceptionOrNull()?.message?.contains("status") == true)
+        assertEquals(0, instructionDao.snapshot().size)
     }
 
     private fun writeTestFile(name: String, contents: String): Uri {

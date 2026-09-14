@@ -108,13 +108,38 @@ Goal: a stranger can install from Play Store, pass a security audit, and use it 
 4. **iOS port** — no Kotlin Multiplatform; would need a rewrite. ⏸ DEFERRED (out of scope for v1.x).
 5. **CarPlay / Android Auto** — out of scope. ⏸ DEFERRED (out of scope).
 6. **Quick Share** — already exists. ✅ DONE (pre-existing).
-7. **E2E test in CI** — slow, gate on PR. ⏸ DEFERRED (P3-P0-#8 covers unit-test; E2E is pre-deployment).
+7. **E2E test in CI** — slow, gate on PR. ✅ DONE (the designated AVD is auto-started, the aggregate device suite is required, and forced-Doze delivery runs out of process).
 8. **Play Store listing** — screenshots, feature graphic, video. ⏸ DEFERRED (pre-deployment).
 9. **Promo page** — landing site. ⏸ DEFERRED (pre-deployment).
 
 ---
 
 ## Status
+
+### 2026-09-14 — post-v2.7.3 reliability strengthening
+
+The v2.7.4/code 57 release candidate is **Kaavalan note** on package
+`com.kaavalan.note`. This follow-up reliability pass makes instruction and
+capture/outbox writes transactional, isolates malformed legacy rows from read-only
+screens while keeping writes strict, validates and bounds restore/import input,
+publishes local backups atomically, prevents reminder-action failures from crashing
+the process, surfaces safe mutation errors without blanking healthy screens, and
+removes expired capture outbox markers.
+
+The resulting source passed 886 JVM tests across 156 suites with zero skips,
+failures or errors. The 12 Android-runtime cases that were previously skipped now
+run on-device and pass. Android lint has zero errors/fatals; debug and optimized
+unsigned release APKs assemble. The 41-test Android 14/API 34 aggregate passed 39
+tests with two environment-specific skips, and the same aggregate passed 39 with
+two harness-specific skips on a connected Motorola running Android 17/API 37.
+Host-driven reminder probes also posted successfully after process death under forced
+Doze on both devices. The Motorola's real speech provider is query-visible.
+Gitleaks found zero secrets in the current tracked/unignored snapshot; Trivy reported
+zero vulnerabilities, secrets or misconfigurations in that source snapshot. No app
+identity, Room schema, backup schema, dependency or signing-identity change was made;
+versionCode advances only so Obtainium can deliver the update. See
+[`docs/development/end-to-end-hardening-2026-09-14.md`](development/end-to-end-hardening-2026-09-14.md)
+for the maintained evidence record.
 
 ### 2026-09-04 — refresh: this document is historical, not current
 

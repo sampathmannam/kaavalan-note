@@ -396,8 +396,8 @@ abstract class AppDatabase : RoomDatabase() {
                     "CREATE VIRTUAL TABLE IF NOT EXISTS `instructions_fts` USING fts4(" +
                         "`capturedAt` TEXT, " +
                         "`personId` TEXT, " +
-                        "`title` TEXT, " +
                         "`rawText` TEXT, " +
+                        "`title` TEXT, " +
                         "tokenize=porter" +
                         ")",
                 )

@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -36,6 +37,10 @@ class HomeViewModel @Inject constructor(
 
     private val _state = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
+    private val messageChannel = kotlinx.coroutines.channels.Channel<String>(
+        kotlinx.coroutines.channels.Channel.BUFFERED,
+    )
+    val messages = messageChannel.receiveAsFlow()
 
     /**
      * v2.x: who "from" is on a dispatched instruction. The device
@@ -93,7 +98,7 @@ class HomeViewModel @Inject constructor(
     fun createPerson(name: String, designation: String?, station: String?) {
         viewModelScope.launch {
             runCatching { personRepository.create(name, designation, station) }
-                .onFailure { e -> _state.value = HomeUiState.Error(SafeError.forUser(e, "Could not create person.")) }
+                .onFailure { e -> messageChannel.trySend(SafeError.forUser(e, "Could not create person.")) }
         }
     }
 
@@ -117,7 +122,7 @@ class HomeViewModel @Inject constructor(
                     vaultModeHolder.mode.value.storageKey,
                 )
             }
-                .onFailure { e -> _state.value = HomeUiState.Error(SafeError.forUser(e, "Could not import contact.")) }
+                .onFailure { e -> messageChannel.trySend(SafeError.forUser(e, "Could not import contact.")) }
         }
     }
 
@@ -133,7 +138,7 @@ class HomeViewModel @Inject constructor(
     private fun refreshTagsFromNetwork() {
         viewModelScope.launch {
             runCatching { tagRepository.refreshFromNetwork() }
-                .onFailure { e -> _state.value = HomeUiState.Error(SafeError.forUser(e, "Could not refresh tags.")) }
+                .onFailure { e -> messageChannel.trySend(SafeError.forUser(e, "Could not refresh tags.")) }
         }
     }
 }

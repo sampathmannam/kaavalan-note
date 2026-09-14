@@ -4,12 +4,23 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 
 internal fun ComposeContentTestRule.openWorkspace() {
-    waitUntil(15_000) {
-        onAllNodesWithText("Skip").fetchSemanticsNodes().isNotEmpty() ||
-            onAllNodesWithTag("workspace_title").fetchSemanticsNodes().isNotEmpty()
+    // Android Test Orchestrator starts a fresh app process for every method.
+    // On a cold/loaded emulator the first semantics read can happen before
+    // MainActivity calls setContent; Compose throws instead of returning an
+    // empty collection. Treat that exact startup state as "not ready yet" so
+    // waitUntil can do the retry it was intended to do.
+    waitUntil(30_000) {
+        runCatching {
+            onAllNodesWithText("Skip").fetchSemanticsNodes().isNotEmpty() ||
+                onAllNodesWithTag("workspace_title").fetchSemanticsNodes().isNotEmpty()
+        }.getOrDefault(false)
     }
     if (onAllNodesWithText("Skip").fetchSemanticsNodes().isNotEmpty()) onNodeWithText("Skip").performClick()
-    waitUntil(15_000) { onAllNodesWithTag("workspace_title").fetchSemanticsNodes().isNotEmpty() }
+    waitUntil(30_000) {
+        runCatching {
+            onAllNodesWithTag("workspace_title").fetchSemanticsNodes().isNotEmpty()
+        }.getOrDefault(false)
+    }
     // Wait for on-screen controls, not only published semantics during startup.
     waitUntil(15_000) { runCatching { onNodeWithTag("capture_open").assertIsDisplayed() }.isSuccess }
     onNodeWithTag("capture_open").assertIsDisplayed()

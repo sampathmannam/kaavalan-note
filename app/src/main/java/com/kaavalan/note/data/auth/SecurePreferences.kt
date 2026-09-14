@@ -48,9 +48,13 @@ import javax.inject.Singleton
  * Supabase the next time they're online.
  */
 @Singleton
-class SecurePreferences @Inject constructor(
-    @ApplicationContext context: Context,
+class SecurePreferences private constructor(
+    context: Context,
+    preferencesFileName: String,
 ) {
+
+    @Inject
+    constructor(@ApplicationContext context: Context) : this(context, FILE_NAME)
 
     private val masterKey: MasterKey = MasterKey.Builder(context)
         .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -58,7 +62,7 @@ class SecurePreferences @Inject constructor(
 
     private val prefs: SharedPreferences = EncryptedSharedPreferences.create(
         context,
-        FILE_NAME,
+        preferencesFileName,
         masterKey,
         EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
@@ -226,6 +230,14 @@ class SecurePreferences @Inject constructor(
     }
 
     companion object {
+        /**
+         * Creates an instance backed by an isolated file for on-device tests.
+         * Production injection always uses [FILE_NAME].
+         */
+        @androidx.annotation.VisibleForTesting
+        fun forTesting(context: Context, preferencesFileName: String): SecurePreferences =
+            SecurePreferences(context, preferencesFileName)
+
         private const val FILE_NAME = "kaavalan_note_secure_prefs"
         private const val KEY_DB_PASSPHRASE = "db_passphrase_v1"
         // v2.1.0 (PM rating): the Google Drive backup

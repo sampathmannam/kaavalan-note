@@ -90,11 +90,11 @@ class VaultCrypto @Inject constructor() {
                 Argon2Mode.ARGON2_ID,
                 passBytes,
                 salt,
-                m,
-                t,
-                p,
-                outLen,
-                Argon2Version.V13,
+                tCostInIterations = t,
+                mCostInKibibyte = m,
+                parallelism = p,
+                hashLengthInBytes = outLen,
+                version = Argon2Version.V13,
             ).rawHashAsByteArray()
         } finally {
             passBytes.fill(0) // wipe after use

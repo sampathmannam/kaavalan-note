@@ -1,6 +1,7 @@
 package com.kaavalan.note.ui.settings
 
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -36,6 +37,7 @@ import androidx.compose.material.icons.outlined.Contrast
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.FolderZip
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.AlertDialog
@@ -92,6 +94,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsSheet(
     onDismiss: () -> Unit,
+    onRequestExactAlarmAccess: () -> Unit = {},
     onVaultExport: () -> Unit = {},
     onVaultImport: () -> Unit = {},
     onOpenRecoveryPhrase: () -> Unit = {},
@@ -460,6 +463,16 @@ fun SettingsSheet(
             )
 
             }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                SettingsCategory("Reminders", "Notification delivery and timing", settingsSection, { settingsSection = it }, icon = Icons.Outlined.Notifications) {
+                    PrivacyRow(
+                        label = stringResource(R.string.settings_precise_reminders),
+                        value = stringResource(R.string.settings_android_setting),
+                        explainer = stringResource(R.string.settings_precise_reminders_explainer),
+                        onClick = onRequestExactAlarmAccess,
+                    )
+                }
+            }
             SettingsCategory("Privacy & security", "Private contacts, PIN and recovery", settingsSection, { settingsSection = it }, icon = Icons.Outlined.Shield) {
             // v2.0 T3-1 + T3-2 + T3-3: the Privacy section.
             // Four rows: vault mode, vault PIN, recovery
@@ -576,7 +589,13 @@ fun SettingsSheet(
             )
             Spacer(Modifier.height(8.dp))
             val driveSignedIn by viewModel.googleDriveSignedIn.collectAsStateWithLifecycle()
-            if (driveSignedIn) {
+            if (!viewModel.googleDriveAvailable) {
+                Text(
+                    text = stringResource(R.string.settings_drive_unavailable),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else if (driveSignedIn) {
                 androidx.compose.material3.OutlinedButton(
                     onClick = { showDriveBackupPassphrasePrompt = true },
                     modifier = Modifier.fillMaxWidth(),

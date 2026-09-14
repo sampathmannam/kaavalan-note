@@ -23,6 +23,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -80,6 +82,10 @@ fun TodayScreen(
     val searchViewModel: SearchViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     val query by searchViewModel.query.collectAsStateWithLifecycle()
     val results by searchViewModel.results.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
+    LaunchedEffect(viewModel) {
+        viewModel.messages.collect { snackbar.showSnackbar(it) }
+    }
     LaunchedEffect(openInstructionId, brief) {
         val instructionId = openInstructionId ?: return@LaunchedEffect
         val match = (
@@ -92,6 +98,7 @@ fun TodayScreen(
         onReminderInstructionOpened()
     }
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             Column {
                 // v1.6.3: Obsidian-style title (see HomeScreen
