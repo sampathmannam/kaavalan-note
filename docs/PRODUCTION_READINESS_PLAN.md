@@ -116,6 +116,31 @@ Goal: a stranger can install from Play Store, pass a security audit, and use it 
 
 ## Status
 
+### 2026-09-15 — v2.7.5 voice-first capture release
+
+The released v2.7.5/code 58 adds explicit Starting, Listening and finishing voice
+states; spoken today/tomorrow follow-up detection; and permission-safe voice entry from
+the note bar, a dedicated launcher entry, the home-screen widget, Quick Settings and the
+normal launcher long-press menu. Repeated voice intents are queued, the Android 14+
+Quick Settings path uses the system PendingIntent API, and custom QA builds keep static
+shortcuts inside their own isolated application IDs.
+
+The candidate passed 903 JVM tests, Android lint, debug assembly and the R8-optimized
+release build. The connected Motorola Android 17 aggregate passed 39 tests with two
+expected environment skips and no failures; the host-driven process-death/forced-Doze
+reminder probe passed separately. Tracked-source Gitleaks and Trivy scans were clean,
+and TruffleHog found no verified or unverified secret in Git history. The signed in-place
+upgrade preserved the original install timestamp, launched without a recorded fatal and
+registered the production Speak shortcut. See
+[`docs/development/v2.7.5-release-verification.md`](development/v2.7.5-release-verification.md)
+for the evidence record.
+
+The immutable tag CI is green: lint, JVM tests, debug and R8 release builds, the 41-test
+emulator aggregate and the forced-Doze reminder probe all passed. Its first emulator attempt
+exposed two host-timing-sensitive test helpers; the affected scenarios passed 2/2 after the
+harness added explicit dialog readiness and a longer cold encrypted-save completion budget.
+Those test-only safeguards are retained after the release tag for subsequent gates.
+
 ### 2026-09-14 — post-v2.7.3 reliability strengthening
 
 The released v2.7.4/code 57 **Kaavalan note** is on package
