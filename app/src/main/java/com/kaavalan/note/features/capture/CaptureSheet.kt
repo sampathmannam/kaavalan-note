@@ -7,11 +7,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -19,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material.icons.outlined.MicOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -112,12 +115,9 @@ fun CaptureSheet(
     onOpenDispatch: (String) -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    // Tier 0.4: collect the process-wide voice-recording
-    // state. When `isRecording == true` the sheet renders an
-    // in-app "Stop" button above the primary action; tapping
-    // it calls `context.stopService(...)` (the same end
-    // state as tapping the notification's Stop action).
-    val isVoiceRecording by VoiceCaptureState.isRecording.collectAsStateWithLifecycle()
+    // Capture has explicit starting/listening/finishing phases. This makes the
+    // microphone's state legible in the sheet instead of relying on a notification.
+    val voicePhase by VoiceCaptureState.phase.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
@@ -173,7 +173,7 @@ fun CaptureSheet(
             contacts = contacts,
             onDirectionChanged = viewModel::onDirectionChanged,
             onPersonChanged = viewModel::onPersonChanged,
-            isVoiceRecording = isVoiceRecording,
+            voicePhase = voicePhase,
             onStopVoice = {
                 val svc = Intent(context, VoiceCaptureService::class.java).apply {
                     action = VoiceCaptureService.ACTION_STOP
@@ -231,9 +231,7 @@ private fun CaptureSheetContent(
     contacts: List<Person> = emptyList(),
     onDirectionChanged: (Direction) -> Unit = {},
     onPersonChanged: (String?) -> Unit = {},
-    // Tier 0.4: the in-app voice stop button. Rendered
-    // above the Save button when `isVoiceRecording == true`.
-    isVoiceRecording: Boolean = false,
+    voicePhase: VoiceCapturePhase = VoiceCapturePhase.IDLE,
     onStopVoice: () -> Unit = {},
     onTextChanged: (String) -> Unit,
     onClose: () -> Unit,
@@ -305,6 +303,7 @@ private fun CaptureSheetContent(
                     onClear = onClearContext,
                 )
             }
+            VoiceCaptureIndicator(phase = voicePhase)
             CaptureTextField(
                 text = state.text,
                 isSaving = state.isSaving,
@@ -399,7 +398,7 @@ private fun CaptureSheetContent(
         PrimaryAction(
             isSaving = state.isSaving,
             canSaveRaw = state.canSaveRaw,
-            isVoiceRecording = isVoiceRecording,
+            voicePhase = voicePhase,
             onStopVoice = onStopVoice,
             onSaveRaw = onSaveRaw,
             modifier = Modifier
@@ -574,10 +573,7 @@ private fun AddToCalendarRow(
 private fun PrimaryAction(
     isSaving: Boolean,
     canSaveRaw: Boolean,
-    // Tier 0.4: the in-app stop-voice affordance. When
-    // `isVoiceRecording == true` the action column renders
-    // a "Stop voice" button above the Save button.
-    isVoiceRecording: Boolean = false,
+    voicePhase: VoiceCapturePhase = VoiceCapturePhase.IDLE,
     onStopVoice: () -> Unit = {},
     onSaveRaw: () -> Unit,
     // v2.1.2 (P1-#2): the caller pins the PrimaryAction
@@ -595,21 +591,19 @@ private fun PrimaryAction(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        // Tier 0.4: in-app stop-voice button. Renders
-        // above the Save button so the user can reach it
-        // without scrolling. The button is a `Button`
-        // (not `OutlinedButton`) so it reads as an active
-        // affordance; the colour is `primary` /
-        // `onPrimary` (no red, per the no-shame spec
-        // rule). When the recording is not in progress,
-        // the entire row is hidden.
-        if (isVoiceRecording) {
+        // Stop remains fixed beside Save so a live microphone never requires the
+        // notification shade. Saving waits for the recognizer's final words, avoiding
+        // a race where a partial transcript is saved before its final result arrives.
+        if (voicePhase.isActive) {
             Button(
                 onClick = onStopVoice,
                 modifier = Modifier.fillMaxWidth(),
+                enabled = voicePhase != VoiceCapturePhase.FINISHING,
             ) {
+                Icon(Icons.Outlined.MicOff, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
                 Text(
-                    text = stringResource(R.string.tier0_voice_in_app_stop),
+                    text = stringResource(R.string.voice_capture_stop_and_add),
                 )
             }
         }
@@ -627,10 +621,16 @@ private fun PrimaryAction(
         ) {
             Button(
                 onClick = onSaveRaw,
-                enabled = canSaveRaw && !isSaving,
+                enabled = canSaveRaw && !isSaving && !voicePhase.isActive,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(stringResource(R.string.capture_sheet_save))
+                Text(
+                    if (voicePhase.isActive) {
+                        stringResource(R.string.voice_capture_save_after_stop)
+                    } else {
+                        stringResource(R.string.capture_sheet_save)
+                    },
+                )
             }
         }
     }

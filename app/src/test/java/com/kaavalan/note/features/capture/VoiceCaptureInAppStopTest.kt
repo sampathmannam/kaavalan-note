@@ -73,6 +73,7 @@ class VoiceCaptureInAppStopTest {
             "VoiceCaptureState should be true after handleStart",
             VoiceCaptureState.isRecording.value,
         )
+        assertEquals(VoiceCapturePhase.STARTING, VoiceCaptureState.phase.value)
     }
 
     @Test
@@ -84,6 +85,20 @@ class VoiceCaptureInAppStopTest {
         assertTrue(VoiceCaptureState.isRecording.value)
         VoiceCaptureState.setRecording(false)
         assertFalse(VoiceCaptureState.isRecording.value)
+        assertEquals(VoiceCapturePhase.IDLE, VoiceCaptureState.phase.value)
+    }
+
+    @Test
+    fun `finishing keeps the capture active until the transcript is returned`() {
+        VoiceCaptureState.setListening()
+        VoiceCaptureState.setFinishing()
+
+        assertTrue(VoiceCaptureState.isRecording.value)
+        assertEquals(VoiceCapturePhase.FINISHING, VoiceCaptureState.phase.value)
+
+        VoiceCaptureState.setRecording(false)
+        assertFalse(VoiceCaptureState.isRecording.value)
+        assertEquals(VoiceCapturePhase.IDLE, VoiceCaptureState.phase.value)
     }
 
     @Test

@@ -5,6 +5,24 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
+ * The visible phase of a system voice-recognition request.
+ *
+ * A simple recording boolean cannot tell an officer whether the microphone is
+ * actually ready, still starting, or is adding the last spoken words. These phases
+ * are deliberately about what the person can do next rather than recognizer internals.
+ */
+enum class VoiceCapturePhase {
+    IDLE,
+    STARTING,
+    LISTENING,
+    FINISHING,
+    ;
+
+    val isActive: Boolean
+        get() = this != IDLE
+}
+
+/**
  * Tier 0.4 (cleanup + ship-the-built): a process-wide hot
  * state for the [VoiceCaptureService].
  *
@@ -34,6 +52,14 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 object VoiceCaptureState {
 
+    private val _phase = MutableStateFlow(VoiceCapturePhase.IDLE)
+
+    /**
+     * The state the capture sheet renders. `LISTENING` is set only after Android's
+     * recognizer says it is ready for speech; it is not guessed from a button tap.
+     */
+    val phase: StateFlow<VoiceCapturePhase> = _phase.asStateFlow()
+
     /**
      * `true` while [VoiceCaptureService] is in the foreground
      * and recording. The service resets it to `false` in
@@ -49,6 +75,18 @@ object VoiceCaptureState {
      */
     val isRecording: StateFlow<Boolean> = _isRecording.asStateFlow()
 
+    /** Keep the phase and legacy boolean in lockstep for existing callers/tests. */
+    private fun setPhase(value: VoiceCapturePhase) {
+        _phase.value = value
+        _isRecording.value = value.isActive
+    }
+
+    internal fun setStarting() = setPhase(VoiceCapturePhase.STARTING)
+
+    internal fun setListening() = setPhase(VoiceCapturePhase.LISTENING)
+
+    internal fun setFinishing() = setPhase(VoiceCapturePhase.FINISHING)
+
     /**
      * Internal write entry point. The service is the only
      * caller. The function is `internal` so unit tests under
@@ -57,6 +95,6 @@ object VoiceCaptureState {
      * [android.app.Service].
      */
     internal fun setRecording(value: Boolean) {
-        _isRecording.value = value
+        setPhase(if (value) VoiceCapturePhase.STARTING else VoiceCapturePhase.IDLE)
     }
 }

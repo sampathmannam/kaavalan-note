@@ -68,6 +68,14 @@
     <string name="voice_capture_title">Listening</string>
     <string name="voice_capture_text">Speak naturally. Your words appear in the note; tap Stop when done.</string>
     <string name="voice_capture_stop">Stop</string>
+    <string name="voice_capture_starting">Starting microphone</string>
+    <string name="voice_capture_starting_support">Preparing voice capture. You can start speaking when it says Listening.</string>
+    <string name="voice_capture_listening">Listening — speak now</string>
+    <string name="voice_capture_listening_support">Your words appear in the note as you speak. Tap Stop when you are finished.</string>
+    <string name="voice_capture_finishing">Finishing voice note</string>
+    <string name="voice_capture_finishing_support">Adding your last words to the note.</string>
+    <string name="voice_capture_stop_and_add">Stop &amp; add text</string>
+    <string name="voice_capture_save_after_stop">Stop voice before saving</string>
     <string name="voice_capture_permission_denied">Microphone permission is required for voice capture.</string>
     <string name="voice_capture_error">Voice capture failed: %1$s</string>
 

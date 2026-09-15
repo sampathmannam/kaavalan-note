@@ -71,6 +71,7 @@ class VoiceCaptureService : Service() {
     private var resultReceiver: ResultReceiver? = null
     private var lastPartialText: String = ""
     private var recognizerBusyRetries: Int = 0
+    private var stopRequested: Boolean = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -115,6 +116,7 @@ class VoiceCaptureService : Service() {
         resultReceiver = receiver
         lastPartialText = ""
         recognizerBusyRetries = 0
+        stopRequested = false
         if (
             ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) !=
             PackageManager.PERMISSION_GRANTED
@@ -125,7 +127,9 @@ class VoiceCaptureService : Service() {
         }
         // Tier 0.4: flip the process-wide state so the
         // in-app capture sheet can render a Stop button.
-        VoiceCaptureState.setRecording(true)
+        // Show an honest preparatory state immediately. The sheet only says
+        // "Listening" after onReadyForSpeech arrives from the recognizer.
+        VoiceCaptureState.setStarting()
         val foregroundStarted = runCatching { startForegroundWithNotification() }
             .onFailure { failure ->
                 Log.e(TAG, "Could not start microphone foreground service (${failure.javaClass.simpleName})")
@@ -139,6 +143,9 @@ class VoiceCaptureService : Service() {
     }
 
     private fun startRecognizing() {
+        // A Stop action can reach the service while a busy recognizer is waiting to
+        // retry. Never bring the microphone back after the officer asked it to stop.
+        if (stopRequested) return
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             deliverError("Speech recognition is not available on this device.")
             VoiceCaptureState.setRecording(false)
@@ -190,6 +197,14 @@ class VoiceCaptureService : Service() {
         // nothing was captured). The listener delivers the
         // text and stops the service. The in-app Stop button
         // shares this code path with the notification action.
+        if (!VoiceCaptureState.isRecording.value) {
+            // `startService(ACTION_STOP)` may create a fresh service after a rapid
+            // double tap. It has no recording to finish, so tear it down immediately.
+            stopSelf()
+            return
+        }
+        stopRequested = true
+        VoiceCaptureState.setFinishing()
         runCatching { speechRecognizer?.stopListening() }
             .onFailure { e -> Log.w(TAG, "stopListening failed (${e.javaClass.simpleName})") }
         // Belt + suspenders: if the listener never fires
@@ -322,11 +337,17 @@ class VoiceCaptureService : Service() {
      * internally.
      */
     private inner class KaavalanRecognitionListener : RecognitionListener {
-        override fun onReadyForSpeech(params: Bundle?) {}
-        override fun onBeginningOfSpeech() {}
+        override fun onReadyForSpeech(params: Bundle?) {
+            if (!stopRequested) VoiceCaptureState.setListening()
+        }
+        override fun onBeginningOfSpeech() {
+            if (!stopRequested) VoiceCaptureState.setListening()
+        }
         override fun onRmsChanged(rmsdB: Float) {}
         override fun onBufferReceived(buffer: ByteArray?) {}
-        override fun onEndOfSpeech() {}
+        override fun onEndOfSpeech() {
+            if (VoiceCaptureState.isRecording.value) VoiceCaptureState.setFinishing()
+        }
         override fun onEvent(eventType: Int, params: Bundle?) {}
         override fun onPartialResults(partialResults: Bundle?) {
             val text = bestTranscript(partialResults)
@@ -352,8 +373,13 @@ class VoiceCaptureService : Service() {
                 recognizerBusyRetries++
                 runCatching { speechRecognizer?.destroy() }
                 speechRecognizer = null
+                VoiceCaptureState.setStarting()
                 android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
-                    { if (VoiceCaptureState.isRecording.value) startRecognizing() },
+                    {
+                        if (!stopRequested && VoiceCaptureState.isRecording.value) {
+                            startRecognizing()
+                        }
+                    },
                     BUSY_RETRY_DELAY_MS,
                 )
                 return
