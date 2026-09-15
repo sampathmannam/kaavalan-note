@@ -1,6 +1,18 @@
 {
   "changelog": [
     {
+      "version": "2.7.5",
+      "code": 58,
+      "date": "2026-09-15",
+      "highlights": [
+        "Voice capture now shows Starting, Listening and Adding your words states, with a calm live pulse and a clear Stop action while the microphone is active.",
+        "Spoken notes containing today or tomorrow and a time, such as tomorrow evening 4 PM, automatically prepare the matching follow-up while keeping the full note text editable.",
+        "Speak is easier to reach from a dedicated in-app button, a Kaavalan Speak launcher entry, the home-screen widget, the Quick Settings tile and the normal app's long-press shortcut.",
+        "The Quick Settings tile starts or stops voice reliably under modern Android background-launch rules, including Android 17 on Motorola Signature.",
+        "Repeated voice requests are queued instead of lost, and isolated debug builds keep every shortcut inside their own test package. Your production notes and contacts remain untouched during QA."
+      ]
+    },
+    {
       "version": "2.7.4",
       "code": 57,
       "date": "2026-09-15",

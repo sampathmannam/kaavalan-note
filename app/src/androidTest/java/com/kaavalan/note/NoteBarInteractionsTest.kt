@@ -11,7 +11,7 @@ import org.junit.Test
 class NoteBarInteractionsTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun photoAndVoiceCaptionsDoNotOpenTyping() {
+    @Test fun photoAndSpeakActionsDoNotOpenTyping() {
         var typing = 0
         var photo = 0
         var voice = 0
@@ -19,7 +19,7 @@ class NoteBarInteractionsTest {
             KaavalanNoteTheme(darkTheme = false) { NoteBar({ typing++ }, { photo++ }, { voice++ }) }
         }
         compose.onNodeWithText("Photo").performClick()
-        compose.onNodeWithText("Voice").performClick()
+        compose.onNodeWithTag("capture_voice").performClick()
         compose.runOnIdle { assertEquals(0, typing); assertEquals(1, photo); assertEquals(1, voice) }
         compose.onNodeWithTag("capture_open").performClick()
         compose.runOnIdle { assertEquals(1, typing); assertEquals(1, photo); assertEquals(1, voice) }

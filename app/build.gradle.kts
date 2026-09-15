@@ -117,6 +117,9 @@ tasks.withType<Test>().configureEach {
     // the redirected user home above is where Robolectric looks.
 }
 
+val debugApplicationIdSuffix = providers.gradleProperty("kaavalan.debugApplicationIdSuffix")
+    .getOrElse(".debug")
+
 
 
 android {
@@ -443,8 +446,11 @@ android {
         // v2.7.4: end-to-end reliability hardening for transactional writes,
         // safe import/backup recovery, reminder delivery and Android-native tests.
         // Same application ID, Room schema 18 and backup schema 4; versionCode 56 -> 57.
-        versionCode = 57
-        versionName = "2.7.4"
+        // v2.7.5: visible live voice states, spoken today/tomorrow reminder detection,
+        // and production voice entry points for the app, launcher, widget and quick-settings
+        // shade. Same application ID and schemas; versionCode 57 -> 58.
+        versionCode = 58
+        versionName = "2.7.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // v2.2.2 (test-infra): wipe app state between instrumented
@@ -612,8 +618,12 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix = providers.gradleProperty("kaavalan.debugApplicationIdSuffix").getOrElse(".debug")
-            resValue("string", "shortcut_target_package", "com.kaavalan.note.debug")
+            applicationIdSuffix = debugApplicationIdSuffix
+            resValue(
+                "string",
+                "shortcut_target_package",
+                "com.kaavalan.note$debugApplicationIdSuffix",
+            )
             isDebuggable = true
         }
         release {

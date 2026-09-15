@@ -8,6 +8,7 @@ class SpeakNoteShortcutTest {
 
     private val manifest = File("src/main/AndroidManifest.xml").readText(Charsets.UTF_8)
     private val shortcuts = File("src/main/res/xml/shortcuts.xml").readText(Charsets.UTF_8)
+    private val buildScript = File("build.gradle.kts").readText(Charsets.UTF_8)
 
     @Test
     fun `normal launcher exposes the long-press speak shortcut`() {
@@ -26,5 +27,15 @@ class SpeakNoteShortcutTest {
         assertTrue(shortcuts.contains("android:action=\"${SpeakNoteActivity.ACTION_SPEAK_NOTE}\""))
         assertTrue(shortcuts.contains("android:targetClass=\"com.kaavalan.note.MainActivity\""))
         assertTrue(shortcuts.contains("android:targetPackage=\"@string/shortcut_target_package\""))
+    }
+
+    @Test
+    fun `isolated debug builds target their own application id`() {
+        assertTrue(buildScript.contains("applicationIdSuffix = debugApplicationIdSuffix"))
+        assertTrue(
+            buildScript.contains(
+                "\"com.kaavalan.note${'$'}debugApplicationIdSuffix\"",
+            ),
+        )
     }
 }
