@@ -59,6 +59,7 @@ import java.time.format.DateTimeFormatter
 fun ReminderPicker(
     reminderAtMs: Long?,
     onSelected: (Long?) -> Unit,
+    autoDetected: Boolean = false,
     modifier: Modifier = Modifier,
     title: String? = null,
     supportingText: String? = null,
@@ -107,7 +108,11 @@ fun ReminderPicker(
                     style = MaterialTheme.typography.titleSmall,
                 )
                 Text(
-                    text = supportingText ?: stringResource(R.string.reminder_picker_supporting_text),
+                    text = supportingText ?: if (autoDetected) {
+                        stringResource(R.string.reminder_picker_detected_supporting_text)
+                    } else {
+                        stringResource(R.string.reminder_picker_supporting_text)
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -218,7 +223,11 @@ fun ReminderPicker(
             ) {
                 Text(
                     text = stringResource(
-                        R.string.reminder_picker_scheduled,
+                        if (autoDetected) {
+                            R.string.reminder_picker_detected_scheduled
+                        } else {
+                            R.string.reminder_picker_scheduled
+                        },
                         formatReminderTime(reminderAtMs, zone),
                     ),
                     style = MaterialTheme.typography.bodyMedium,

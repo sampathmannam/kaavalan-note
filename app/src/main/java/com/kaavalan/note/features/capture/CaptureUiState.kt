@@ -33,6 +33,9 @@ data class CaptureUiState(
     val isSaving: Boolean = false,
     val addToCalendar: Boolean = false,
     val reminderAtMs: Long? = null,
+    // A detected reminder may update while the words are still being dictated. A manual
+    // selection, including Clear, wins until this draft is saved or explicitly wiped.
+    val reminderOrigin: ReminderOrigin = ReminderOrigin.NONE,
     val direction: com.kaavalan.note.data.instructions.Direction = com.kaavalan.note.data.instructions.Direction.SELF,
     val personId: String? = null,
     val requiresContact: Boolean = false,
@@ -62,6 +65,12 @@ data class CaptureUiState(
         get() = isVisible && text.isNotBlank() && !isSaving && workspaceReady && (!requiresContact || personId != null)
 
     val hasContext: Boolean get() = contextStationId != null || contextMatterId != null
+}
+
+enum class ReminderOrigin {
+    NONE,
+    AUTO,
+    MANUAL,
 }
 
 /**

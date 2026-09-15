@@ -378,6 +378,43 @@ class CaptureViewModelTest {
         assertEquals("Existing detail\n\nSpoken addition", vm.state.value.text)
     }
 
+    @Test fun `typed field note automatically fills a detected reminder and keeps every word`() = runTest(testDispatcher) {
+        val f = fakes()
+        val vm = makeVm(f.first, f.second, f.third)
+        val note = "Go with Traffic Inspector to review the road traffic recce for tomorrow's procession at evening 4 PM"
+
+        vm.onTextChanged(note)
+
+        assertEquals(note, vm.state.value.text)
+        assertEquals(ReminderOrigin.AUTO, vm.state.value.reminderOrigin)
+        assertNotNull(vm.state.value.reminderAtMs)
+    }
+
+    @Test fun `voice transcript automatically fills a follow up reminder`() = runTest(testDispatcher) {
+        val f = fakes()
+        val vm = makeVm(f.first, f.second, f.third)
+        val note = "Follow up on tomorrow morning 6 AM"
+
+        vm.onVoiceTranscript(note)
+
+        assertEquals(note, vm.state.value.text)
+        assertEquals(CaptureMode.VOICE, vm.state.value.mode)
+        assertEquals(ReminderOrigin.AUTO, vm.state.value.reminderOrigin)
+        assertNotNull(vm.state.value.reminderAtMs)
+    }
+
+    @Test fun `a manual reminder selection is never replaced by detected text`() = runTest(testDispatcher) {
+        val f = fakes()
+        val vm = makeVm(f.first, f.second, f.third)
+        val manuallyChosen = System.currentTimeMillis() + 3_600_000L
+
+        vm.onReminderChanged(manuallyChosen)
+        vm.onTextChanged("Follow up tomorrow morning 6 AM")
+
+        assertEquals(manuallyChosen, vm.state.value.reminderAtMs)
+        assertEquals(ReminderOrigin.MANUAL, vm.state.value.reminderOrigin)
+    }
+
     @Test fun `voice partial results replace the previous partial and final keeps the original draft once`() = runTest(testDispatcher) {
         val f = fakes()
         val vm = makeVm(f.first, f.second, f.third)

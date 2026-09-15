@@ -131,6 +131,25 @@
             </intent-filter>
         </activity>
 
+        <!-- Motorola Signature Quick Launch and similar OEM hardware gestures can open a
+             launcher activity but cannot supply Kaavalan's voice action. This separate entry
+             appears as "Kaavalan Speak" in the device's app chooser. It is a no-display
+             trampoline: MainActivity becomes visible first, then the existing permission-safe
+             voice flow starts. The normal KaavalanNote launcher continues to open normally. -->
+        <activity
+            android:name=".features.capture.SpeakNoteActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_speak_launcher"
+            android:label="@string/speak_note_launcher_label"
+            android:noHistory="true"
+            android:theme="@style/Theme.KaavalanNote.Translucent.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".data.reminder.ReminderActionReceiver"
             android:exported="false" />

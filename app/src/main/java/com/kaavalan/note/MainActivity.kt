@@ -28,6 +28,7 @@ import androidx.lifecycle.lifecycleScope
 import com.kaavalan.note.data.preferences.KaavalanPreferences
 import com.kaavalan.note.data.undo.UndoController
 import com.kaavalan.note.features.capture.ShareIntake
+import com.kaavalan.note.features.capture.SpeakNoteActivity
 import com.kaavalan.note.features.capture.ocrTextOrEmpty
 import com.kaavalan.note.features.onboarding.OnboardingScreen
 import com.kaavalan.note.features.theme.appDarkTheme
@@ -85,6 +86,7 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) {
             consumeSharedText(intent)
             consumeQuickCapture(intent)
+            consumeSpeakNote(intent)
             consumeReminderIntent(intent)
         }
         briefNotifier.schedule()
@@ -121,12 +123,19 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         consumeSharedText(intent)
         consumeQuickCapture(intent)
+        consumeSpeakNote(intent)
         consumeReminderIntent(intent)
     }
 
     private fun consumeQuickCapture(intent: Intent?) {
         if (intent?.action == com.kaavalan.note.features.capture.KaavalanCaptureWidget.ACTION_QUICK_CAPTURE) {
             rootViewModel.onQuickCapture()
+        }
+    }
+
+    private fun consumeSpeakNote(intent: Intent?) {
+        if (intent?.action == SpeakNoteActivity.ACTION_SPEAK_NOTE) {
+            rootViewModel.onSpeakNote()
         }
     }
 
@@ -355,6 +364,17 @@ class RootViewModel @Inject constructor() : ViewModel() {
 
     fun consumeQuickCapture() {
         _quickCapture.value = false
+    }
+
+    private val _speakNote = MutableStateFlow(false)
+    val speakNote: StateFlow<Boolean> = _speakNote.asStateFlow()
+
+    fun onSpeakNote() {
+        _speakNote.value = true
+    }
+
+    fun consumeSpeakNote() {
+        _speakNote.value = false
     }
 
     private val _pendingReminderInstructionId = MutableStateFlow<String?>(null)

@@ -30,6 +30,7 @@
     <string name="capture_sheet_add_to_calendar">Add to calendar</string>
     <string name="reminder_picker_title">Reminder</string>
     <string name="reminder_picker_supporting_text">Get a private notification when this note needs you.</string>
+    <string name="reminder_picker_detected_supporting_text">Detected in your note. Change or clear it any time.</string>
     <string name="reminder_preset_one_hour">In 1 hour</string>
     <string name="reminder_preset_tomorrow">Tomorrow at 9:00</string>
     <string name="reminder_preset_next_week">Next week</string>
@@ -42,6 +43,7 @@
     <string name="reminder_choose_time">Choose a time for %1$s</string>
     <string name="reminder_pick_time">Pick a time</string>
     <string name="reminder_picker_scheduled">Set for %1$s</string>
+    <string name="reminder_picker_detected_scheduled">Detected: %1$s</string>
     <string name="reminder_picker_clear">Clear reminder</string>
     <string name="reminder_calendar_option">Also add to calendar</string>
     <string name="reminder_past_time">That time has already passed — pick a future time.</string>
@@ -78,6 +80,7 @@
     <string name="voice_capture_save_after_stop">Stop voice before saving</string>
     <string name="voice_capture_permission_denied">Microphone permission is required for voice capture.</string>
     <string name="voice_capture_error">Voice capture failed: %1$s</string>
+    <string name="speak_note_launcher_label">Kaavalan Speak</string>
 
     <!-- M3-T4: settings sheet + sign-out -->
     <string name="settings_title">Settings</string>

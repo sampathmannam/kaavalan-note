@@ -37,6 +37,18 @@ class RootViewModelTest {
     }
 
     @Test
+    fun speakNote_isAvailableUntilCaptureHostConsumesIt() {
+        val viewModel = RootViewModel()
+
+        assertFalse(viewModel.speakNote.value)
+        viewModel.onSpeakNote()
+        assertTrue(viewModel.speakNote.value)
+
+        viewModel.consumeSpeakNote()
+        assertFalse(viewModel.speakNote.value)
+    }
+
+    @Test
     fun reminderInstruction_isAvailableUntilTodayConsumesIt() {
         val viewModel = RootViewModel()
 

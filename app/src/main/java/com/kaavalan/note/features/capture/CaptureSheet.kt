@@ -376,6 +376,7 @@ private fun CaptureSheetContent(
             ReminderPicker(
                 reminderAtMs = state.reminderAtMs,
                 onSelected = onReminderChanged,
+                autoDetected = state.reminderOrigin == ReminderOrigin.AUTO,
             )
             if (state.reminderAtMs != null) {
                 AddToCalendarRow(

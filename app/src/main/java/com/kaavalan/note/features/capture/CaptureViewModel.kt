@@ -16,6 +16,7 @@ import com.kaavalan.note.data.instructions.Source
 import com.kaavalan.note.data.person.PersonRepository
 import com.kaavalan.note.data.reminder.ReminderScheduler
 import com.kaavalan.note.data.tags.RoomTagRepository
+import com.kaavalan.note.features.reminder.NaturalLanguageReminderParser
 import com.kaavalan.note.ui.util.SafeError
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -61,6 +62,13 @@ class CaptureViewModel @Inject constructor(
     private val reminderScheduler: ReminderScheduler,
 ) : ViewModel() {
 
+    private val restoredReminderAtMs = savedStateHandle.get<Long>(KEY_REMINDER_AT_MS)
+    private val restoredReminderOrigin = savedStateHandle.get<String>(KEY_REMINDER_ORIGIN)
+        ?.let { runCatching { ReminderOrigin.valueOf(it) }.getOrNull() }
+        // A draft from an earlier app version may carry a chosen reminder but no origin.
+        // Preserve that choice rather than allowing natural-language detection to replace it.
+        ?: if (restoredReminderAtMs != null) ReminderOrigin.MANUAL else ReminderOrigin.NONE
+
     /**
      * v1.4 (F-09): initial state is read from [SavedStateHandle] so
      * a process death + relaunch restores the partial capture note
@@ -78,7 +86,8 @@ class CaptureViewModel @Inject constructor(
                 savedStateHandle.get<ArrayList<String>>(KEY_SELECTED_TAG_IDS)
                     ?: arrayListOf()
                 ).toSet(),
-            reminderAtMs = savedStateHandle.get<Long>(KEY_REMINDER_AT_MS),
+            reminderAtMs = restoredReminderAtMs,
+            reminderOrigin = restoredReminderOrigin,
             addToCalendar = savedStateHandle.get<Boolean>(KEY_ADD_TO_CALENDAR) ?: false,
             direction = savedStateHandle.get<String>(KEY_DIRECTION)
                 ?.let { runCatching { Direction.valueOf(it) }.getOrNull() } ?: Direction.SELF,
@@ -109,6 +118,7 @@ class CaptureViewModel @Inject constructor(
                 savedStateHandle[KEY_MODE] = current.mode.name
                 savedStateHandle[KEY_SELECTED_TAG_IDS] = ArrayList(current.selectedTagIds)
                 savedStateHandle[KEY_REMINDER_AT_MS] = current.reminderAtMs
+                savedStateHandle[KEY_REMINDER_ORIGIN] = current.reminderOrigin.name
                 savedStateHandle[KEY_ADD_TO_CALENDAR] = current.addToCalendar
                 savedStateHandle[KEY_DIRECTION] = current.direction.name
                 savedStateHandle[KEY_PERSON_ID] = current.personId
@@ -139,6 +149,7 @@ class CaptureViewModel @Inject constructor(
         savedStateHandle.remove<String>(KEY_MODE)
         savedStateHandle.remove<ArrayList<String>>(KEY_SELECTED_TAG_IDS)
         savedStateHandle.remove<Long>(KEY_REMINDER_AT_MS)
+        savedStateHandle.remove<String>(KEY_REMINDER_ORIGIN)
         savedStateHandle.remove<Boolean>(KEY_ADD_TO_CALENDAR)
         savedStateHandle.remove<String>(KEY_DIRECTION)
         savedStateHandle.remove<String>(KEY_PERSON_ID)
@@ -206,6 +217,7 @@ class CaptureViewModel @Inject constructor(
         const val KEY_MODE = "capture.mode"
         const val KEY_SELECTED_TAG_IDS = "capture.selectedTagIds"
         const val KEY_REMINDER_AT_MS = "capture.reminderAtMs"
+        const val KEY_REMINDER_ORIGIN = "capture.reminderOrigin"
         const val KEY_ADD_TO_CALENDAR = "capture.addToCalendar"
         const val KEY_DIRECTION = "capture.direction"
         const val KEY_PERSON_ID = "capture.personId"
@@ -351,12 +363,30 @@ class CaptureViewModel @Inject constructor(
 
     fun onTextChanged(text: String) {
         _state.update {
-            it.copy(
+            withDetectedReminder(it, text).copy(
                 text = text,
                 mode = CaptureMode.TEXT,
                 error = null,
                 dispatchSuggestion = detectDispatchSuggestion(text),
             )
+        }
+    }
+
+    /** Apply only a complete, future relative-date + clock-time phrase to an untouched reminder. */
+    private fun withDetectedReminder(current: CaptureUiState, text: String): CaptureUiState {
+        if (current.reminderOrigin == ReminderOrigin.MANUAL) return current
+        val detectedAtMs = NaturalLanguageReminderParser.parse(text)
+        return when {
+            detectedAtMs != null -> current.copy(
+                reminderAtMs = detectedAtMs,
+                reminderOrigin = ReminderOrigin.AUTO,
+            )
+            current.reminderOrigin == ReminderOrigin.AUTO -> current.copy(
+                reminderAtMs = null,
+                addToCalendar = false,
+                reminderOrigin = ReminderOrigin.NONE,
+            )
+            else -> current
         }
     }
 
@@ -422,6 +452,7 @@ class CaptureViewModel @Inject constructor(
             it.copy(
                 reminderAtMs = reminderAtMs,
                 addToCalendar = if (reminderAtMs == null) false else it.addToCalendar,
+                reminderOrigin = ReminderOrigin.MANUAL,
             )
         }
     }
@@ -511,9 +542,10 @@ class CaptureViewModel @Inject constructor(
 
     private fun applyVoiceTranscript(text: String) {
         val base = voiceDraftBaseText ?: _state.value.text
+        val fullText = listOf(base, text.trim()).filter(String::isNotBlank).joinToString("\n\n")
         _state.update {
-            it.copy(
-                text = listOf(base, text.trim()).filter(String::isNotBlank).joinToString("\n\n"),
+            withDetectedReminder(it, fullText).copy(
+                text = fullText,
                 mode = CaptureMode.VOICE,
                 error = null,
                 isVisible = true,
