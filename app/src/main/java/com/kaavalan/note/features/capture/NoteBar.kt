@@ -43,9 +43,27 @@ fun NoteBar(
                     Spacer(Modifier.weight(1f))
                 }
                 CaptureShortcut(Icons.Outlined.PhotoCamera, stringResource(R.string.note_bar_camera), onCameraClick)
-                CaptureShortcut(Icons.Outlined.Mic, stringResource(R.string.note_bar_mic), onMicClick)
+                SpeakNoteButton(stringResource(R.string.note_bar_mic), onMicClick)
             }
         }
+    }
+}
+
+/** Voice is a primary capture mode, so its label remains visible instead of hiding in an icon. */
+@Composable
+private fun SpeakNoteButton(label: String, onClick: () -> Unit) {
+    FilledTonalButton(
+        onClick = onClick,
+        modifier = Modifier
+            .widthIn(min = 96.dp)
+            .heightIn(min = 56.dp)
+            .testTag("capture_voice"),
+        shape = MaterialTheme.shapes.large,
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        Icon(Icons.Outlined.Mic, contentDescription = null, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(label, style = MaterialTheme.typography.titleSmall)
     }
 }
 

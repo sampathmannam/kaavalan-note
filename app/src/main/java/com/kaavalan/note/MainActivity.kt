@@ -366,15 +366,18 @@ class RootViewModel @Inject constructor() : ViewModel() {
         _quickCapture.value = false
     }
 
-    private val _speakNote = MutableStateFlow(false)
-    val speakNote: StateFlow<Boolean> = _speakNote.asStateFlow()
+    // A counter, rather than a Boolean, preserves repeated hardware/tile requests that arrive
+    // while the previous request is still being consumed by Compose. This matters when the
+    // system shade briefly stops lifecycle collection: true -> true would otherwise be lost.
+    private val _pendingSpeakNoteRequests = MutableStateFlow(0)
+    val pendingSpeakNoteRequests: StateFlow<Int> = _pendingSpeakNoteRequests.asStateFlow()
 
     fun onSpeakNote() {
-        _speakNote.value = true
+        _pendingSpeakNoteRequests.value += 1
     }
 
     fun consumeSpeakNote() {
-        _speakNote.value = false
+        _pendingSpeakNoteRequests.value = (_pendingSpeakNoteRequests.value - 1).coerceAtLeast(0)
     }
 
     private val _pendingReminderInstructionId = MutableStateFlow<String?>(null)

@@ -1,8 +1,10 @@
 package com.kaavalan.note.features.capture
 
 import android.os.Build
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -12,9 +14,8 @@ import org.robolectric.annotation.Config
  * Tier 0.2: unit tests for [KaavalanTileService].
  *
  * **What we test without an emulator:**
- *  - The ACTION_QUICK_CAPTURE deep-link constant the tile
- *    fires is the same constant the widget + MainActivity
- *    consume.
+ *  - The ACTION_SPEAK_NOTE deep-link constant the tile fires is the same voice request the
+ *    physical and launcher shortcuts use.
  *  - The label + state plumbing is reachable from the
  *    Robolectric ServiceController (we use
  *    `Robolectric.buildService(...)` to bind the service in
@@ -27,22 +28,27 @@ import org.robolectric.annotation.Config
  *    `qa-tile.xml`) adds the tile via
  *    `adb shell cmd statusbar add-tile` and screencaps the
  *    shade.
- *  - The CATEGORY_LAUNCHER + startActivity path on API 34+
- *    (needs the system shade, smoke-tested on emulator).
+ *  - The actual system-mediated PendingIntent launch on API 34+
+ *    (needs the system shade, smoke-tested on a device).
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class KaavalanTileServiceTest {
 
     @Test
-    fun `tile fires the same QUICK_CAPTURE action as the widget`() {
-        // The widget, the tile, and MainActivity all reference
-        // this same string. Drift between them would silently
-        // break the deep link.
+    fun `tile fires the shared SPEAK_NOTE action`() {
         assertEquals(
-            "com.kaavalan.note.action.QUICK_CAPTURE",
-            KaavalanCaptureWidget.ACTION_QUICK_CAPTURE,
+            "com.kaavalan.note.action.SPEAK_NOTE",
+            SpeakNoteActivity.ACTION_SPEAK_NOTE,
         )
+        val source = File(
+            "src/main/java/com/kaavalan/note/features/capture/KaavalanTileService.kt",
+        ).readText(Charsets.UTF_8)
+        assertTrue(source.contains("action = SpeakNoteActivity.ACTION_SPEAK_NOTE"))
+        assertTrue(source.contains("PendingIntent.getActivity"))
+        assertTrue(source.contains("startActivityAndCollapse(pendingIntent)"))
+        assertTrue(source.contains("Build.VERSION_CODES.UPSIDE_DOWN_CAKE"))
+        assertTrue(source.contains("startActivityAndCollapse(intent)"))
     }
 
     @Test

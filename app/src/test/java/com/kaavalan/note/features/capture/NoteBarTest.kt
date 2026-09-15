@@ -9,11 +9,20 @@ class NoteBarTest {
 
     @Test fun shortcutsHaveWholeCaptionTargets_andDisjointCallbacks() {
         assertTrue(source.contains("CaptureShortcut(Icons.Outlined.PhotoCamera, stringResource(R.string.note_bar_camera), onCameraClick)"))
-        assertTrue(source.contains("CaptureShortcut(Icons.Outlined.Mic, stringResource(R.string.note_bar_mic), onMicClick)"))
+        assertTrue(source.contains("SpeakNoteButton(stringResource(R.string.note_bar_mic), onMicClick)"))
         val shortcut = source.substringAfter("private fun CaptureShortcut")
         assertTrue(shortcut.contains(".clickable(role = Role.Button, onClick = onClick)"))
         assertTrue(shortcut.contains("heightIn(min = 56.dp)"))
         assertTrue(shortcut.contains("Text(label"))
+    }
+
+    @Test fun voiceIsAProminentLabelledMaterialButton() {
+        val voice = source.substringAfter("private fun SpeakNoteButton").substringBefore("private fun CaptureShortcut")
+        assertTrue(voice.contains("FilledTonalButton("))
+        assertTrue(voice.contains("widthIn(min = 96.dp)"))
+        assertTrue(voice.contains("heightIn(min = 56.dp)"))
+        assertTrue(voice.contains("testTag(\"capture_voice\")"))
+        assertTrue(voice.contains("Text(label"))
     }
 
     @Test fun typingDoesNotOwnAnOuterSurfaceWrappingTheOtherActions() {

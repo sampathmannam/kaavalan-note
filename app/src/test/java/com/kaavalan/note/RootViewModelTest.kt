@@ -37,15 +37,20 @@ class RootViewModelTest {
     }
 
     @Test
-    fun speakNote_isAvailableUntilCaptureHostConsumesIt() {
+    fun repeatedSpeakNoteRequests_areQueuedUntilCaptureHostConsumesThem() {
         val viewModel = RootViewModel()
 
-        assertFalse(viewModel.speakNote.value)
+        assertEquals(0, viewModel.pendingSpeakNoteRequests.value)
         viewModel.onSpeakNote()
-        assertTrue(viewModel.speakNote.value)
+        viewModel.onSpeakNote()
+        assertEquals(2, viewModel.pendingSpeakNoteRequests.value)
 
         viewModel.consumeSpeakNote()
-        assertFalse(viewModel.speakNote.value)
+        assertEquals(1, viewModel.pendingSpeakNoteRequests.value)
+        viewModel.consumeSpeakNote()
+        assertEquals(0, viewModel.pendingSpeakNoteRequests.value)
+        viewModel.consumeSpeakNote()
+        assertEquals(0, viewModel.pendingSpeakNoteRequests.value)
     }
 
     @Test

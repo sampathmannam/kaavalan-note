@@ -24,14 +24,13 @@ import androidx.glance.layout.width
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.compose.ui.unit.dp
-import com.kaavalan.note.MainActivity
 import com.kaavalan.note.R
 
 /**
  * Tier 0.1 (cleanup + ship-the-built): the home-screen /
  * lock-screen widget, now built with Jetpack Glance.
  *
- * The widget is a single Capture button -- no count badge, no
+ * The widget is a single Speak button -- no count badge, no
  * streak counter, no carried-over copy. The colour comes from
  * [GlanceTheme.colors] (the M3 primaryContainer / onPrimaryContainer
  * tokens via the glance-material3 runtime), which is **never red**
@@ -50,10 +49,9 @@ import com.kaavalan.note.R
  * **State:** the widget is stateless -- it is re-rendered on
  * every `update` (which is in turn triggered by the system at
  * `updatePeriodMillis` intervals or by an explicit
- * [KaavalanCaptureWidget.updateAll] call). The `Tap capture` action
- * always routes to [MainActivity] via the
- * [com.baton.app.features.capture.KaavalanCaptureWidget.ACTION_QUICK_CAPTURE]
- * deep link; the widget does NOT depend on app data.
+ * [KaavalanCaptureWidget.updateAll] call). The `Tap speak` action routes through
+ * [SpeakNoteActivity], which makes the main app visible before the existing permission-safe
+ * microphone flow starts. The widget does NOT depend on app data.
  *
  * **No permission** is required to install or render the widget.
  */
@@ -69,7 +67,7 @@ class KaavalanCaptureWidget : GlanceAppWidget() {
 
     @Composable
     private fun CaptureWidgetBody() {
-        // Tier 0.1: single Capture button. The row is centred in
+        // Tier 0.1: single Speak button. The row is centred in
         // the available cell, has rounded corners, and uses the
         // GlanceTheme primaryContainer / onPrimaryContainer tokens
         // -- **no red, no overdue wording**. The widget never
@@ -82,7 +80,7 @@ class KaavalanCaptureWidget : GlanceAppWidget() {
                 .background(GlanceTheme.colors.primaryContainer)
                 .cornerRadius(16.dp)
                 .padding(12.dp)
-                .clickable(actionStartActivity<MainActivity>()),
+                .clickable(actionStartActivity<SpeakNoteActivity>()),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Image(
@@ -115,11 +113,9 @@ class KaavalanCaptureWidget : GlanceAppWidget() {
 
     companion object {
         /**
-         * Deep-link action for the quick-capture entry point. The
-         * tile (Tier 0.2) and the widget both fire this action;
-         * MainActivity consumes it. The constant is **unchanged**
-         * from the v1.5.7 AppWidgetProvider implementation so the
-         * tile + activity deep-link contract is preserved.
+         * Legacy typed-capture action retained so widget PendingIntents rendered by an older
+         * version continue to open safely after an in-place update. Newly rendered widgets and
+         * the quick-settings tile use [SpeakNoteActivity.ACTION_SPEAK_NOTE].
          */
         const val ACTION_QUICK_CAPTURE: String = "com.kaavalan.note.action.QUICK_CAPTURE"
     }

@@ -1,5 +1,7 @@
 package com.kaavalan.note.features.capture
 
+import android.annotation.SuppressLint
+import android.app.PendingIntent
 import android.content.Intent
 import android.os.Build
 import android.service.quicksettings.Tile
@@ -42,15 +44,14 @@ import com.kaavalan.note.R
  * becomes visible, and [onStopListening] when it leaves. We
  * use [onStartListening] to push the [Tile.STATE_INACTIVE]
  * label/icon so TalkBack and the tile picker both see the
- * correct state. Tapping fires [onClick] which deep-links to
- * [MainActivity] via the
- * [com.kaavalan.note.features.capture.KaavalanCaptureWidget.ACTION_QUICK_CAPTURE]
- * action -- the same action the Tier 0.1 widget fires.
+ * correct state. Tapping fires [onClick] which deep-links to [MainActivity] via
+ * [SpeakNoteActivity.ACTION_SPEAK_NOTE] -- the same voice request used by the Tier 0.1 widget,
+ * physical shortcut and launcher shortcut.
  *
- * **Android 14 (UPSIDE_DOWN_CAKE) handling:** unchanged from
- * the v1.5.7 implementation. The system requires a launcher
- * category when starting an activity from the background; we
- * add `CATEGORY_LAUNCHER` on API 34+.
+ * **Android 14+ handling:** API 34 replaced the Intent overload
+ * of [startActivityAndCollapse] with a [PendingIntent] overload.
+ * Using the system-mediated PendingIntent path also keeps this
+ * launch valid under modern background-activity restrictions.
  *
  * **Permission:** the manifest declares
  * `android.permission.BIND_QUICK_SETTINGS_TILE` -- a
@@ -80,35 +81,31 @@ class KaavalanTileService : TileService() {
         tile.updateTile()
     }
 
+    // The deprecated Intent overload is required on API 26-33 because the PendingIntent
+    // overload does not exist there. The runtime guard keeps it unreachable on API 34+.
+    @SuppressLint("StartActivityAndCollapseDeprecated")
     @RequiresApi(Build.VERSION_CODES.N)
     override fun onClick() {
         super.onClick()
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            // The capture flow checks for this action;
-            // CaptureSheet opens pre-focused on the text input.
-            action = KaavalanCaptureWidget.ACTION_QUICK_CAPTURE
+            action = SpeakNoteActivity.ACTION_SPEAK_NOTE
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            // API 34+: TileService.startActivity expects a
-            // foreground service launch type when the activity
-            // is started from the background.
-            // CATEGORY_LAUNCHER + NEW_TASK works for our
-            // launch-from-shade case.
-            // v1.6.7: startActivityAndCollapse(p0: Intent) is
-            // deprecated in Q+. The replacement is a plain
-            // startActivity() call -- the system auto-dismisses
-            // the tile once the activity is launched (this is
-            // the standard quick-settings-tile behaviour; no
-            // explicit dismiss call is needed). TileService is
-            // a Service, not an Activity, so finish() is not
-            // available -- the service unbinds and the system
-            // reclaims the tile when the binding goes away.
-            startActivity(
-                Intent(intent).addCategory(Intent.CATEGORY_LAUNCHER),
+            val pendingIntent = PendingIntent.getActivity(
+                this,
+                SPEAK_NOTE_REQUEST_CODE,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
+            startActivityAndCollapse(pendingIntent)
         } else {
-            startActivity(intent)
+            @Suppress("DEPRECATION")
+            startActivityAndCollapse(intent)
         }
+    }
+
+    private companion object {
+        const val SPEAK_NOTE_REQUEST_CODE = 2_701
     }
 }

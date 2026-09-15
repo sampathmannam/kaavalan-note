@@ -38,15 +38,23 @@ import org.robolectric.annotation.Config
 @Config(sdk = [33])
 class KaavalanCaptureWidgetTest {
 
+    private val source = java.io.File(
+        "src/main/java/com/kaavalan/note/features/capture/KaavalanCaptureWidget.kt",
+    ).readText(Charsets.UTF_8)
+
     @Test
     fun `quick capture action is the shared constant`() {
-        // The widget, the tile, and MainActivity all reference
-        // this same string. Drift between the three would
-        // silently break the deep link.
+        // Retained for PendingIntents rendered before the voice-first widget update.
         assertEquals(
             "com.kaavalan.note.action.QUICK_CAPTURE",
             KaavalanCaptureWidget.ACTION_QUICK_CAPTURE,
         )
+    }
+
+    @Test
+    fun `new widget taps launch the dedicated speak entry`() {
+        assertTrue(source.contains(".clickable(actionStartActivity<SpeakNoteActivity>())"))
+        assertTrue(source.contains("R.string.tier0_widget_capture_desc"))
     }
 
     @Test

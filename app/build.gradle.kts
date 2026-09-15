@@ -130,6 +130,9 @@ android {
 
     defaultConfig {
         applicationId = "com.kaavalan.note"
+        // Static launcher shortcuts require an explicit package. Debug overrides this value
+        // below so device tests never jump from the debug shortcut into the signed app.
+        resValue("string", "shortcut_target_package", "com.kaavalan.note")
         minSdk = 26
         targetSdk = 35
         // v1.6.3: UI/UX round 3 (Obsidian-style pass + app icon).
@@ -610,6 +613,7 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = providers.gradleProperty("kaavalan.debugApplicationIdSuffix").getOrElse(".debug")
+            resValue("string", "shortcut_target_package", "com.kaavalan.note.debug")
             isDebuggable = true
         }
         release {

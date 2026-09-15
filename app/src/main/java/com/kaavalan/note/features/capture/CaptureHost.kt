@@ -38,7 +38,7 @@ fun CaptureHost(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val shared by root.sharedText.collectAsStateWithLifecycle()
     val quick by root.quickCapture.collectAsStateWithLifecycle()
-    val speakNote by root.speakNote.collectAsStateWithLifecycle()
+    val pendingSpeakNoteRequests by root.pendingSpeakNoteRequests.collectAsStateWithLifecycle()
     var photoUri by rememberSaveable { mutableStateOf<String?>(null) }
     var dispatchText by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(contacts, privateMode, workspaceReady) {
@@ -97,8 +97,8 @@ fun CaptureHost(
             else micPermission.launch(Manifest.permission.RECORD_AUDIO)
         },
     )
-    LaunchedEffect(speakNote) {
-        if (speakNote) {
+    LaunchedEffect(pendingSpeakNoteRequests) {
+        if (pendingSpeakNoteRequests > 0) {
             viewModel.openSheet()
             if (VoiceCaptureState.phase.value.isActive) {
                 viewModel.onVoiceStop(context)

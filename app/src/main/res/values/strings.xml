@@ -20,7 +20,7 @@
          unattributed) and a person row (attributed) is obvious.
          Tapping a person row still opens an attributed capture. -->
     <string name="note_bar_hint">Quick note</string>
-    <string name="note_bar_mic">Voice</string>
+    <string name="note_bar_mic">Speak</string>
     <string name="note_bar_camera">Photo</string>
     <string name="capture_sheet_title">New note</string>
     <string name="capture_sheet_close">Close</string>
@@ -553,12 +553,15 @@
     <string name="threat_model_closing">This is the threat model. If it does not match yours, do not put the data in this app.</string>
 
     <!-- Tier 0 (cleanup) widget + tile labels. -->
-    <string name="tier0_widget_label">KaavalanNote</string>
-    <string name="tier0_widget_capture">Capture</string>
-    <string name="tier0_widget_capture_desc">Open the capture sheet</string>
-    <string name="tier0_widget_description">Tap to capture a note to Kaavalan.</string>
-    <string name="tier0_tile_label">KaavalanNote quick-capture</string>
-    <string name="tier0_tile_description">Open the capture sheet</string>
+    <string name="tier0_widget_label">Kaavalan Speak</string>
+    <string name="tier0_widget_capture">Speak</string>
+    <string name="tier0_widget_capture_desc">Start a Kaavalan voice note</string>
+    <string name="tier0_widget_description">Tap to speak a note to Kaavalan.</string>
+    <string name="tier0_tile_label">Speak note</string>
+    <string name="tier0_tile_description">Start or stop a Kaavalan voice note</string>
+    <string name="speak_note_shortcut_short_label">Speak note</string>
+    <string name="speak_note_shortcut_long_label">Start a Kaavalan voice note</string>
+    <string name="speak_note_shortcut_disabled_message">Voice capture is unavailable</string>
     <string name="tier0_share_saved">Saved a free note. Pick a person on save.</string>
     <string name="tier0_voice_in_app_stop">Stop voice</string>
     <string name="tier0_voice_in_app_stop_desc">Stop voice capture and transcribe</string>

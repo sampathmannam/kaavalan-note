@@ -129,6 +129,9 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <!-- Motorola Signature Quick Launch and similar OEM hardware gestures can open a
@@ -232,9 +235,9 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- Tier 0.2: quick-settings tile. The user adds Kaavalan note
-             from the system shade; tapping fires the
-             ACTION_QUICK_CAPTURE deep link into MainActivity.
+        <!-- Tier 0.2: quick-settings tile. The user adds Speak note
+             from the system shade; tapping fires the same
+             ACTION_SPEAK_NOTE deep link as the physical shortcut.
              The META_DATA_ACTIVE_TILE flag is set so the
              service is only bound while the shade is open;
              a battery and privacy win for a fire-and-forget
@@ -254,8 +257,8 @@
         </service>
 
         <!-- Tier 0.1: Glance home-screen / lock-screen widget.
-             Same deep link as the tile (ACTION_QUICK_CAPTURE ->
-             MainActivity). The receiver is a GlanceAppWidgetReceiver
+             Same SpeakNoteActivity entry point as the physical shortcut.
+             The receiver is a GlanceAppWidgetReceiver
              that wraps the KaavalanCaptureWidget Glance composable. -->
         <receiver
             android:name=".features.capture.KaavalanCaptureWidgetReceiver"

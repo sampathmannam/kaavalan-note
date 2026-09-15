@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="speak_note"
+        android:enabled="true"
+        android:icon="@mipmap/ic_speak_launcher"
+        android:shortcutShortLabel="@string/speak_note_shortcut_short_label"
+        android:shortcutLongLabel="@string/speak_note_shortcut_long_label"
+        android:shortcutDisabledMessage="@string/speak_note_shortcut_disabled_message">
+        <intent
+            android:action="com.kaavalan.note.action.SPEAK_NOTE"
+            android:targetPackage="@string/shortcut_target_package"
+            android:targetClass="com.kaavalan.note.MainActivity" />
+        <categories android:name="com.kaavalan.note.category.CAPTURE" />
+    </shortcut>
+</shortcuts>
