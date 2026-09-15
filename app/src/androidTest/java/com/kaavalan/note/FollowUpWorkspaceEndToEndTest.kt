@@ -29,6 +29,9 @@ class FollowUpWorkspaceEndToEndTest {
         compose.onNodeWithTag("detail_edit").performClick()
         compose.onNodeWithTag("edit_instruction_text").performTextReplacement("QA revised patrol deployment")
         compose.onNodeWithText("Pick a date").performScrollTo().performClick()
+        compose.waitUntil(15_000) {
+            runCatching { compose.onNodeWithText("OK").assertIsDisplayed() }.isSuccess
+        }
         compose.onNodeWithText("OK").performClick()
         compose.onNodeWithText("09:00").performScrollTo().performClick()
         compose.onNodeWithTag("workspace_editor_save").assertIsDisplayed().performClick()

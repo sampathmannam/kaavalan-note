@@ -46,7 +46,15 @@ internal fun ComposeContentTestRule.saveNote(text: String, responsibility: Strin
 }
 
 internal fun ComposeContentTestRule.awaitCaptureSaved() {
-    waitUntil(15_000) { onAllNodesWithText("Who will act on this?").fetchSemanticsNodes().isEmpty() }
+    // A cold SQLCipher database on the arm64 CI emulator can take longer than the
+    // ordinary UI timeout while the runner is also collecting per-test screenshots
+    // and logcat. The physical-device path is much faster, but this gate should wait
+    // for the real save completion rather than misclassifying host load as app failure.
+    waitUntil(30_000) {
+        runCatching {
+            onAllNodesWithText("Who will act on this?").fetchSemanticsNodes().isEmpty()
+        }.getOrDefault(false)
+    }
 }
 
 internal fun ComposeContentTestRule.addContact(name: String) {
