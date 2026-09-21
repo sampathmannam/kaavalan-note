@@ -25,7 +25,7 @@ class OfficerWorkflowPersistenceTest {
         val text = "Prepare security deployment for review"
         compose.onNodeWithText("Note").performTextInput(text)
         compose.onNodeWithText("Received").performScrollTo().performClick()
-        compose.onNodeWithText("Link a contact (optional)").performScrollTo().performClick()
+        compose.onNodeWithText("Link a related contact (optional)").performScrollTo().performClick()
         compose.onNodeWithTag("capture_contact_Inspector QA").performClick()
         compose.onNodeWithText("Tomorrow").performScrollTo().performClick()
         compose.onNodeWithText("09:00").performScrollTo().performClick()
