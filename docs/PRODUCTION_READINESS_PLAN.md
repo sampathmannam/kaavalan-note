@@ -116,6 +116,30 @@ Goal: a stranger can install from Play Store, pass a security audit, and use it 
 
 ## Status
 
+### 2026-09-21 — v2.7.6 instruction-provenance release
+
+The released v2.7.6/code 59 separates **who assigned this to me** from the contact
+responsible for or related to an instruction. For-me capture now offers one-tap SP,
+DIG, ADG, DGP and CCA choices, a custom name/designation and the existing-contact
+picker. The historical issuer label is retained independently from the optional
+contact link and appears in cards, detail, editing, search, exports and backups.
+
+Room advances from schema 18 to 19 and the backup format from 4 to 5 without a
+destructive fallback. All 906 JVM tests passed with zero skips or failures; debug
+lint had zero errors/fatals; and the signed R8/resource-shrunk release passed
+release-vital lint, signature verification and the pinned-certificate gate. The
+published asset digest exactly matches the locally verified APK. A signed in-place
+upgrade on the dedicated read-only Android 14 AVD preserved its installation
+timestamp and retained synthetic note, then cold-launched without a matching Room,
+SQLite or application fatal. The exact published APK also upgraded the connected
+Motorola from code 58 to 59 in place, retained its original installation timestamp
+and cold-launched without a matching migration or application fatal. Tag CI passed
+lint, JVM, debug and R8 gates; its device aggregate ran 43 cases with 40 passes, two
+expected skips and one stale copy-selector failure. The corrected affected scenario
+passed 1/1 after the tag without an app-source change. See
+[`docs/development/v2.7.6-release-verification.md`](development/v2.7.6-release-verification.md)
+for the evidence record.
+
 ### 2026-09-15 — v2.7.5 voice-first capture release
 
 The released v2.7.5/code 58 adds explicit Starting, Listening and finishing voice
