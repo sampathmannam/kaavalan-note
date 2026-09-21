@@ -65,21 +65,67 @@ private fun WorkspaceEditor(title: String, busy: Boolean, valid: Boolean, onDism
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun InstructionEditSheet(instruction: Instruction, contacts: List<Person>, privateMode: Boolean,
-    busy: Boolean, onDismiss: () -> Unit, onSave: (String, Direction, String?, Long?) -> Unit) {
+    busy: Boolean, onDismiss: () -> Unit,
+    onSave: (String, Direction, String?, Long?, String?, String?) -> Unit) {
     var text by rememberSaveable(instruction.id) { mutableStateOf(instruction.rawText) }
     var direction by rememberSaveable(instruction.id) { mutableStateOf(instruction.direction) }
     var personId by rememberSaveable(instruction.id) { mutableStateOf(instruction.personId ?: (instruction.audience as? AudienceRef.ByPerson)?.personId) }
+    var assignedByPersonId by rememberSaveable(instruction.id) { mutableStateOf(instruction.assignedByPersonId) }
+    var assignedByLabel by rememberSaveable(instruction.id) { mutableStateOf(instruction.assignedByLabel.orEmpty()) }
     var deadline by rememberSaveable(instruction.id) { mutableStateOf(instruction.deadlineAtMs) }
     var pickContact by remember { mutableStateOf(false) }
+    var pickAssigner by remember { mutableStateOf(false) }
     WorkspaceEditor("Edit instruction", busy, text.isNotBlank() && (!privateMode || personId != null), onDismiss,
-        { onSave(text, direction, personId, deadline) }) {
+        { onSave(text, direction, personId, deadline, assignedByPersonId, assignedByLabel.trim().ifBlank { null }) }) {
         OutlinedTextField(text, { text = it }, label = { Text("Instruction") }, minLines = 4,
             enabled = !busy, shape = MaterialTheme.shapes.medium, colors = kaavalanOutlinedFieldColors(),
             modifier = Modifier.fillMaxWidth().testTag("edit_instruction_text"))
         Text("Responsibility", style = MaterialTheme.typography.titleSmall)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Direction.entries.forEach { item -> FilterChip(selected = direction == item, enabled = !busy,
-                onClick = { direction = item }, label = { Text(item.officerLabel()) }) }
+                onClick = {
+                    direction = item
+                    if (item != Direction.SELF) {
+                        assignedByPersonId = null
+                        assignedByLabel = ""
+                    }
+                }, label = { Text(item.officerLabel()) }) }
+        }
+        if (direction == Direction.SELF) {
+            Text("Who assigned this to you?", style = MaterialTheme.typography.titleSmall)
+            Text("Optional · recorded separately from who will act.", style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("SP", "DIG", "ADG", "DGP", "CCA").forEach { option ->
+                    FilterChip(
+                        selected = assignedByPersonId == null && assignedByLabel == option,
+                        enabled = !busy,
+                        onClick = {
+                            assignedByPersonId = null
+                            assignedByLabel = if (assignedByLabel == option) "" else option
+                        },
+                        label = { Text(option) },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    )
+                }
+            }
+            OutlinedTextField(
+                value = assignedByLabel,
+                onValueChange = { assignedByLabel = it.take(120); assignedByPersonId = null },
+                label = { Text("Name or designation") },
+                placeholder = { Text("e.g. ADG Priya or CCA") },
+                supportingText = assignedByPersonId?.let { { Text("Linked to a saved contact") } },
+                singleLine = true,
+                enabled = !busy,
+                shape = MaterialTheme.shapes.medium,
+                colors = kaavalanOutlinedFieldColors(),
+                modifier = Modifier.fillMaxWidth().testTag("edit_assigned_by_label"),
+            )
+            TextButton(
+                onClick = { pickAssigner = true },
+                enabled = !busy,
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) { Text(if (assignedByPersonId == null) "Choose from contacts" else "Change assigning contact") }
         }
         OutlinedButton(onClick = { pickContact = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
             Text(contacts.firstOrNull { it.id == personId }?.name ?: instruction.audience?.label ?: "Link a contact (optional)")
@@ -90,6 +136,14 @@ fun InstructionEditSheet(instruction: Instruction, contacts: List<Person>, priva
             supportingText = "When the work must be finished. This does not change your next follow-up.")
     }
     if (pickContact) ContactLinkDialog(contacts, privateMode || instruction.audience?.isBroadcast == true, { personId = it; pickContact = false }, { pickContact = false })
+    if (pickAssigner) ContactLinkDialog(contacts, true, { id ->
+        val person = contacts.firstOrNull { it.id == id }
+        if (person != null) {
+            assignedByPersonId = person.id
+            assignedByLabel = person.assignmentLabel()
+        }
+        pickAssigner = false
+    }, { pickAssigner = false }, title = "Who assigned this?")
 }
 
 @Composable
@@ -144,9 +198,10 @@ fun EditContactSheet(person: Person, busy: Boolean, onDismiss: () -> Unit, onSav
 }
 
 @Composable
-private fun ContactLinkDialog(contacts: List<Person>, privateMode: Boolean, onPick: (String?) -> Unit, onDismiss: () -> Unit) {
+private fun ContactLinkDialog(contacts: List<Person>, privateMode: Boolean, onPick: (String?) -> Unit,
+    onDismiss: () -> Unit, title: String = "Link a contact") {
     var query by rememberSaveable { mutableStateOf("") }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Link a contact") }, text = {
+    AlertDialog(onDismissRequest = onDismiss, title = { Text(title) }, text = {
         Column {
             OutlinedTextField(query, { query = it }, label = { Text("Search contacts") },
                 shape = MaterialTheme.shapes.medium, colors = kaavalanOutlinedFieldColors(), modifier = Modifier.fillMaxWidth())
@@ -159,4 +214,12 @@ private fun ContactLinkDialog(contacts: List<Person>, privateMode: Boolean, onPi
             }
         }
     }, confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+}
+
+private fun Person.assignmentLabel(): String {
+    val rank = designation?.trim().orEmpty()
+    return when {
+        rank.isBlank() || name.contains(rank, ignoreCase = true) -> name
+        else -> "$rank $name"
+    }
 }

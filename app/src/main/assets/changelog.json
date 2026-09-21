@@ -1,6 +1,18 @@
 {
   "changelog": [
     {
+      "version": "2.7.6",
+      "code": 59,
+      "date": "2026-09-21",
+      "highlights": [
+        "When responsibility is For me, you can now separately record who assigned the instruction instead of losing that context.",
+        "Pick SP, DIG, ADG, DGP or CCA in one tap, enter any other name or designation, or choose an officer from your saved contacts.",
+        "The assigning officer stays separate from the responsible or related contact, and remains visible on work cards and instruction details.",
+        "You can correct the assigning officer later, and search by their saved name or designation. Draft recovery keeps the choice if the app is interrupted.",
+        "The new field is preserved through encrypted database upgrades, JSON/CSV export and manual backup restore. Existing notes upgrade without inventing an assigning officer."
+      ]
+    },
+    {
       "version": "2.7.5",
       "code": 58,
       "date": "2026-09-15",

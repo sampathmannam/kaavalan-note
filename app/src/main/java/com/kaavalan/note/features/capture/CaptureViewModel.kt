@@ -92,6 +92,8 @@ class CaptureViewModel @Inject constructor(
             direction = savedStateHandle.get<String>(KEY_DIRECTION)
                 ?.let { runCatching { Direction.valueOf(it) }.getOrNull() } ?: Direction.SELF,
             personId = savedStateHandle.get<String>(KEY_PERSON_ID),
+            assignedByPersonId = savedStateHandle.get<String>(KEY_ASSIGNED_BY_PERSON_ID),
+            assignedByLabel = savedStateHandle.get<String>(KEY_ASSIGNED_BY_LABEL).orEmpty(),
             contextStationId = savedStateHandle.get<String>(KEY_CONTEXT_STATION),
             contextMatterId = savedStateHandle.get<String>(KEY_CONTEXT_MATTER),
             contextLabel = savedStateHandle.get<String>(KEY_CONTEXT_LABEL),
@@ -122,6 +124,8 @@ class CaptureViewModel @Inject constructor(
                 savedStateHandle[KEY_ADD_TO_CALENDAR] = current.addToCalendar
                 savedStateHandle[KEY_DIRECTION] = current.direction.name
                 savedStateHandle[KEY_PERSON_ID] = current.personId
+                savedStateHandle[KEY_ASSIGNED_BY_PERSON_ID] = current.assignedByPersonId
+                savedStateHandle[KEY_ASSIGNED_BY_LABEL] = current.assignedByLabel
                 // v2.6.0: the work context is part of the draft. A process death between
                 // choosing a matter and typing the note must not silently drop the matter.
                 savedStateHandle[KEY_CONTEXT_STATION] = current.contextStationId
@@ -153,6 +157,8 @@ class CaptureViewModel @Inject constructor(
         savedStateHandle.remove<Boolean>(KEY_ADD_TO_CALENDAR)
         savedStateHandle.remove<String>(KEY_DIRECTION)
         savedStateHandle.remove<String>(KEY_PERSON_ID)
+        savedStateHandle.remove<String>(KEY_ASSIGNED_BY_PERSON_ID)
+        savedStateHandle.remove<String>(KEY_ASSIGNED_BY_LABEL)
         savedStateHandle.remove<String>(KEY_CONTEXT_STATION)
         savedStateHandle.remove<String>(KEY_CONTEXT_MATTER)
         savedStateHandle.remove<String>(KEY_CONTEXT_LABEL)
@@ -221,6 +227,8 @@ class CaptureViewModel @Inject constructor(
         const val KEY_ADD_TO_CALENDAR = "capture.addToCalendar"
         const val KEY_DIRECTION = "capture.direction"
         const val KEY_PERSON_ID = "capture.personId"
+        const val KEY_ASSIGNED_BY_PERSON_ID = "capture.assignedByPersonId"
+        const val KEY_ASSIGNED_BY_LABEL = "capture.assignedByLabel"
         const val KEY_CONTEXT_STATION = "capture.contextStationId"
         const val KEY_CONTEXT_MATTER = "capture.contextMatterId"
         const val KEY_CONTEXT_LABEL = "capture.contextLabel"
@@ -253,6 +261,8 @@ class CaptureViewModel @Inject constructor(
         addToCalendar: Boolean,
         direction: Direction,
         personId: String?,
+        assignedByPersonId: String?,
+        assignedByLabel: String,
         // v2.6.0: the work context is part of the user's intent. The same words saved into
         // two different matters are two different saves, and the dedup guard must not
         // swallow the second one.
@@ -262,6 +272,7 @@ class CaptureViewModel @Inject constructor(
         val sortedTags = selectedTagIds.sorted().joinToString(",")
         return (
             "$text|$mode|$sortedTags|$reminderAtMs|$addToCalendar|$direction|$personId" +
+                "|$assignedByPersonId|${assignedByLabel.trim()}" +
                 "|$contextStationId|$contextMatterId"
             ).hashCode().toString()
     }
@@ -391,11 +402,26 @@ class CaptureViewModel @Inject constructor(
     }
 
     fun onDirectionChanged(direction: Direction) {
-        if (!_state.value.isSaving) _state.update { it.copy(direction = direction) }
+        if (!_state.value.isSaving) _state.update {
+            if (direction == Direction.SELF) it.copy(direction = direction)
+            else it.copy(direction = direction, assignedByPersonId = null, assignedByLabel = "")
+        }
     }
 
     fun onPersonChanged(id: String?) {
         if (!_state.value.isSaving) _state.update { it.copy(personId = id) }
+    }
+
+    /** Set a quick designation, a custom issuer label, or a contact-backed issuer. */
+    fun onAssignedByChanged(personId: String?, label: String) {
+        if (_state.value.isSaving || _state.value.direction != Direction.SELF) return
+        _state.update {
+            it.copy(
+                assignedByPersonId = personId,
+                assignedByLabel = label.take(120),
+                error = null,
+            )
+        }
     }
 
     fun openForContact(id: String) {
@@ -588,6 +614,10 @@ class CaptureViewModel @Inject constructor(
             _state.update { it.copy(error = "That contact is not in this workspace. Choose another contact before saving.") }
             return
         }
+        if (current.assignedByPersonId != null && allowedContactIds?.contains(current.assignedByPersonId) == false) {
+            _state.update { it.copy(error = "The assigning contact is not in this workspace. Choose another contact before saving.") }
+            return
+        }
         // Free-floating capture is intentional. A person link is
         // optional context, not a prerequisite for retaining an
         // instruction that might otherwise be lost.
@@ -606,6 +636,8 @@ class CaptureViewModel @Inject constructor(
             addToCalendar = current.addToCalendar,
             direction = current.direction,
             personId = current.personId,
+            assignedByPersonId = current.assignedByPersonId,
+            assignedByLabel = current.assignedByLabel,
             contextStationId = current.contextStationId,
             contextMatterId = current.contextMatterId,
         )
@@ -642,6 +674,8 @@ class CaptureViewModel @Inject constructor(
                         // draft below survives for the officer to correct.
                         stationId = current.contextStationId,
                         matterId = current.contextMatterId,
+                        assignedByPersonId = current.assignedByPersonId,
+                        assignedByLabel = current.assignedByLabel.trim().ifBlank { null },
                     )
             }
             result.onSuccess { created ->

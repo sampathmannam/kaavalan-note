@@ -80,6 +80,8 @@ interface InstructionRepository {
         direction: Direction = Direction.OUTGOING,
         stationId: String? = null,
         matterId: String? = null,
+        assignedByPersonId: String? = null,
+        assignedByLabel: String? = null,
     ): Instruction
 
 

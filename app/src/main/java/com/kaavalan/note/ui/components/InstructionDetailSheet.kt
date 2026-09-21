@@ -39,7 +39,7 @@ fun InstructionDetailSheet(
     onPrivacy: (() -> Unit)? = null,
     contacts: List<Person> = emptyList(),
     privateMode: Boolean = false,
-    onEdit: ((String, Direction, String?, Long?, () -> Unit) -> Unit)? = null,
+    onEdit: ((String, Direction, String?, Long?, String?, String?, () -> Unit) -> Unit)? = null,
     onAddUpdate: ((String, Status, Long?, () -> Unit) -> Unit)? = null,
     // v2.6.0 (subdivision CRM): the station and matter recorded ON THIS INSTRUCTION.
     // Deliberately not the assigned contact's current station — an officer's transfer must
@@ -55,8 +55,8 @@ fun InstructionDetailSheet(
     var adding by rememberSaveable(instruction.id) { mutableStateOf(false) }
     var showReminder by rememberSaveable(instruction.id) { mutableStateOf(false) }
     if (editing && onEdit != null) {
-        InstructionEditSheet(instruction, contacts, privateMode, busy, { editing = false }) { text, direction, person, deadline ->
-            onEdit(text, direction, person, deadline) { editing = false }
+        InstructionEditSheet(instruction, contacts, privateMode, busy, { editing = false }) { text, direction, person, deadline, issuerId, issuerLabel ->
+            onEdit(text, direction, person, deadline, issuerId, issuerLabel) { editing = false }
         }
         return
     }
@@ -81,6 +81,14 @@ fun InstructionDetailSheet(
                 )
                 Text(listOfNotNull(instruction.direction.officerLabel(), contactName ?: instruction.audience?.label).joinToString(" · "),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (instruction.direction == Direction.SELF && !instruction.assignedByLabel.isNullOrBlank()) {
+                    Text(
+                        "Assigned by ${instruction.assignedByLabel}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("instruction_assigned_by"),
+                    )
+                }
                 Text(instruction.rawText.ifBlank { instruction.title }, style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.testTag("instruction_detail_text"))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

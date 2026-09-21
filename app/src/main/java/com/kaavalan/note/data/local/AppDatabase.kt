@@ -122,7 +122,7 @@ import com.kaavalan.note.data.user.UserEntity
     // v2.0 (Hierarchy): v16 adds the audience + due chip +
     // channel columns on `instructions` and the new
     // `delivery_receipts` table.
-    version = 18,
+    version = 19,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -146,6 +146,23 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         const val NAME = "kaavalan-note.db"
+
+        /**
+         * v19: retain who issued an instruction whose responsibility is "For me".
+         * Both columns are nullable so every existing v18 row remains valid and no issuer
+         * is invented during upgrade. The optional contact id is indexed for future issuer
+         * filters; the label is the historical snapshot displayed by the notebook.
+         */
+        val MIGRATION_18_19: Migration = object : Migration(18, 19) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE instructions ADD COLUMN assignedByPersonId TEXT")
+                db.execSQL("ALTER TABLE instructions ADD COLUMN assignedByLabel TEXT")
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_instructions_assignedByPersonId " +
+                        "ON instructions(assignedByPersonId)",
+                )
+            }
+        }
 
         val MIGRATION_16_17: Migration = object : Migration(16, 17) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {

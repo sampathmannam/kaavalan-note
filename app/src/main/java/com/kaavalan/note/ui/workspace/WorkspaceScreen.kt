@@ -381,6 +381,15 @@ fun WorkCard(
                 ?: instruction.audience?.label
             if (context != null) Text(context, style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (instruction.direction == Direction.SELF && !instruction.assignedByLabel.isNullOrBlank()) {
+                Text(
+                    "Assigned by ${instruction.assignedByLabel}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             val reminder = instruction.reminderMillis
             if (reminder != null) {
                 val day = java.time.Instant.ofEpochMilli(reminder).atZone(ZoneId.systemDefault()).toLocalDate()

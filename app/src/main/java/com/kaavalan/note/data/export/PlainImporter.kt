@@ -178,6 +178,8 @@ class PlainImporter @Inject constructor(
             urgency = cols.getOrNull(26)?.ifEmpty { null } ?: "normal",
             reviewAtEpochDay = cols.getOrNull(27)?.toLongOrNull(),
             channel = cols.getOrNull(28)?.ifEmpty { null },
+            assignedByPersonId = cols.getOrNull(29)?.ifEmpty { null },
+            assignedByLabel = cols.getOrNull(30)?.ifEmpty { null },
             syncStatus = SyncStatus.SYNCED,
         )
     }
@@ -264,6 +266,8 @@ class PlainImporter @Inject constructor(
                     caseType = o.optStringOrNull("case_type"),
                     urgency = o.optStringOrNull("urgency") ?: "normal",
                     reviewAtEpochDay = o.optLongOrNull("review_at_epoch_day"),
+                    assignedByPersonId = o.optStringOrNull("assigned_by_person_id"),
+                    assignedByLabel = o.optStringOrNull("assigned_by_label"),
                     syncStatus = SyncStatus.SYNCED,
                 )
             }

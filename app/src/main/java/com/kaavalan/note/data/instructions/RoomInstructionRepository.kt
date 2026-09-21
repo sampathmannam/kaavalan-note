@@ -123,6 +123,8 @@ open class RoomInstructionRepository @Inject constructor(
         deadlineAtMs = deadlineAtMs,
         updatesJson = InstructionJournal.encode(updates),
         stationId = stationId, matterId = matterId,
+        assignedByPersonId = assignedByPersonId,
+        assignedByLabel = assignedByLabel,
     )
 
     /**
@@ -320,6 +322,8 @@ open class RoomInstructionRepository @Inject constructor(
         direction: Direction,
         stationId: String?,
         matterId: String?,
+        assignedByPersonId: String?,
+        assignedByLabel: String?,
     ): Instruction {
         val now = Instant.now().toString()
         val id = UUID.randomUUID().toString()
@@ -344,6 +348,8 @@ open class RoomInstructionRepository @Inject constructor(
             audienceIsBroadcast = audience?.isBroadcast ?: false,
             dueAtMs = dueAtMs,
             channel = channel,
+            assignedByPersonId = assignedByPersonId.takeIf { direction == Direction.SELF },
+            assignedByLabel = assignedByLabel?.trim()?.takeIf { direction == Direction.SELF && it.isNotEmpty() },
         )
         // v18: creation and the work-context link land in ONE transaction. A capture
         // started from a matter must not be able to leave a saved-but-unlinked
@@ -354,7 +360,26 @@ open class RoomInstructionRepository @Inject constructor(
             val responsible = personId ?: audience?.target?.takeIf { audience.kind == "PERSON" }
             val context = com.kaavalan.note.data.subdivision.SubdivisionRepository
                 .resolveCreationContext(db, responsible, stationId, matterId)
-            dao.upsert(entity.copy(stationId = context.stationId, matterId = context.matterId))
+            var persisted = entity
+            entity.assignedByPersonId?.let { issuerId ->
+                val issuer = requireNotNull(db.personDao().getById(issuerId)) {
+                    "The assigning contact is no longer available. Choose another contact."
+                }
+                // A free-floating capture belongs to the visible workspace; hidden capture
+                // already requires a responsible hidden contact at the UI boundary.
+                val responsibleMode = responsible?.let { db.personDao().getById(it)?.vaultMode } ?: "visible"
+                require(issuer.vaultMode == responsibleMode) {
+                    "The assigning contact is in another workspace. Choose another contact."
+                }
+                if (persisted.assignedByLabel == null) {
+                    persisted = persisted.copy(
+                        assignedByLabel = listOfNotNull(issuer.designation, issuer.name)
+                            .distinct()
+                            .joinToString(" "),
+                    )
+                }
+            }
+            dao.upsert(persisted.copy(stationId = context.stationId, matterId = context.matterId))
             val newRowid = ftsDao.maxInstructionRowid() ?: 0L
             ftsDao.upsert(
                 InstructionFtsEntity(
@@ -587,4 +612,6 @@ internal fun InstructionEntity.toDomain(): Instruction = Instruction(
     deadlineAtMs = deadlineAtMs,
     updates = InstructionJournal.decodeForDisplay(updatesJson),
     stationId = stationId, matterId = matterId,
+    assignedByPersonId = assignedByPersonId,
+    assignedByLabel = assignedByLabel,
 )

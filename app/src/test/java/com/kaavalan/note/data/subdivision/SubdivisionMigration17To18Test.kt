@@ -221,16 +221,16 @@ class SubdivisionMigration17To18Test {
     private fun openMigrated(): AppDatabase {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         return Room.databaseBuilder(ctx, AppDatabase::class.java, dbPath)
-            .addMigrations(SUBDIVISION_MIGRATION_17_18)
+            .addMigrations(SUBDIVISION_MIGRATION_17_18, AppDatabase.MIGRATION_18_19)
             .build()
     }
 
     @Test
-    fun `a populated v17 database upgrades to v18 and passes Room schema validation`() {
+    fun `a populated v17 database upgrades through v19 and passes Room schema validation`() {
         buildPopulatedV17()
         val db = openMigrated()
         // Room is lazy: the migration and its schema comparison only run on first access.
-        assertEquals("the database must be at v18 after the migration", 18, db.openHelper.writableDatabase.version)
+        assertEquals("the database must be at v19 after the migration", 19, db.openHelper.writableDatabase.version)
         db.close()
     }
 
@@ -244,6 +244,11 @@ class SubdivisionMigration17To18Test {
         }
         raw.query("SELECT COUNT(*) FROM instructions").use { c ->
             assertTrue(c.moveToFirst()); assertEquals("every instruction must survive", 5, c.getInt(0))
+        }
+        raw.query("SELECT assignedByPersonId, assignedByLabel FROM instructions WHERE id = 'i-1'").use { c ->
+            assertTrue(c.moveToFirst())
+            assertNull("an upgrade must not invent an assigning contact", c.getString(0))
+            assertNull("an upgrade must not invent an assigning label", c.getString(1))
         }
         raw.query("SELECT updatesJson, deadlineAtMs, updatedAt FROM instructions WHERE id = 'i-2'").use { c ->
             assertTrue(c.moveToFirst())

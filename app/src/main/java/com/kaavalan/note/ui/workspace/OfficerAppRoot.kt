@@ -519,7 +519,18 @@ internal fun OfficerAppRoot(
             contactName = workspaceState.contacts.firstOrNull { it.id == selectedInstruction.personId }?.name,
             contacts = workspaceState.contacts,
             privateMode = workspaceState.hidden,
-            onEdit = { text, direction, personId, deadline, saved -> workspace.edit(selectedInstruction.id, text, direction, personId, deadline, saved) },
+            onEdit = { text, direction, personId, deadline, issuerId, issuerLabel, saved ->
+                workspace.edit(
+                    selectedInstruction.id,
+                    text,
+                    direction,
+                    personId,
+                    deadline,
+                    issuerId,
+                    issuerLabel,
+                    saved,
+                )
+            },
             onAddUpdate = { text, status, followUp, saved ->
                 if (followUp != null) onRequestNotificationsPermission()
                 workspace.addUpdate(selectedInstruction.id, text, status, followUp, saved)

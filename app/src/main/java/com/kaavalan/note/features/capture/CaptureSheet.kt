@@ -173,6 +173,7 @@ fun CaptureSheet(
             contacts = contacts,
             onDirectionChanged = viewModel::onDirectionChanged,
             onPersonChanged = viewModel::onPersonChanged,
+            onAssignedByChanged = viewModel::onAssignedByChanged,
             voicePhase = voicePhase,
             onStopVoice = {
                 val svc = Intent(context, VoiceCaptureService::class.java).apply {
@@ -231,6 +232,7 @@ private fun CaptureSheetContent(
     contacts: List<Person> = emptyList(),
     onDirectionChanged: (Direction) -> Unit = {},
     onPersonChanged: (String?) -> Unit = {},
+    onAssignedByChanged: (String?, String) -> Unit = { _, _ -> },
     voicePhase: VoiceCapturePhase = VoiceCapturePhase.IDLE,
     onStopVoice: () -> Unit = {},
     onTextChanged: (String) -> Unit,
@@ -246,6 +248,7 @@ private fun CaptureSheetContent(
     onClearContext: () -> Unit = {},
 ) {
     var showContacts by remember { mutableStateOf(false) }
+    var showAssigningContacts by remember { mutableStateOf(false) }
     var showTags by remember { mutableStateOf(false) }
     val compactTyping = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE &&
         WindowInsets.isImeVisible
@@ -321,14 +324,28 @@ private fun CaptureSheetContent(
                 Direction.OUTGOING -> "An instruction you gave. Keep it here to follow up."
                 Direction.INCOMING -> "An instruction you received and need to act on."
             }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (state.direction == Direction.SELF) {
+                AssignedByChooser(
+                    label = state.assignedByLabel,
+                    assignedByPersonId = state.assignedByPersonId,
+                    enabled = !state.isSaving,
+                    onChanged = onAssignedByChanged,
+                    onChooseContact = { showAssigningContacts = true },
+                )
+            }
             TextButton(
                 onClick = { showContacts = true },
                 enabled = !state.isSaving,
                 contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
                 modifier = Modifier.heightIn(min = 48.dp),
             ) {
-                Text(contacts.firstOrNull { it.id == state.personId }?.let { "Linked to ${it.name} · Change" }
-                    ?: "Link a contact (optional)")
+                val linkedName = contacts.firstOrNull { it.id == state.personId }?.name
+                Text(when (state.direction) {
+                    Direction.OUTGOING -> linkedName?.let { "Assigned to $it · Change" }
+                        ?: "Choose who will handle this (optional)"
+                    Direction.SELF, Direction.INCOMING -> linkedName?.let { "Related contact: $it · Change" }
+                        ?: "Link a related contact (optional)"
+                })
             }
             if (state.requiresContact) Text("Link a private contact to keep this note in the private workspace.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -414,7 +431,10 @@ private fun CaptureSheetContent(
             title = { Text("Link a work contact") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Choose who gave or is handling this instruction.")
+                    Text(when (state.direction) {
+                        Direction.OUTGOING -> "Choose who will handle this instruction."
+                        Direction.SELF, Direction.INCOMING -> "Choose a contact related to this instruction."
+                    })
                     OutlinedTextField(value = query, onValueChange = { query = it }, singleLine = true,
                         label = { Text("Name, rank or station") })
                     LazyColumn(Modifier.heightIn(max = 280.dp)) {
@@ -433,6 +453,138 @@ private fun CaptureSheetContent(
             },
             confirmButton = { TextButton(onClick = { showContacts = false }) { Text("Back to note") } },
         )
+    }
+    if (showAssigningContacts) {
+        ContactPickerDialog(
+            title = "Who assigned this?",
+            supportingText = "Choose the officer who gave you this instruction.",
+            contacts = contacts,
+            emptyText = "No contacts yet. Use a designation or type the officer's name in the note form.",
+            onPick = { person ->
+                onAssignedByChanged(person.id, person.assignmentLabel())
+                showAssigningContacts = false
+            },
+            onDismiss = { showAssigningContacts = false },
+        )
+    }
+}
+
+private val QUICK_ASSIGNER_LABELS = listOf("SP", "DIG", "ADG", "DGP", "CCA")
+
+/**
+ * Progressive issuer capture for a task the officer will handle personally. Designations
+ * cover the common five-second path; a free label and the roster cover specific people.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AssignedByChooser(
+    label: String,
+    assignedByPersonId: String?,
+    enabled: Boolean,
+    onChanged: (String?, String) -> Unit,
+    onChooseContact: () -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().testTag("capture_assigned_by"),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text("Who assigned this to you?", style = MaterialTheme.typography.titleSmall)
+        Text(
+            "Optional · choose a designation or name so you can trace the instruction later.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            QUICK_ASSIGNER_LABELS.forEach { option ->
+                FilterChip(
+                    selected = assignedByPersonId == null && label == option,
+                    enabled = enabled,
+                    onClick = {
+                        onChanged(null, if (assignedByPersonId == null && label == option) "" else option)
+                    },
+                    label = { Text(option) },
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("assigned_by_$option"),
+                )
+            }
+        }
+        OutlinedTextField(
+            value = label,
+            onValueChange = { onChanged(null, it) },
+            enabled = enabled,
+            singleLine = true,
+            label = { Text("Name or designation") },
+            placeholder = { Text("e.g. ADG Priya or CCA") },
+            supportingText = assignedByPersonId?.let { { Text("Linked to a saved contact") } },
+            shape = MaterialTheme.shapes.medium,
+            colors = kaavalanOutlinedFieldColors(),
+            modifier = Modifier.fillMaxWidth().testTag("assigned_by_label"),
+        )
+        TextButton(
+            onClick = onChooseContact,
+            enabled = enabled,
+            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+            modifier = Modifier.heightIn(min = 48.dp).testTag("assigned_by_contact"),
+        ) {
+            Text(if (assignedByPersonId == null) "Choose from contacts" else "Change assigning contact")
+        }
+    }
+}
+
+@Composable
+private fun ContactPickerDialog(
+    title: String,
+    supportingText: String,
+    contacts: List<Person>,
+    emptyText: String,
+    onPick: (Person) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(supportingText)
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    singleLine = true,
+                    label = { Text("Name, rank or station") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                val matches = contacts.filter {
+                    listOfNotNull(it.name, it.designation, it.station).joinToString(" ")
+                        .contains(query.trim(), ignoreCase = true)
+                }
+                LazyColumn(Modifier.heightIn(max = 280.dp)) {
+                    items(matches, key = { it.id }) { person ->
+                        TextButton(
+                            onClick = { onPick(person) },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        ) {
+                            Column(Modifier.fillMaxWidth()) {
+                                Text(person.name)
+                                Text(
+                                    listOfNotNull(person.designation, person.station).joinToString(" · "),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+                    }
+                }
+                if (matches.isEmpty()) Text(emptyText)
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Back to note") } },
+    )
+}
+
+private fun Person.assignmentLabel(): String {
+    val rank = designation?.trim().orEmpty()
+    return when {
+        rank.isBlank() || name.contains(rank, ignoreCase = true) -> name
+        else -> "$rank $name"
     }
 }
 

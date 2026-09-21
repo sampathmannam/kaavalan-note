@@ -93,6 +93,7 @@ fun filterWork(
             WorkFilter.CLOSED -> item.isClosed
         }
         val searchable = "${item.title} ${item.rawText} ${names[item.personId].orEmpty()} " +
+            "${item.assignedByLabel.orEmpty()} ${names[item.assignedByPersonId].orEmpty()} " +
             "${item.audience?.label.orEmpty()} ${item.updates.joinToString(" ") { it.text }} " +
             contextText[item.id].orEmpty()
         category && words.all { searchable.contains(it, ignoreCase = true) }
@@ -106,6 +107,7 @@ fun visibleWork(items: List<Instruction>, people: List<Person>, includeUnlinked:
     return items.filter {
         val audienceId = (it.audience as? com.kaavalan.note.data.instructions.AudienceRef.ByPerson)?.personId
         !it.isSensitive && (audienceId == null || audienceId in ids) &&
+            (it.assignedByPersonId == null || it.assignedByPersonId in ids) &&
             if (it.personId == null) (audienceId != null || includeUnlinked) else it.personId in ids
     }
 }

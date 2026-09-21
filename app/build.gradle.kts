@@ -449,8 +449,12 @@ android {
         // v2.7.5: visible live voice states, spoken today/tomorrow reminder detection,
         // and production voice entry points for the app, launcher, widget and quick-settings
         // shade. Same application ID and schemas; versionCode 57 -> 58.
-        versionCode = 58
-        versionName = "2.7.5"
+        // v2.7.6: "For me" instructions can separately retain who issued them through
+        // quick senior-officer labels, a custom name/designation or a contact snapshot.
+        // Same application ID; Room schema 18 -> 19, backup schema 4 -> 5 and
+        // versionCode 58 -> 59.
+        versionCode = 59
+        versionName = "2.7.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // v2.2.2 (test-infra): wipe app state between instrumented

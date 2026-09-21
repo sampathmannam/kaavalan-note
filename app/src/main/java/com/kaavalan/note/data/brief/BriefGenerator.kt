@@ -177,6 +177,8 @@ private fun InstructionEntity.toDomain(): Instruction = Instruction(
     capturedAt = capturedAt,
     createdAt = createdAt,
     updatedAt = updatedAt,
+    assignedByPersonId = assignedByPersonId,
+    assignedByLabel = assignedByLabel,
 )
 
 // helper for nullsLast on nullable String

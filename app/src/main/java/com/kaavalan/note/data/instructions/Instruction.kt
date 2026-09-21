@@ -50,6 +50,13 @@ data class Instruction(
     val updates: List<InstructionUpdate> = emptyList(),
     val stationId: String? = null,
     val matterId: String? = null,
+    /**
+     * The officer or office that issued a SELF instruction. [assignedByPersonId] keeps an
+     * optional link to the local contact, while [assignedByLabel] is the immutable display
+     * snapshot (for example "DIG" or "ADG Priya") that remains useful after a rename.
+     */
+    val assignedByPersonId: String? = null,
+    val assignedByLabel: String? = null,
 )
 
 /** Wire values match the `instruction_direction` Postgres enum. */

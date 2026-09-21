@@ -97,6 +97,7 @@ class PlainExporter @Inject constructor(
                         i.audienceKind.orEmpty(), i.audienceTarget.orEmpty(), i.audienceLabel.orEmpty(),
                         i.audienceIsBroadcast.toString(), i.caseType.orEmpty(), i.urgency,
                         i.reviewAtEpochDay?.toString().orEmpty(), i.channel.orEmpty(),
+                        i.assignedByPersonId.orEmpty(), i.assignedByLabel.orEmpty(),
                     ),
                 ),
             ).append("\n")
@@ -167,6 +168,8 @@ class PlainExporter @Inject constructor(
                     put("case_type", i.caseType)
                     put("urgency", i.urgency)
                     put("review_at_epoch_day", i.reviewAtEpochDay)
+                    put("assigned_by_person_id", i.assignedByPersonId)
+                    put("assigned_by_label", i.assignedByLabel)
                 },
             )
         }
@@ -213,6 +216,7 @@ class PlainExporter @Inject constructor(
             "station_id", "matter_id", "is_sensitive", "completed_at", "dropped_reason",
             "audience_kind", "audience_target", "audience_label", "audience_is_broadcast",
             "case_type", "urgency", "review_at_epoch_day", "channel",
+            "assigned_by_person_id", "assigned_by_label",
         )
         val TAG_HEADER = listOf("id", "name", "kind", "color", "usage_count", "created_at", "updated_at")
 

@@ -78,8 +78,18 @@ class WorkspaceViewModel @Inject constructor(
         workflow.undoCompletion(undo)
     }
 
-    fun edit(id: String, text: String, direction: com.kaavalan.note.data.instructions.Direction, personId: String?, deadline: Long?, onSuccess: () -> Unit) =
-        mutate("Instruction saved", onSuccess) { workflow.edit(id, text, direction, personId, deadline) }
+    fun edit(
+        id: String,
+        text: String,
+        direction: com.kaavalan.note.data.instructions.Direction,
+        personId: String?,
+        deadline: Long?,
+        assignedByPersonId: String?,
+        assignedByLabel: String?,
+        onSuccess: () -> Unit,
+    ) = mutate("Instruction saved", onSuccess) {
+        workflow.edit(id, text, direction, personId, deadline, assignedByPersonId, assignedByLabel)
+    }
 
     fun addUpdate(id: String, text: String, status: com.kaavalan.note.data.instructions.Status, followUp: Long?, onSuccess: () -> Unit) =
         mutate("Update saved", onSuccess) { workflow.addUpdate(id, text, status, followUp) }

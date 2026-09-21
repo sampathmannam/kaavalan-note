@@ -41,6 +41,8 @@ import androidx.room.PrimaryKey
         // lists and the review counts filter on these columns on every emission.
         Index(value = ["stationId"]),
         Index(value = ["matterId"]),
+        // v19: optional contact behind the historical "Assigned by" snapshot.
+        Index(value = ["assignedByPersonId"]),
     ],
 )
 
@@ -101,4 +103,8 @@ data class InstructionEntity(
     @androidx.room.ColumnInfo(defaultValue = "'[]'") val updatesJson: String = "[]",
     val stationId: String? = null,
     val matterId: String? = null,
+    // v19: issuer of a SELF instruction. The label is a snapshot so the record remains
+    // intelligible if the linked contact is renamed, transferred or later unavailable.
+    val assignedByPersonId: String? = null,
+    val assignedByLabel: String? = null,
 )

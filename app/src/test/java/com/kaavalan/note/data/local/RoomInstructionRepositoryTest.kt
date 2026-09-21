@@ -3,6 +3,9 @@ package com.kaavalan.note.data.local
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.kaavalan.note.data.instructions.RoomInstructionRepository
+import com.kaavalan.note.data.instructions.Direction
+import com.kaavalan.note.data.instructions.Priority
+import com.kaavalan.note.data.instructions.Source
 import com.kaavalan.note.data.instructions.Status
 import com.kaavalan.note.data.local.entities.InstructionEntity
 import com.kaavalan.note.data.local.entities.SyncQueueEntity
@@ -114,6 +117,26 @@ class RoomInstructionRepositoryTest {
         assertEquals(null, saved?.droppedReason)
         assertEquals(SyncStatus.PENDING_UPDATE, saved?.syncStatus)
         assertEquals("ins-3", db.syncQueueDao().snapshot().single().rowId)
+    }
+
+    @Test
+    fun `for-me capture preserves who assigned it as a historical label`() = runBlocking {
+        val created = repo.createWithAudience(
+            personId = null,
+            audience = null,
+            source = Source.TEXT,
+            priority = Priority.NORMAL,
+            title = "Review procession plan",
+            rawText = "Review procession plan",
+            dueAt = null,
+            dueAtMs = null,
+            channel = null,
+            direction = Direction.SELF,
+            assignedByLabel = "DIG",
+        )
+
+        assertEquals("DIG", created.assignedByLabel)
+        assertEquals("DIG", db.instructionDao().getById(created.id)?.assignedByLabel)
     }
 
     private suspend fun seed(

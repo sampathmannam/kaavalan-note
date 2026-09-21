@@ -245,6 +245,8 @@ class CaptureViewModelTest {
             direction: Direction,
             stationId: String?,
             matterId: String?,
+            assignedByPersonId: String?,
+            assignedByLabel: String?,
         ): Instruction {
             nextId += 1
             val createdId = "ins-$nextId"
@@ -260,6 +262,8 @@ class CaptureViewModelTest {
                 direction = direction,
                 stationId = stationId,
                 matterId = matterId,
+                assignedByPersonId = assignedByPersonId,
+                assignedByLabel = assignedByLabel,
             )
             contextFailure?.let { throw it }
             return Instruction(
@@ -278,6 +282,8 @@ class CaptureViewModelTest {
                 updatedAt = "2026-08-11T00:00:00+00:00",
                 stationId = stationId,
                 matterId = matterId,
+                assignedByPersonId = assignedByPersonId,
+                assignedByLabel = assignedByLabel,
             )
         }
         override suspend fun setAudience(id: String, audience: com.kaavalan.note.data.instructions.AudienceRef?) {
@@ -304,6 +310,8 @@ class CaptureViewModelTest {
         val direction: Direction = Direction.OUTGOING,
         val stationId: String? = null,
         val matterId: String? = null,
+        val assignedByPersonId: String? = null,
+        val assignedByLabel: String? = null,
     )
 
 
@@ -353,6 +361,40 @@ class CaptureViewModelTest {
         vm.openSheet(); vm.onTextChanged("Duty briefing"); vm.onDirectionChanged(Direction.OUTGOING)
         vm.onSaveRaw(); advanceUntilIdle()
         assertEquals(listOf(Direction.SELF, Direction.OUTGOING), f.third.created.map { it.direction })
+    }
+
+    @Test fun `for me issuer survives recreation and is saved separately from responsibility`() = runTest(testDispatcher) {
+        val f = fakes()
+        val handle = androidx.lifecycle.SavedStateHandle()
+        val vm = makeVm(f.first, f.second, f.third, savedStateHandle = handle)
+        vm.onWorkspaceChanged(setOf("sp-contact"), false, true)
+        vm.openSheet()
+        vm.onTextChanged("Execute procession security review")
+        vm.onAssignedByChanged("sp-contact", "SP Lakshmi")
+        advanceUntilIdle()
+
+        val restored = makeVm(f.first, f.second, f.third, savedStateHandle = handle)
+        restored.onWorkspaceChanged(setOf("sp-contact"), false, true)
+        assertEquals("sp-contact", restored.state.value.assignedByPersonId)
+        assertEquals("SP Lakshmi", restored.state.value.assignedByLabel)
+        restored.openSheet()
+        restored.onSaveRaw()
+        advanceUntilIdle()
+
+        val created = f.third.created.single()
+        assertEquals(Direction.SELF, created.direction)
+        assertEquals("sp-contact", created.assignedByPersonId)
+        assertEquals("SP Lakshmi", created.assignedByLabel)
+        assertNull("the actor contact remains independent", created.personId)
+    }
+
+    @Test fun `changing away from for me clears a hidden issuer`() = runTest(testDispatcher) {
+        val f = fakes()
+        val vm = makeVm(f.first, f.second, f.third)
+        vm.onAssignedByChanged(null, "ADG")
+        vm.onDirectionChanged(Direction.OUTGOING)
+        assertNull(vm.state.value.assignedByPersonId)
+        assertEquals("", vm.state.value.assignedByLabel)
     }
 
     @Test fun `private workspace requires a contact and a stale link cannot be saved`() = runTest(testDispatcher) {

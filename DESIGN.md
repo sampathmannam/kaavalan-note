@@ -30,7 +30,7 @@ A quiet working notebook, not a command-centre dashboard. The approved identity 
 
 ## Language and states
 
-Use For me / Assigned by me / Received, not Inbox / Outbox. Contacts, not unexplained People. “Close without action” preserves a record and explains reopening. Loading, retryable failure, no results and first-use states are distinct. Successful writes acknowledge completion; failure must not dismiss unfinished input.
+Use For me / Assigned by me / Received, not Inbox / Outbox. When **For me** is selected, reveal a separate optional **Who assigned this to you?** field with quick designation choices and contact/custom-name paths; do not overload the responsible contact. Contacts, not unexplained People. “Close without action” preserves a record and explains reopening. Loading, retryable failure, no results and first-use states are distinct. Successful writes acknowledge completion; failure must not dismiss unfinished input.
 
 Use **Deadline** for the work commitment and **Next follow-up** for the officer’s reminder; never imply these are the same date. **Ready to verify** means reported complete, not verified. **Verify & mark done** is the officer’s explicit closure. Updates are a chronological private journal, not a chat feed, notification stream or read-receipt system.
 

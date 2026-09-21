@@ -161,6 +161,8 @@ class BackupRoundTripTest {
             reviewAtEpochDay = null,
             stationId = "st-1",
             matterId = "m-1",
+            assignedByPersonId = "p2",
+            assignedByLabel = "DIG Meena",
         ),
     )
 
@@ -295,7 +297,7 @@ class BackupRoundTripTest {
             assertTrue("backup must include $key", json.contains("\"$key\""))
         }
         assertEquals(
-            "the manual backup schema version must be 4",
+            "the manual backup schema version must be 5",
             BackupManager.SCHEMA_VERSION,
             JSONObject(json).getInt("schema_version"),
         )
@@ -329,6 +331,8 @@ class BackupRoundTripTest {
         assertEquals(1799999999000L, instruction?.deadlineAtMs)
         assertEquals(1789999999000L, instruction?.dueAtMs)
         assertEquals("PERSON", instruction?.audienceKind)
+        assertEquals("p2", instruction?.assignedByPersonId)
+        assertEquals("DIG Meena", instruction?.assignedByLabel)
         assertEquals(
             "the journal must survive with its Tamil text",
             "Called; report tomorrow. தமிழ்",
@@ -496,7 +500,10 @@ class BackupRoundTripTest {
         }
         val instructions = root.getJSONArray("instructions")
         for (i in 0 until instructions.length()) {
-            instructions.getJSONObject(i).apply { remove("station_id"); remove("matter_id") }
+            instructions.getJSONObject(i).apply {
+                remove("station_id"); remove("matter_id")
+                remove("assigned_by_person_id"); remove("assigned_by_label")
+            }
         }
         val legacy = File(file.parentFile, "kaavalan-note-backup-legacy.json")
         legacy.writeText(root.toString())

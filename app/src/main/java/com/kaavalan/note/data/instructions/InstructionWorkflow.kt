@@ -27,7 +27,7 @@ class InstructionWorkflow @Inject constructor(
         val row = requireNotNull(db.instructionDao().getById(id))
         require(!row.isSensitive)
         val audienceId = row.audienceTarget.takeIf { row.audienceKind == "PERSON" }
-        val ids = listOfNotNull(row.personId, audienceId)
+        val ids = listOfNotNull(row.personId, audienceId, row.assignedByPersonId)
         require(ids.isNotEmpty() || vault.mode.value == VaultMode.Visible)
         ids.forEach { require(db.personDao().getById(it)?.vaultMode == vault.mode.value.storageKey) }
         return row
@@ -39,21 +39,47 @@ class InstructionWorkflow @Inject constructor(
         db.instructionFtsDao().upsert(InstructionFtsEntity(rowid, row.title, row.rawText, row.personId, row.capturedAt))
     }
 
-    suspend fun edit(id: String, text: String, direction: Direction, personId: String?, deadlineAtMs: Long?) = db.withTransaction {
+    suspend fun edit(
+        id: String,
+        text: String,
+        direction: Direction,
+        personId: String?,
+        deadlineAtMs: Long?,
+        assignedByPersonId: String? = null,
+        assignedByLabel: String? = null,
+    ) = db.withTransaction {
         require(text.isNotBlank())
         val row = scoped(id)
         if (personId != null) require(db.personDao().getById(personId)?.vaultMode == vault.mode.value.storageKey)
         else require(vault.mode.value == VaultMode.Visible)
+        val effectiveIssuerId = assignedByPersonId.takeIf { direction == Direction.SELF }
+        val issuer = effectiveIssuerId?.let {
+            requireNotNull(db.personDao().getById(it)).also { person ->
+                require(person.vaultMode == vault.mode.value.storageKey)
+            }
+        }
+        val effectiveIssuerLabel = assignedByLabel?.trim()
+            ?.takeIf { direction == Direction.SELF && it.isNotEmpty() }
+            ?: issuer?.let { person ->
+                listOfNotNull(person.designation, person.name).distinct().joinToString(" ")
+            }
         val now = Instant.now().toString()
         val relinked = row.personId != personId
         val person = personId?.let { db.personDao().getById(it) }
         val oldName = row.personId?.let { db.personDao().getById(it)?.name } ?: "No contact"
+        val issuerChanged = row.assignedByPersonId != effectiveIssuerId || row.assignedByLabel != effectiveIssuerLabel
+        val editSummary = buildList {
+            if (relinked) add("Responsibility changed: $oldName → ${person?.name ?: "No contact"}.")
+            if (issuerChanged) add("Assigned by changed: ${row.assignedByLabel ?: "Not recorded"} → ${effectiveIssuerLabel ?: "Not recorded"}.")
+            add("Instruction details edited.")
+        }.joinToString(" ")
         val entry = InstructionUpdate(UUID.randomUUID().toString(), now,
-            if (relinked) "Responsibility changed: " + oldName + " → " + (person?.name ?: "No contact") + ". Instruction details edited."
-            else "Instruction details edited", row.status,
+            editSummary, row.status,
             row.reminder(), row.rawText)
         persist(row.copy(rawText = text.trim(), title = text.trim().take(80), direction = direction.name,
             personId = personId, deadlineAtMs = deadlineAtMs, updatedAt = now,
+            assignedByPersonId = effectiveIssuerId,
+            assignedByLabel = effectiveIssuerLabel,
             audienceKind = if (relinked) person?.let { "PERSON" } else row.audienceKind,
             audienceTarget = if (relinked) personId else row.audienceTarget,
             audienceLabel = if (relinked) person?.name else row.audienceLabel,

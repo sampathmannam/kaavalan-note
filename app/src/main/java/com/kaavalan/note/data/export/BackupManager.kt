@@ -316,10 +316,10 @@ class BackupManager @Inject constructor(
         const val MAX_BACKUPS = 7
 
         /**
-         * v2.6.0: 3 -> 4 for the `subdivision` object. Reading is backward compatible;
+         * v19: 4 -> 5 for the instruction issuer fields. Reading is backward compatible;
          * a newer version than this is refused rather than partially understood.
          */
-        const val SCHEMA_VERSION = 4
+        const val SCHEMA_VERSION = 5
     }
 
 }
@@ -370,6 +370,8 @@ private fun List<InstructionEntity>.toInstructionJsonArray(): JSONArray = JSONAr
             // v2.6.0: the recorded work context.
             put("station_id", i.stationId)
             put("matter_id", i.matterId)
+            put("assigned_by_person_id", i.assignedByPersonId)
+            put("assigned_by_label", i.assignedByLabel)
         })
     }
 }
@@ -508,6 +510,8 @@ private fun JSONObject.toInstructionEntity(): InstructionEntity = InstructionEnt
     // the station in afterwards from the contact's own station text where it can.
     stationId = optStringOrNull("station_id"),
     matterId = optStringOrNull("matter_id"),
+    assignedByPersonId = optStringOrNull("assigned_by_person_id"),
+    assignedByLabel = optStringOrNull("assigned_by_label"),
 )
 
 

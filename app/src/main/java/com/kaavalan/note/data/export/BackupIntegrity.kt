@@ -121,6 +121,12 @@ internal object BackupIntegrity {
                         "Nothing has been changed."
                 }
             }
+            item.assignedByPersonId?.let { personId ->
+                require(personId in knownPersonIds) {
+                    "An instruction is assigned by a contact that does not exist. " +
+                        "Nothing has been changed."
+                }
+            }
             if (item.audienceKind == "PERSON") {
                 item.audienceTarget?.let { target ->
                     require(target in knownPersonIds) {

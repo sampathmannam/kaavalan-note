@@ -38,6 +38,10 @@ data class CaptureUiState(
     val reminderOrigin: ReminderOrigin = ReminderOrigin.NONE,
     val direction: com.kaavalan.note.data.instructions.Direction = com.kaavalan.note.data.instructions.Direction.SELF,
     val personId: String? = null,
+    // Separate from the responsible contact above. These fields answer who issued a
+    // "For me" instruction; the label may be a quick designation even without a contact.
+    val assignedByPersonId: String? = null,
+    val assignedByLabel: String = "",
     val requiresContact: Boolean = false,
     val workspaceReady: Boolean = true,
     val error: String? = null,
